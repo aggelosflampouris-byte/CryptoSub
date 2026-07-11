@@ -1,0 +1,23 @@
+# Root
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Android
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/captures/
+android/.externalNativeBuild
+android/.cxx
+android/app/src/main/res/values/secrets.xml
+
+# Go Backend
+privacy-messenger/server
+privacy-messenger/.env
+privacy-messenger/blobs/
+
+# System
+Thumbs.db

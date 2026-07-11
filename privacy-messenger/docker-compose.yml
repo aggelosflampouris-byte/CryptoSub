@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: messenger
+      POSTGRES_PASSWORD: messenger_dev
+      POSTGRES_DB: messenger
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/postgres/0001_init.sql:/docker-entrypoint-initdb.d/0001_init.sql
+      - ./db/postgres/0002_add_fcm.sql:/docker-entrypoint-initdb.d/0002_add_fcm.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U messenger"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  cassandra:
+    image: cassandra:4.1
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    environment:
+      CASSANDRA_CLUSTER_NAME: messenger_cluster
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  server:
+    build: .
+    ports:
+      - "8443:8443"
+    environment:
+      - LISTEN_ADDR=:8443
+      - POSTGRES_DSN=postgres://messenger:messenger_dev@postgres:5432/messenger?sslmode=disable
+      - REDIS_ADDR=redis:6379
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=messenger
+      - PHONE_HASH_PEPPER=local_dev_pepper_12345
+      - SMS_PROVIDER_API_KEY=mock_key
+      - SMS_PROVIDER_SECRET=mock_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  cassandra_data:
