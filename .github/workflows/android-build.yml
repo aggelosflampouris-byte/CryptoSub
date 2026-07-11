@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout repository
@@ -33,3 +35,13 @@ jobs:
       with:
         name: PrivateMessenger-Debug-APK
         path: android/app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: "Latest Auto-Build"
+        tag_name: "latest"
+        files: android/app/build/outputs/apk/debug/app-debug.apk
+        make_latest: "true"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
