@@ -223,6 +223,10 @@ class SignalProtocolStoreImpl(
         throw org.signal.libsignal.protocol.InvalidKeyIdException("No kyber key")
     }
 
+    override fun loadKyberPreKeys(): MutableList<org.signal.libsignal.protocol.state.KyberPreKeyRecord> {
+        return mutableListOf()
+    }
+
     override fun storeKyberPreKey(preKeyId: Int, record: org.signal.libsignal.protocol.state.KyberPreKeyRecord) {
         // No-op for MVP
     }
