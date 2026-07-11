@@ -8,6 +8,7 @@ import org.signal.libsignal.protocol.state.IdentityKeyStore
 import org.signal.libsignal.protocol.state.PreKeyRecord
 import org.signal.libsignal.protocol.state.SessionRecord
 import org.signal.libsignal.protocol.state.SignedPreKeyRecord
+import org.signal.libsignal.protocol.state.SignalProtocolStore
 import org.signal.libsignal.protocol.state.PreKeyStore
 import org.signal.libsignal.protocol.state.SessionStore
 import org.signal.libsignal.protocol.state.SignedPreKeyStore
@@ -37,7 +38,7 @@ class SignalProtocolStoreImpl(
     private val dao: SignalDao,
     private val localIdentityKeyPair: IdentityKeyPair,
     private val localRegistrationId: Int,
-) : IdentityKeyStore, PreKeyStore, SignedPreKeyStore, SessionStore, SenderKeyStore {
+) : SignalProtocolStore {
 
     // ==================================================================
     // IdentityKeyStore
@@ -102,6 +103,17 @@ class SignalProtocolStoreImpl(
         val entity = dao.getSession(address.name, address.deviceId)
             ?: return SessionRecord()
         return SessionRecord(entity.sessionRecord)
+    }
+
+    override fun loadExistingSessions(addresses: MutableList<SignalProtocolAddress>): MutableList<SessionRecord> {
+        val results = mutableListOf<SessionRecord>()
+        for (address in addresses) {
+            val entity = dao.getSession(address.name, address.deviceId)
+            if (entity != null) {
+                results.add(SessionRecord(entity.sessionRecord))
+            }
+        }
+        return results
     }
 
     override fun getSubDeviceSessions(name: String): List<Int> {

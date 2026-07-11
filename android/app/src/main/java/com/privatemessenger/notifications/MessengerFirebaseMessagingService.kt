@@ -3,7 +3,7 @@ package com.privatemessenger.notifications
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.privatemessenger.data.remote.WebSocketManager
+import com.privatemessenger.data.remote.websocket.WebSocketManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
