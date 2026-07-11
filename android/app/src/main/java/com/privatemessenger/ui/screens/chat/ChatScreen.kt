@@ -178,7 +178,7 @@ fun MessageBubble(
                             text = message.content,
                             style = MaterialTheme.typography.bodyLarge,
                             color = textColor,
-                            modifier = if (message.attachmentUri != null) Modifier.padding(horizontal = 8.dp, bottom = 4.dp) else Modifier
+                            modifier = if (message.attachmentUri != null) Modifier.padding(start = 8.dp, end = 8.dp, bottom = 4.dp) else Modifier
                         )
                     }
                 }

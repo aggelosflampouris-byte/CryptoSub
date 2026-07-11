@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import java.util.UUID
 import com.privatemessenger.crypto.SealedSenderCrypto
 import com.privatemessenger.data.local.dao.ContactDao
 import com.privatemessenger.crypto.AttachmentCrypto

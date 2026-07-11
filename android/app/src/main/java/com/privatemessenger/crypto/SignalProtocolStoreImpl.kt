@@ -209,9 +209,29 @@ class SignalProtocolStoreImpl(
 
     override fun loadSenderKey(
         sender: SignalProtocolAddress,
-        distributionId: UUID,
+        distributionId: java.util.UUID,
     ): SenderKeyRecord? {
         // Placeholder until group messaging is implemented
         return null
+    }
+
+    // ==================================================================
+    // KyberPreKeyStore (Post-Quantum)
+    // ==================================================================
+
+    override fun loadKyberPreKey(preKeyId: Int): org.signal.libsignal.protocol.state.KyberPreKeyRecord {
+        throw org.signal.libsignal.protocol.InvalidKeyIdException("No kyber key")
+    }
+
+    override fun storeKyberPreKey(preKeyId: Int, record: org.signal.libsignal.protocol.state.KyberPreKeyRecord) {
+        // No-op for MVP
+    }
+
+    override fun containsKyberPreKey(preKeyId: Int): Boolean {
+        return false
+    }
+
+    override fun markKyberPreKeyUsed(preKeyId: Int) {
+        // No-op
     }
 }
