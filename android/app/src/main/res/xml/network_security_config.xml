@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Allow cleartext traffic to localhost emulator for testing the backend -->
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <!-- Allow cleartext traffic to local wifi networks for testing -->
+        <domain includeSubdomains="true">192.168.1.*</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>
