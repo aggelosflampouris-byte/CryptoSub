@@ -110,8 +110,14 @@ fun AppNavGraph(
             RegistrationScreen(
                 authRepository = authRepository,
                 onRegistrationComplete = {
-                    // After registering, go to key reveal before entering the app
+                    // New identity → show key reveal so user can save keys
                     navController.navigate("key_reveal") {
+                        popUpTo("registration") { inclusive = true }
+                    }
+                },
+                onRestoreComplete = {
+                    // Imported existing key → user already has their keys, skip reveal
+                    navController.navigate("chat_list") {
                         popUpTo("registration") { inclusive = true }
                     }
                 }
