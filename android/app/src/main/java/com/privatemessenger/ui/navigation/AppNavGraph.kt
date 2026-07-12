@@ -11,6 +11,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.privatemessenger.PrivateMessengerApp
 import com.privatemessenger.domain.repository.AuthRepository
+import com.privatemessenger.notifications.NotificationHelper
 import com.privatemessenger.ui.screens.chat.ChatScreen
 import com.privatemessenger.ui.screens.chatlist.ChatListScreen
 import com.privatemessenger.ui.screens.registration.RegistrationScreen
@@ -39,15 +40,23 @@ fun AppNavGraph(
 
                     val conversationExists = app.database.conversationDao().getConversation(convId) != null
                     if (!conversationExists) {
+                        val label = "${message.senderInboxId.take(6)}...${message.senderInboxId.takeLast(4)}"
                         val contact = com.privatemessenger.data.local.entity.ConversationEntity(
                             id = convId,
                             deviceId = 1,
-                            displayName = "Contact ${message.senderInboxId.take(8)}",
+                            displayName = label,
                             lastMessage = message.body,
                             lastMessageTimestamp = message.sentAt.time,
                             unreadCount = 1
                         )
                         app.database.conversationDao().upsert(contact)
+                        // 🔔 Push notification: new contact
+                        NotificationHelper.showNewContactNotification(app, label)
+                    } else {
+                        // 🔔 Push notification: new message in existing conversation
+                        val conv = app.database.conversationDao().getConversation(convId)
+                        val senderLabel = conv?.displayName ?: "${message.senderInboxId.take(6)}..."
+                        NotificationHelper.showNewMessageNotification(app, senderLabel, message.body, convId)
                     }
 
                     val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
@@ -101,8 +110,23 @@ fun AppNavGraph(
             RegistrationScreen(
                 authRepository = authRepository,
                 onRegistrationComplete = {
-                    navController.navigate("chat_list") {
+                    // After registering, go to key reveal before entering the app
+                    navController.navigate("key_reveal") {
                         popUpTo("registration") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable("key_reveal") {
+            val publicAddress = app.xmtpClient?.publicIdentity?.identifier ?: ""
+            val privateKeyHex = app.keyStoreManager.getEthereumPrivateKey() ?: ""
+            com.privatemessenger.ui.screens.registration.KeyRevealScreen(
+                publicAddress = publicAddress,
+                privateKeyHex = privateKeyHex,
+                onContinue = {
+                    navController.navigate("chat_list") {
+                        popUpTo("key_reveal") { inclusive = true }
                     }
                 }
             )
@@ -111,6 +135,7 @@ fun AppNavGraph(
         composable("chat_list") {
             ChatListScreen(
                 database = app.database,
+                app = app,
                 onChatClicked = { conversationId ->
                     navController.navigate("chat/$conversationId")
                 },
