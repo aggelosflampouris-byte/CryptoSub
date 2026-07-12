@@ -105,7 +105,9 @@ class SignalProtocolStoreImpl(
         return SessionRecord(entity.sessionRecord)
     }
 
-
+    override fun getSubDeviceSessions(name: String): List<Int> {
+        return dao.getSubDeviceSessions(name)
+    }
 
     override fun storeSession(address: SignalProtocolAddress, record: SessionRecord) {
         dao.upsertSession(
