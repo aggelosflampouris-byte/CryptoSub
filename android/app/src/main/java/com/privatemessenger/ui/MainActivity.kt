@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.ui
+package com.privatemessenger.ui
 
 import android.content.Context
 import android.os.Bundle
@@ -17,10 +17,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Check for captured crash logs
+        // Check for captured crash logs and trace logs
         val crashPrefs = getSharedPreferences("crash_prefs", Context.MODE_PRIVATE)
         val crashLog = crashPrefs.getString("crash_log", null)
-        if (crashLog != null) {
+        
+        val tracePrefs = getSharedPreferences("trace_prefs", Context.MODE_PRIVATE)
+        val lastTrace = tracePrefs.getString("last_trace", null)
+        
+        if (lastTrace != null) {
+            AlertDialog.Builder(this)
+                .setTitle("Diagnostic Trace")
+                .setMessage("App died after reaching this step:\n\n$lastTrace\n\nCrash Log:\n$crashLog")
+                .setPositiveButton("OK") { _, _ -> }
+                .show()
+            tracePrefs.edit().remove("last_trace").apply()
+            crashPrefs.edit().remove("crash_log").apply()
+        } else if (crashLog != null) {
             AlertDialog.Builder(this)
                 .setTitle("App Crashed!")
                 .setMessage("Please copy this and send it to the developer:\n\n$crashLog")

@@ -22,12 +22,19 @@ class AuthRepository(
 ) {
 
     suspend fun register(): Result<Unit> = withContext(Dispatchers.IO) {
+        val prefs = application.getSharedPreferences("trace_prefs", android.content.Context.MODE_PRIVATE)
+        fun trace(msg: String) {
+            prefs.edit().putString("last_trace", msg).commit()
+        }
+        
         try {
+            trace("1. Generating identity keys")
             // 1. Generate identity key pair
             val identityKeyPair = org.whispersystems.libsignal.util.KeyHelper.generateIdentityKeyPair()
             val registrationId = org.whispersystems.libsignal.util.KeyHelper.generateRegistrationId(false)
 
             // 2. Generate signed prekey
+            trace("2. Generating signed prekey")
             val keyPair = org.whispersystems.libsignal.ecc.Curve.generateKeyPair()
             val signature = org.whispersystems.libsignal.ecc.Curve.calculateSignature(
                 identityKeyPair.privateKey,
@@ -37,6 +44,7 @@ class AuthRepository(
             val signedPreKey = org.whispersystems.libsignal.state.SignedPreKeyRecord(1, timestamp, keyPair, signature)
 
             // 3. Register with the server
+            trace("3. Registering with server")
             val request = RegisterRequest(
                 device_id = "1", // Hardcoded to 1 for the primary device
                 identity_public_key = identityKeyPair.publicKey.serialize(),
@@ -47,30 +55,41 @@ class AuthRepository(
             val response = apiClient.api.register(request)
 
             // 4. Save session token
+            trace("4. Saving session token")
             apiClient.saveSessionToken(response.session_token)
 
             // 5. Initialize the app's crypto services now that we have the identity key
+            trace("5. Initializing crypto services")
             withContext(Dispatchers.Main) {
                 application.initCryptoAfterRegistration(identityKeyPair, registrationId)
             }
 
             // 6. Generate and upload one-time prekeys (requires the initialized KeyManager)
+            trace("6. Generating one time prekeys")
             val appKeyManager = application.keyManager!!
             
             // Save the signed prekey locally now that the store exists
+            trace("7. Persisting signed prekey to DB")
             appKeyManager.persistSignedPreKey(signedPreKey)
 
+            trace("8. Generating prekey batch")
             val preKeyBatch = appKeyManager.generateOneTimePreKeys(startId = 1)
+            
+            trace("9. Persisting prekeys to DB")
             appKeyManager.persistPreKeys(preKeyBatch.records)
 
+            trace("10. Uploading prekeys")
             val uploadRequest = UploadPreKeysRequest(keys = preKeyBatch.publicKeysForServer)
             apiClient.api.uploadPreKeys(uploadRequest)
 
             // 7. Connect WebSocket
+            trace("11. Connecting websocket")
             apiClient.webSocketManager.connect(response.session_token)
 
+            trace("12. Success")
             Result.success(Unit)
         } catch (e: Throwable) {
+            trace("Error: ${e.javaClass.simpleName} - ${e.message}")
             val errString = Log.getStackTraceString(e)
             Log.e("AuthRepository", "Failed to register: $errString")
             Result.failure(Exception(errString, e))
