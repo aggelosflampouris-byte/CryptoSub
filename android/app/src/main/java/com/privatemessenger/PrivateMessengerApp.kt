@@ -50,6 +50,17 @@ class PrivateMessengerApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Set up global crash handler to catch the elusive bug
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
+            val stackTrace = android.util.Log.getStackTraceString(exception)
+            getSharedPreferences("crash_prefs", android.content.Context.MODE_PRIVATE)
+                .edit()
+                .putString("crash_log", stackTrace)
+                .commit() // must be synchronous commit before crash
+            defaultHandler?.uncaughtException(thread, exception)
+        }
+
         // 1. Keystore — always available
         keyStoreManager = KeyStoreManager(this)
 

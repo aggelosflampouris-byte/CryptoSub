@@ -44,14 +44,13 @@ class AuthRepository(
             // Actually, we generate the IdentityKeyPair first, independent of the store.
             
             // 1. Generate identity key pair
-            val keyManager = KeyManager(
-                protocolStore = null!! // We won't use store-dependent methods for this initial generation
-            )
-            val identityKeyPair = keyManager.generateIdentityKeyPair()
-            val registrationId = keyManager.generateRegistrationId()
+            // 1. Generate identity key pair using direct signal library calls
+            // because KeyManager requires an initialized protocol store which we don't have yet.
+            val identityKeyPair = org.signal.libsignal.protocol.IdentityKeyPair.generate()
+            val registrationId = org.signal.libsignal.protocol.util.KeyHelper.generateRegistrationId(false)
 
             // 2. Generate signed prekey
-            val signedPreKey = keyManager.generateSignedPreKey(identityKeyPair, 1)
+            val signedPreKey = org.signal.libsignal.protocol.util.KeyHelper.generateSignedPreKey(identityKeyPair, 1)
 
             // 3. Complete registration with the server
             val request = CompleteRegistrationRequest(

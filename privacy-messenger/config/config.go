@@ -73,15 +73,9 @@ func Load() (*Config, error) {
 	}
 	cfg.CassandraHosts = splitCSV(cassandraHosts)
 
-	if cfg.MediaBucket, err = requireEnv("MEDIA_BUCKET"); err != nil {
-		return nil, err
-	}
-	if cfg.MediaAccessKey, err = requireEnv("MEDIA_ACCESS_KEY"); err != nil {
-		return nil, err
-	}
-	if cfg.MediaSecretKey, err = requireEnv("MEDIA_SECRET_KEY"); err != nil {
-		return nil, err
-	}
+	cfg.MediaBucket = os.Getenv("MEDIA_BUCKET")
+	cfg.MediaAccessKey = os.Getenv("MEDIA_ACCESS_KEY")
+	cfg.MediaSecretKey = os.Getenv("MEDIA_SECRET_KEY")
 
 	if cfg.SMSProviderAPIKey, err = requireEnv("SMS_PROVIDER_API_KEY"); err != nil {
 		return nil, err
