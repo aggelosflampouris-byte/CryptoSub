@@ -131,8 +131,16 @@ fun ChatScreen(
                                 val conversation = database.conversationDao().getConversation(conversationId)
                                 if (conversation != null) {
                                 val client = app.xmtpClient ?: return@launch
-                                val xmtpConversation = client.conversations.newConversation(conversationId)
-                                val sentMessageId = xmtpConversation.send(textToSend)
+                                // conversationId IS the XMTP DM hex ID (set during contact add)
+                                val xmtpConversation = client.conversations.findConversation(conversationId)
+                                    ?: run {
+                                        android.util.Log.e("ChatScreen", "Conversation not found: $conversationId")
+                                        return@launch
+                                    }
+                                val sentMessageId = when (xmtpConversation) {
+                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(textToSend)
+                                    is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(textToSend)
+                                }
                                 
                                 val msgEntity = MessageEntity(
                                     id = sentMessageId,

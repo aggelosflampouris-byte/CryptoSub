@@ -16,6 +16,8 @@ import com.privatemessenger.ui.screens.chatlist.ChatListScreen
 import com.privatemessenger.ui.screens.registration.RegistrationScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.xmtp.android.library.libxmtp.IdentityKind
+import org.xmtp.android.library.libxmtp.PublicIdentity
 
 @Composable
 fun AppNavGraph(
@@ -23,23 +25,24 @@ fun AppNavGraph(
     app: PrivateMessengerApp
 ) {
     val navController = rememberNavController()
-
-    // Setup basic dependencies for the UI
     val authRepository = AuthRepository(app)
 
-    // Listen for incoming messages on the decentralized network
+    // Stream all incoming XMTP messages. Use message.conversationId as the canonical DB key.
     androidx.compose.runtime.LaunchedEffect(app.xmtpClient) {
         val client = app.xmtpClient ?: return@LaunchedEffect
         try {
             client.conversations.streamAllMessages().collect { message ->
                 try {
-                    // Save the contact if it's the first time we hear from them
-                    val conversationExists = app.database.conversationDao().getConversation(message.senderInboxId) != null
+                    // The XMTP conversation ID is the authoritative shared key — it is the
+                    // same hex on both devices for the same DM thread.
+                    val convId = message.conversationId
+
+                    val conversationExists = app.database.conversationDao().getConversation(convId) != null
                     if (!conversationExists) {
                         val contact = com.privatemessenger.data.local.entity.ConversationEntity(
-                            id = message.senderInboxId,
+                            id = convId,
                             deviceId = 1,
-                            displayName = "Contact ${message.senderInboxId.take(6)}",
+                            displayName = "Contact ${message.senderInboxId.take(8)}",
                             lastMessage = message.body,
                             lastMessageTimestamp = message.sentAt.time,
                             unreadCount = 1
@@ -47,17 +50,16 @@ fun AppNavGraph(
                         app.database.conversationDao().upsert(contact)
                     }
 
-                    // Save the incoming message
                     val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
                         id = message.id,
-                        conversationId = message.senderInboxId,
+                        conversationId = convId,
                         senderUserId = message.senderInboxId,
                         content = message.body,
                         timestamp = message.sentAt.time,
                         status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
                     )
                     app.database.messageDao().insert(msgEntity)
-                    app.database.conversationDao().updateLastMessage(message.senderInboxId, message.body, message.sentAt.time)
+                    app.database.conversationDao().updateLastMessage(convId, message.body, message.sentAt.time)
                 } catch (e: Exception) {
                     android.util.Log.e("AppNavGraph", "Failed to process incoming XMTP message", e)
                 }
@@ -126,38 +128,52 @@ fun AppNavGraph(
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
                             val client = app.xmtpClient ?: return@launch
-                            
-                            val publicIdentity = org.xmtp.android.library.libxmtp.PublicIdentity(
-                                org.xmtp.android.library.libxmtp.IdentityKind.ETHEREUM,
-                                address
-                            )
-                            val canMessage = client.canMessage(listOf(publicIdentity))[address] == true
-                            
-                            if (canMessage) {
-                                // Save contact to local DB
+
+                            // 1. Resolve Ethereum address -> XMTP inboxId
+                            val peerIdentity = PublicIdentity(IdentityKind.ETHEREUM, address)
+                            val canMessageMap = client.canMessage(listOf(peerIdentity))
+                            val canMessage = canMessageMap[address.lowercase()] == true
+
+                            if (!canMessage) {
+                                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    android.widget.Toast.makeText(app, "Address is not registered on XMTP", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                return@launch
+                            }
+
+                            // 2. Create (or find) the deterministic XMTP DM thread.
+                            //    findOrCreateDmWithIdentity returns the same Dm.id on BOTH devices.
+                            val dm = client.conversations.findOrCreateDmWithIdentity(peerIdentity)
+                            val xmtpConvId = dm.id   // This is the canonical shared ID
+
+                            // 3. Sync so the other device's welcome message is received
+                            client.conversations.sync()
+
+                            // 4. Persist the contact using xmtpConvId as the local key
+                            val existing = app.database.conversationDao().getConversation(xmtpConvId)
+                            if (existing == null) {
                                 val contact = com.privatemessenger.data.local.entity.ConversationEntity(
-                                    id = address,
+                                    id = xmtpConvId,
                                     deviceId = 1,
-                                    displayName = "Contact ${address.take(6)}",
+                                    displayName = "${address.take(6)}...${address.takeLast(4)}",
                                     lastMessage = "Connected via XMTP",
                                     lastMessageTimestamp = System.currentTimeMillis(),
                                     unreadCount = 0
                                 )
                                 app.database.conversationDao().upsert(contact)
+                            }
 
-                                // Navigate to Chat
-                                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                    navController.navigate("chat/$address") {
-                                        popUpTo("chat_list")
-                                    }
-                                }
-                            } else {
-                                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                    android.widget.Toast.makeText(app, "Address is not registered on XMTP", android.widget.Toast.LENGTH_SHORT).show()
+                            // 5. Navigate using the XMTP conversation ID, not the raw address
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                navController.navigate("chat/$xmtpConvId") {
+                                    popUpTo("chat_list")
                                 }
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("AppNavGraph", "Failed to add XMTP contact", e)
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                android.widget.Toast.makeText(app, "Error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 },
