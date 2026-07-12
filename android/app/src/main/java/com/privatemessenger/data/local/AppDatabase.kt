@@ -7,14 +7,9 @@ import androidx.room.RoomDatabase
 import com.privatemessenger.data.local.dao.ContactDao
 import com.privatemessenger.data.local.dao.ConversationDao
 import com.privatemessenger.data.local.dao.MessageDao
-import com.privatemessenger.data.local.dao.SignalDao
 import com.privatemessenger.data.local.entity.ContactEntity
 import com.privatemessenger.data.local.entity.ConversationEntity
-import com.privatemessenger.data.local.entity.IdentityKeyEntity
 import com.privatemessenger.data.local.entity.MessageEntity
-import com.privatemessenger.data.local.entity.PreKeyEntity
-import com.privatemessenger.data.local.entity.SessionEntity
-import com.privatemessenger.data.local.entity.SignedPreKeyEntity
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 /**
@@ -42,10 +37,6 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         MessageEntity::class,
         ConversationEntity::class,
         ContactEntity::class,
-        SessionEntity::class,
-        PreKeyEntity::class,
-        SignedPreKeyEntity::class,
-        IdentityKeyEntity::class,
     ],
     version = 1,
     exportSchema = false,
@@ -55,7 +46,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun conversationDao(): ConversationDao
     abstract fun contactDao(): ContactDao
-    abstract fun signalDao(): SignalDao
 
     companion object {
         private const val DATABASE_NAME = "private_messenger.db"

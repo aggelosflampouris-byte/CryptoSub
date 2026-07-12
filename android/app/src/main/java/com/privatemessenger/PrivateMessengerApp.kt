@@ -1,14 +1,9 @@
 package com.privatemessenger
 
 import android.app.Application
-import com.privatemessenger.crypto.KeyManager
-import com.privatemessenger.crypto.RatchetEngine
-import com.privatemessenger.crypto.SafetyNumberGenerator
-import com.privatemessenger.crypto.SignalProtocolStoreImpl
-import com.privatemessenger.crypto.SignalSessionBuilder
 import com.privatemessenger.data.local.AppDatabase
 import com.privatemessenger.keystore.KeyStoreManager
-import org.whispersystems.libsignal.IdentityKeyPair
+import org.xmtp.android.library.Client
 
 /**
  * Application subclass that initializes the cryptographic and storage
@@ -32,20 +27,8 @@ class PrivateMessengerApp : Application() {
     lateinit var database: AppDatabase
         private set
 
-    // Crypto services are only available after registration
-    var protocolStore: SignalProtocolStoreImpl? = null
+    var xmtpClient: Client? = null
         private set
-
-    var keyManager: KeyManager? = null
-        private set
-
-    var sessionBuilder: SignalSessionBuilder? = null
-        private set
-
-    var ratchetEngine: RatchetEngine? = null
-        private set
-
-    val safetyNumberGenerator = SafetyNumberGenerator()
 
     override fun onCreate() {
         super.onCreate()
@@ -76,42 +59,21 @@ class PrivateMessengerApp : Application() {
     }
 
     /**
-     * Called after successful registration to initialize the crypto
-     * layer with the newly created identity key pair.
+     * Called after successful registration or on boot to initialize the XMTP
+     * layer with the newly created Ethereum identity.
      */
-    fun initCryptoAfterRegistration(identityKeyPair: IdentityKeyPair, registrationId: Int) {
-        // Persist the identity key pair securely
-        keyStoreManager.storeIdentityKeyPair(identityKeyPair.serialize())
-        keyStoreManager.storeRegistrationId(registrationId)
-
-        // Initialize crypto services
-        initCryptoServices(identityKeyPair, registrationId)
+    fun initXmtpClient(client: Client) {
+        xmtpClient = client
     }
 
     private fun initCryptoIfRegistered() {
-        val serializedKeyPair = keyStoreManager.loadIdentityKeyPair() ?: return
-        val registrationId = keyStoreManager.loadRegistrationId()
-        if (registrationId == -1) return
-
-        val identityKeyPair = IdentityKeyPair(serializedKeyPair)
-        initCryptoServices(identityKeyPair, registrationId)
-    }
-
-    private fun initCryptoServices(identityKeyPair: IdentityKeyPair, registrationId: Int) {
-        val store = SignalProtocolStoreImpl(
-            dao = database.signalDao(),
-            localIdentityKeyPair = identityKeyPair,
-            localRegistrationId = registrationId,
-        )
-        protocolStore = store
-        keyManager = KeyManager(store)
-        sessionBuilder = SignalSessionBuilder(store)
-        ratchetEngine = RatchetEngine(store)
+        // Will be called by splash screen or MainActivity, removing auto-init from here for now
+        // because XMTP Client.create might be suspendable.
     }
 
     /**
      * Returns true if the user has completed registration and the
      * crypto layer is initialized.
      */
-    fun isRegistered(): Boolean = protocolStore != null
+    fun isRegistered(): Boolean = keyStoreManager.getEthereumPrivateKey() != null
 }

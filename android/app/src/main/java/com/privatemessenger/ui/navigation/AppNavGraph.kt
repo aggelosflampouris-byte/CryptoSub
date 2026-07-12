@@ -10,11 +10,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.privatemessenger.PrivateMessengerApp
-import com.privatemessenger.data.remote.ApiClient
 import com.privatemessenger.domain.repository.AuthRepository
 import com.privatemessenger.ui.screens.chat.ChatScreen
 import com.privatemessenger.ui.screens.chatlist.ChatListScreen
 import com.privatemessenger.ui.screens.registration.RegistrationScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
@@ -25,54 +25,45 @@ fun AppNavGraph(
     val navController = rememberNavController()
 
     // Setup basic dependencies for the UI
-    // In a real app with DI (e.g., Hilt), these would be injected into ViewModels
-    val apiClient = ApiClient(app, "https://contemporary-tons-hrs-annie.trycloudflare.com/") // Cloudflare Tunnel for live testing IP
-    val authRepository = AuthRepository(apiClient, app)
+    val authRepository = AuthRepository(app)
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        apiClient.webSocketManager.incomingEnvelopes.collect { envelope ->
-            try {
-                // 1. Trial Decrypt Sealed Sender
-                val contacts = app.database.conversationDao().getAllConversationsSync()
-                val candidateKeys = contacts.associate { it.id to (it.profileKey ?: ByteArray(32)) }
-                val sealedSenderCrypto = com.privatemessenger.crypto.SealedSenderCrypto()
-                
-                val decryptedSender = sealedSenderCrypto.trialDecrypt(envelope.sealed_sender_ciphertext, candidateKeys)
-                if (decryptedSender != null) {
-                    val (senderIdentity, contactId) = decryptedSender
-                    
-                    val protocolStore = app.protocolStore ?: return@collect
-                    val ratchetEngine = com.privatemessenger.crypto.RatchetEngine(protocolStore)
-                    val type = com.privatemessenger.crypto.EnvelopeType.fromWire(envelope.type)
-                    val decryptedPayload = ratchetEngine.decrypt(
-                        senderUserId = senderIdentity.userId,
-                        senderDeviceId = senderIdentity.deviceId,
-                        ciphertext = envelope.message_ciphertext,
-                        type = type
-                    )
-                    
-                    // 3. Save to DB
+    // Listen for incoming messages on the decentralized network
+    androidx.compose.runtime.LaunchedEffect(app.xmtpClient) {
+        val client = app.xmtpClient ?: return@LaunchedEffect
+        try {
+            client.conversations.streamAllMessages().collect { message ->
+                try {
+                    // Save the contact if it's the first time we hear from them
+                    val conversationExists = app.database.conversationDao().getConversationSync(message.senderAddress) != null
+                    if (!conversationExists) {
+                        val contact = com.privatemessenger.data.local.entity.ConversationEntity(
+                            id = message.senderAddress,
+                            deviceId = 1,
+                            displayName = "Contact ${message.senderAddress.take(6)}",
+                            lastMessage = message.body,
+                            lastMessageTimestamp = message.sent.time,
+                            unreadCount = 1
+                        )
+                        app.database.conversationDao().upsert(contact)
+                    }
+
+                    // Save the incoming message
                     val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
-                        id = envelope.message_id ?: java.util.UUID.randomUUID().toString(),
-                        conversationId = contactId,
-                        senderUserId = senderIdentity.userId,
-                        content = decryptedPayload.text,
-                        timestamp = envelope.server_timestamp,
+                        id = message.id,
+                        conversationId = message.senderAddress,
+                        senderUserId = message.senderAddress,
+                        content = message.body,
+                        timestamp = message.sent.time,
                         status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
                     )
                     app.database.messageDao().insert(msgEntity)
-                    app.database.conversationDao().updateLastMessage(contactId, decryptedPayload.text, envelope.server_timestamp)
-                    
-                    // 4. Send ACK
-                    if (envelope.message_id != null) {
-                        apiClient.webSocketManager.sendAck(envelope.message_id)
-                    }
-                } else {
-                    android.util.Log.w("AppNavGraph", "Incoming message failed Sealed Sender trial decryption")
+                    app.database.conversationDao().updateLastMessage(message.senderAddress, message.body, message.sent.time)
+                } catch (e: Exception) {
+                    android.util.Log.e("AppNavGraph", "Failed to process incoming XMTP message", e)
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("AppNavGraph", "Failed to process incoming envelope", e)
             }
+        } catch (e: Exception) {
+            android.util.Log.e("AppNavGraph", "XMTP Stream disconnected", e)
         }
     }
 
@@ -130,53 +121,40 @@ fun AppNavGraph(
         composable("scanner") {
             val coroutineScope = rememberCoroutineScope()
             com.privatemessenger.ui.screens.scanner.ScannerScreen(
-                apiClient = apiClient,
-                onContactScanned = { userId, deviceId, profileKey ->
-                    // 1. Check if session already exists
-                    val protocolStore = app.protocolStore ?: return@ScannerScreen
-                    val sessionBuilder = com.privatemessenger.crypto.SignalSessionBuilder(protocolStore)
-                    if (sessionBuilder.hasSession(userId, deviceId)) {
-                        navController.navigate("chat/$userId") {
-                            popUpTo("chat_list")
-                        }
-                        return@ScannerScreen
-                    }
-
-                    // 2. Fetch PreKey bundle and build session
-                    coroutineScope.launch {
+                app = app,
+                onContactScanned = { address ->
+                    coroutineScope.launch(Dispatchers.IO) {
                         try {
-                            val response = apiClient.api.fetchPreKeyBundle(userId, deviceId.toString())
-                            val signedPreKeyRecord = org.whispersystems.libsignal.state.SignedPreKeyRecord(response.signed_pre_key)
-                            val bundle = sessionBuilder.bundleFromServerResponse(
-                                registrationId = response.registration_id,
-                                deviceId = deviceId,
-                                signedPreKeyId = signedPreKeyRecord.id,
-                                signedPreKeyPublic = signedPreKeyRecord.keyPair.publicKey.serialize(),
-                                signedPreKeySignature = signedPreKeyRecord.signature,
-                                identityKeyPublic = response.identity_public_key,
-                                oneTimePreKeyId = response.one_time_pre_key_id,
-                                oneTimePreKeyPublic = response.one_time_pre_key
-                            )
-                            sessionBuilder.buildSession(userId, deviceId, bundle)
+                            val client = app.xmtpClient ?: return@launch
+                            
+                            // Verify the address has an identity on the XMTP network
+                            val canMessage = client.canMessage(address)
+                            
+                            if (canMessage) {
+                                // Save contact to local DB
+                                val contact = com.privatemessenger.data.local.entity.ConversationEntity(
+                                    id = address,
+                                    deviceId = 1,
+                                    displayName = "Contact ${address.take(6)}",
+                                    lastMessage = "Connected via XMTP",
+                                    lastMessageTimestamp = System.currentTimeMillis(),
+                                    unreadCount = 0
+                                )
+                                app.database.conversationDao().upsert(contact)
 
-                            // 3. Save contact to local DB
-                            val contact = com.privatemessenger.data.local.entity.ConversationEntity(
-                                id = userId,
-                                deviceId = deviceId,
-                                displayName = "Contact ${userId.take(4)}",
-                                profileKey = android.util.Base64.decode(profileKey, android.util.Base64.NO_WRAP),
-                                lastMessage = "Session established",
-                                lastMessageTimestamp = System.currentTimeMillis(),
-                                unreadCount = 0
-                            )
-                            app.database.conversationDao().upsert(contact)
-
-                            // 4. Navigate to Chat
-                            navController.navigate("chat/$userId") {
-                                popUpTo("chat_list")
+                                // Navigate to Chat
+                                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    navController.navigate("chat/$address") {
+                                        popUpTo("chat_list")
+                                    }
+                                }
+                            } else {
+                                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    android.widget.Toast.makeText(app, "Address is not registered on XMTP", android.widget.Toast.LENGTH_SHORT).show()
+                                }
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("AppNavGraph", "Failed to add contact", e)
+                            android.util.Log.e("AppNavGraph", "Failed to add XMTP contact", e)
                         }
                     }
                 },
@@ -193,7 +171,6 @@ fun AppNavGraph(
                 conversationId = conversationId,
                 database = app.database,
                 app = app,
-                apiClient = apiClient,
                 onBack = { navController.popBackStack() }
             )
         }

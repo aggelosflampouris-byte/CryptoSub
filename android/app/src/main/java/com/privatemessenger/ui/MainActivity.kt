@@ -9,9 +9,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import com.privatemessenger.PrivateMessengerApp
+import com.privatemessenger.crypto.Web3jSigner
 import com.privatemessenger.ui.navigation.AppNavGraph
 import com.privatemessenger.ui.theme.PrivateMessengerTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.web3j.crypto.Credentials
+import org.xmtp.android.library.Client
+import org.xmtp.android.library.ClientOptions
+import org.xmtp.android.library.XMTPEnvironment
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +51,33 @@ class MainActivity : ComponentActivity() {
         
         val app = application as PrivateMessengerApp
         val startDestination = if (app.isRegistered()) "chat_list" else "registration"
+
+        if (app.isRegistered() && app.xmtpClient == null) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val privateKeyHex = app.keyStoreManager.getEthereumPrivateKey()
+                    if (privateKeyHex != null) {
+                        val credentials = Credentials.create(privateKeyHex)
+                        val signer = Web3jSigner(credentials)
+                        val dbEncryptionKey = app.keyStoreManager.getDatabasePassphrase()
+                        val client = Client().build(
+                            account = signer,
+                            options = ClientOptions(
+                                api = ClientOptions.Api(
+                                    env = XMTPEnvironment.PRODUCTION,
+                                    isSecure = true
+                                ),
+                                appContext = app.applicationContext,
+                                dbEncryptionKey = dbEncryptionKey
+                            )
+                        )
+                        app.initXmtpClient(client)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Failed to initialize XMTP Client on boot", e)
+                }
+            }
+        }
 
         setContent {
             PrivateMessengerTheme {

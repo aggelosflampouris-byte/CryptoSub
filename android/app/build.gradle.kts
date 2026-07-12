@@ -46,11 +46,6 @@ android {
 
 dependencies {
     // -------------------------------------------------------------------------
-    // Signal Protocol — X3DH key agreement + Double Ratchet encryption
-    // -------------------------------------------------------------------------
-    implementation("org.whispersystems:signal-protocol-java:2.8.1")
-
-    // -------------------------------------------------------------------------
     // Room Database — local persistence for messages, sessions, contacts
     // -------------------------------------------------------------------------
     implementation("androidx.room:room-runtime:2.6.1")
@@ -117,5 +112,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
-    implementation("com.google.zxing:core:3.5.3")
+    // -------------------------------------------------------------------------
+    // Web3 / Blockchain Integration
+    // -------------------------------------------------------------------------
+    implementation("org.xmtp:android:4.10.0")
+    implementation("org.web3j:core:4.10.3")
 }

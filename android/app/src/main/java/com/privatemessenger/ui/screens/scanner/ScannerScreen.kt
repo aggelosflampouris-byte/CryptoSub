@@ -44,15 +44,15 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
-import com.privatemessenger.data.remote.ApiClient
+import com.privatemessenger.PrivateMessengerApp
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScannerScreen(
-    apiClient: ApiClient,
-    onContactScanned: (userId: String, deviceId: Int, profileKey: String) -> Unit,
+    app: PrivateMessengerApp,
+    onContactScanned: (address: String) -> Unit,
     onBack: () -> Unit
 ) {
     var hasCameraPermission by remember { mutableStateOf(false) }
@@ -109,7 +109,7 @@ fun ScannerScreen(
             contentAlignment = Alignment.Center
         ) {
             if (isShowingMyCode) {
-                MyQrCodeView(apiClient)
+                MyQrCodeView(app)
             } else {
                 if (hasCameraPermission) {
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -117,13 +117,13 @@ fun ScannerScreen(
                             onBarcodeScanned = { barcodeValue ->
                                 try {
                                     val uri = Uri.parse(barcodeValue)
-                                    if (uri.scheme == "privatemessenger" && uri.host == "contact") {
-                                        val userId = uri.getQueryParameter("userId")
-                                        val deviceId = uri.getQueryParameter("deviceId")?.toIntOrNull()
-                                        val profileKey = uri.getQueryParameter("profileKey")
-                                        if (userId != null && deviceId != null && profileKey != null) {
-                                            onContactScanned(userId, deviceId, profileKey)
+                                    if (uri.scheme == "ethereum") {
+                                        val address = uri.path ?: uri.schemeSpecificPart
+                                        if (address.startsWith("0x")) {
+                                            onContactScanned(address)
                                         }
+                                    } else if (barcodeValue.startsWith("0x")) {
+                                        onContactScanned(barcodeValue)
                                     }
                                 } catch (e: Exception) {
                                     Log.e("ScannerScreen", "Invalid QR code format: $barcodeValue")
@@ -134,16 +134,11 @@ fun ScannerScreen(
                         PasteAddressView(
                             modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
                             onAddressPasted = { address ->
-                                try {
-                                    val decoded = String(android.util.Base64.decode(address, android.util.Base64.NO_WRAP))
-                                    val parts = decoded.split(":")
-                                    if (parts.size == 3) {
-                                        onContactScanned(parts[0], parts[1].toInt(), parts[2])
-                                    } else {
-                                        Toast.makeText(context, "Invalid Public Address", Toast.LENGTH_SHORT).show()
-                                    }
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Invalid Public Address", Toast.LENGTH_SHORT).show()
+                                val trimmed = address.trim()
+                                if (trimmed.startsWith("0x") && trimmed.length == 42) {
+                                    onContactScanned(trimmed)
+                                } else {
+                                    Toast.makeText(context, "Invalid Ethereum Address", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         )
@@ -157,14 +152,10 @@ fun ScannerScreen(
 }
 
 @Composable
-fun MyQrCodeView(apiClient: ApiClient) {
-    val userId = apiClient.getUserId() ?: ""
-    val deviceId = apiClient.getDeviceId()
-    val profileKey = apiClient.getProfileKey() ?: ""
+fun MyQrCodeView(app: PrivateMessengerApp) {
+    val publicAddress = app.xmtpClient?.address ?: "Not registered"
     
-    val uri = "privatemessenger://contact?userId=$userId&deviceId=$deviceId&profileKey=$profileKey"
-    val rawAddress = "$userId:$deviceId:$profileKey"
-    val publicAddress = remember(rawAddress) { android.util.Base64.encodeToString(rawAddress.toByteArray(), android.util.Base64.NO_WRAP) }
+    val uri = "ethereum:$publicAddress"
     
     val qrBitmap = remember(uri) { generateQrCodeBitmap(uri, 800) }
     val context = LocalContext.current
@@ -351,7 +342,7 @@ fun PasteAddressView(
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                label = { Text("Paste Base64 Address") },
+                label = { Text("Paste Ethereum Address (0x...)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {

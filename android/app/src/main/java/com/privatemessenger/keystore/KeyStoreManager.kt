@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.keystore
+package com.privatemessenger.keystore
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
@@ -52,6 +52,8 @@ class KeyStoreManager(private val context: Context) {
         private const val PREF_IDENTITY_KEY_PAIR = "identity_key_pair"
         private const val PREF_REGISTRATION_ID = "registration_id"
         private const val PREF_PROFILE_KEY = "profile_key"
+        private const val PREF_ETH_PRIVATE_KEY = "eth_private_key"
+        private const val ETH_KEY_ALIAS = "pm_eth_key"
         private const val GCM_TAG_LENGTH = 128
         private const val GCM_IV_LENGTH = 12
 
@@ -130,6 +132,31 @@ class KeyStoreManager(private val context: Context) {
         val encrypted = Base64.decode(stored, Base64.NO_WRAP)
         val key = getOrCreateKeystoreKey(IDENTITY_KEY_ALIAS)
         return decryptWithKeystoreKey(key, encrypted)
+    }
+
+    // ------------------------------------------------------------------
+    // Ethereum Private Key
+    // ------------------------------------------------------------------
+
+    /**
+     * Encrypts and stores the Ethereum private key (hex string).
+     */
+    fun storeEthereumPrivateKey(privateKeyHex: String) {
+        val key = getOrCreateKeystoreKey(ETH_KEY_ALIAS)
+        val encrypted = encryptWithKeystoreKey(key, privateKeyHex.toByteArray(Charsets.UTF_8))
+        encryptedPrefs.edit()
+            .putString(PREF_ETH_PRIVATE_KEY, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+            .apply()
+    }
+
+    /**
+     * Retrieves and decrypts the stored Ethereum private key, or null if none.
+     */
+    fun getEthereumPrivateKey(): String? {
+        val stored = encryptedPrefs.getString(PREF_ETH_PRIVATE_KEY, null) ?: return null
+        val encrypted = Base64.decode(stored, Base64.NO_WRAP)
+        val key = getOrCreateKeystoreKey(ETH_KEY_ALIAS)
+        return String(decryptWithKeystoreKey(key, encrypted), Charsets.UTF_8)
     }
 
     // ------------------------------------------------------------------

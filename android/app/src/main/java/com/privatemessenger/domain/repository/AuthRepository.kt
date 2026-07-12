@@ -2,22 +2,14 @@ package com.privatemessenger.domain.repository
 
 import android.util.Log
 import com.privatemessenger.PrivateMessengerApp
-import com.privatemessenger.crypto.KeyManager
-import com.privatemessenger.data.remote.ApiClient
-import com.privatemessenger.data.remote.api.RegisterRequest
-import com.privatemessenger.data.remote.api.UploadPreKeysRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.xmtp.android.library.Client
+import org.xmtp.android.library.ClientOptions
+import org.xmtp.android.library.XMTPEnvironment
+import org.xmtp.android.library.messages.PrivateKeyBuilder
 
-/**
- * AuthRepository coordinates the wallet-based registration flow:
- * 1. Trigger KeyManager to generate identity key pair and signed prekey
- * 2. Send the public halves of those keys to the server
- * 3. Save the returned session token
- * 4. Generate a batch of one-time prekeys and upload them
- */
 class AuthRepository(
-    private val apiClient: ApiClient,
     private val application: PrivateMessengerApp,
 ) {
 
@@ -26,83 +18,46 @@ class AuthRepository(
         fun trace(msg: String) {
             prefs.edit().putString("last_trace", msg).commit()
         }
-        
+
         try {
-            trace("1. Generating identity keys")
-            // 1. Generate identity key pair
-            val identityKeyPair = org.whispersystems.libsignal.util.KeyHelper.generateIdentityKeyPair()
-            val registrationId = org.whispersystems.libsignal.util.KeyHelper.generateRegistrationId(false)
+            trace("1. Generating XMTP Ethereum Wallet")
+            
+            // Generate a fresh random Ethereum wallet via XMTP's PrivateKeyBuilder
+            val account = PrivateKeyBuilder()
 
-            // 2. Generate signed prekey
-            trace("2. Generating signed prekey")
-            val keyPair = org.whispersystems.libsignal.ecc.Curve.generateKeyPair()
-            val signature = org.whispersystems.libsignal.ecc.Curve.calculateSignature(
-                identityKeyPair.privateKey,
-                keyPair.publicKey.serialize()
+            trace("2. Building XMTP Client")
+            // The database encryption key is 32 bytes securely stored in Android Keystore
+            val dbEncryptionKey = application.keyStoreManager.getDatabasePassphrase()
+            
+            val client = Client().build(
+                account = account,
+                options = ClientOptions(
+                    api = ClientOptions.Api(
+                        env = XMTPEnvironment.PRODUCTION,
+                        isSecure = true
+                    ),
+                    appContext = application.applicationContext,
+                    dbEncryptionKey = dbEncryptionKey
+                )
             )
-            val timestamp = System.currentTimeMillis()
-            val signedPreKey = org.whispersystems.libsignal.state.SignedPreKeyRecord(1, timestamp, keyPair, signature)
 
-            // 3. Register with the server
-            trace("3. Registering with server")
-            val request = RegisterRequest(
-                device_id = "1", // Hardcoded to 1 for the primary device
-                identity_public_key = identityKeyPair.publicKey.serialize(),
-                signed_pre_key = signedPreKey.serialize(),
-                registration_id = registrationId,
-                display_name = "" // We can prompt the user for this later
-            )
-            val response = apiClient.api.register(request)
+            trace("3. Storing Private Key Securely")
+            // Extract the private key and save it securely
+            val privateKeyHex = account.getPrivateKey().privateKeyBytes.joinToString("") { "%02x".format(it) }
+            application.keyStoreManager.storeEthereumPrivateKey(privateKeyHex)
 
-            // 4. Save session token and user ID
-            trace("4. Saving session token")
-            apiClient.saveSessionToken(response.session_token)
-            apiClient.saveUserId(response.user_id)
-            apiClient.saveDeviceId(1) // Device ID is currently hardcoded to 1
-
-            // Generate and save a 32-byte Profile Key for Sealed Sender Trial Decryption
-            val profileKey = ByteArray(32)
-            java.security.SecureRandom().nextBytes(profileKey)
-            apiClient.saveProfileKey(android.util.Base64.encodeToString(profileKey, android.util.Base64.NO_WRAP))
-
-            // 5. Initialize the app's crypto services now that we have the identity key
-            trace("5. Initializing crypto services")
+            trace("4. Initializing App Client")
             withContext(Dispatchers.Main) {
-                application.initCryptoAfterRegistration(identityKeyPair, registrationId)
+                application.initXmtpClient(client)
             }
 
-            // 6. Generate and upload one-time prekeys (requires the initialized KeyManager)
-            trace("6. Generating one time prekeys")
-            val appKeyManager = application.keyManager!!
-            
-            // Save the signed prekey locally now that the store exists
-            trace("7. Persisting signed prekey to DB")
-            appKeyManager.persistSignedPreKey(signedPreKey)
-
-            trace("8. Generating prekey batch")
-            val preKeyBatch = appKeyManager.generateOneTimePreKeys(startId = 1)
-            
-            trace("9. Persisting prekeys to DB")
-            appKeyManager.persistPreKeys(preKeyBatch.records)
-
-            trace("10. Uploading prekeys")
-            val uploadRequest = UploadPreKeysRequest(keys = preKeyBatch.publicKeysForServer)
-            val uploadResponse = apiClient.api.uploadPreKeys(uploadRequest)
-            if (!uploadResponse.isSuccessful) {
-                throw retrofit2.HttpException(uploadResponse)
-            }
-
-            // 7. Connect WebSocket
-            trace("11. Connecting websocket")
-            apiClient.webSocketManager.connect(response.session_token)
-
-            trace("12. Success")
+            trace("5. Success")
             prefs.edit().remove("last_trace").apply()
             Result.success(Unit)
         } catch (e: Throwable) {
             trace("Error: ${e.javaClass.simpleName} - ${e.message}")
             val errString = Log.getStackTraceString(e)
-            Log.e("AuthRepository", "Failed to register: $errString")
+            Log.e("AuthRepository", "Failed to register XMTP: $errString")
             Result.failure(Exception(errString, e))
         }
     }
