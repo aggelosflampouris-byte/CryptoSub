@@ -15,6 +15,7 @@ import com.privatemessenger.domain.repository.AuthRepository
 import com.privatemessenger.ui.screens.chat.ChatScreen
 import com.privatemessenger.ui.screens.chatlist.ChatListScreen
 import com.privatemessenger.ui.screens.registration.RegistrationScreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavGraph(
