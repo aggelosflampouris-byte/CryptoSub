@@ -11,6 +11,7 @@ import com.privatemessenger.ui.MainActivity
 object NotificationHelper {
     private const val CHANNEL_CONTACTS = "new_contacts"
     private const val CHANNEL_MESSAGES = "new_messages"
+    private const val CHANNEL_SERVICE = "background_service"
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -30,6 +31,31 @@ object NotificationHelper {
                 NotificationManager.IMPORTANCE_HIGH
             ).apply { description = "Alerts for incoming encrypted messages" }
         )
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_SERVICE,
+                "Background Service",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply { description = "Keeps the app listening for new messages" }
+        )
+    }
+
+    fun buildForegroundNotification(context: Context): android.app.Notification {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(context, CHANNEL_SERVICE)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Privacy Messenger")
+            .setContentText("Listening for messages...")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setContentIntent(pi)
+            .build()
     }
 
     fun showNewContactNotification(context: Context, senderLabel: String) {

@@ -50,6 +50,8 @@ class AuthRepository(
             trace("4. Initializing App Client")
             withContext(Dispatchers.Main) {
                 application.initXmtpClient(client)
+                val serviceIntent = android.content.Intent(application, com.privatemessenger.notifications.XmtpBackgroundService::class.java)
+                androidx.core.content.ContextCompat.startForegroundService(application, serviceIntent)
             }
 
             trace("5. Success")
@@ -99,6 +101,8 @@ class AuthRepository(
 
             withContext(Dispatchers.Main) {
                 application.initXmtpClient(client)
+                val serviceIntent = android.content.Intent(application, com.privatemessenger.notifications.XmtpBackgroundService::class.java)
+                androidx.core.content.ContextCompat.startForegroundService(application, serviceIntent)
             }
 
             Result.success(Unit)

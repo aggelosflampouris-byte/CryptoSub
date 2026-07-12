@@ -28,55 +28,6 @@ fun AppNavGraph(
     val navController = rememberNavController()
     val authRepository = AuthRepository(app)
 
-    // Stream all incoming XMTP messages. Use message.conversationId as the canonical DB key.
-    androidx.compose.runtime.LaunchedEffect(app.xmtpClient) {
-        val client = app.xmtpClient ?: return@LaunchedEffect
-        try {
-            client.conversations.streamAllMessages().collect { message ->
-                try {
-                    // The XMTP conversation ID is the authoritative shared key — it is the
-                    // same hex on both devices for the same DM thread.
-                    val convId = message.conversationId
-
-                    val conversationExists = app.database.conversationDao().getConversation(convId) != null
-                    if (!conversationExists) {
-                        val label = "${message.senderInboxId.take(6)}...${message.senderInboxId.takeLast(4)}"
-                        val contact = com.privatemessenger.data.local.entity.ConversationEntity(
-                            id = convId,
-                            deviceId = 1,
-                            displayName = label,
-                            lastMessage = message.body,
-                            lastMessageTimestamp = message.sentAt.time,
-                            unreadCount = 1
-                        )
-                        app.database.conversationDao().upsert(contact)
-                        // 🔔 Push notification: new contact
-                        NotificationHelper.showNewContactNotification(app, label)
-                    } else {
-                        // 🔔 Push notification: new message in existing conversation
-                        val conv = app.database.conversationDao().getConversation(convId)
-                        val senderLabel = conv?.displayName ?: "${message.senderInboxId.take(6)}..."
-                        NotificationHelper.showNewMessageNotification(app, senderLabel, message.body, convId)
-                    }
-
-                    val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
-                        id = message.id,
-                        conversationId = convId,
-                        senderUserId = message.senderInboxId,
-                        content = message.body,
-                        timestamp = message.sentAt.time,
-                        status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
-                    )
-                    app.database.messageDao().insert(msgEntity)
-                    app.database.conversationDao().updateLastMessage(convId, message.body, message.sentAt.time)
-                } catch (e: Exception) {
-                    android.util.Log.e("AppNavGraph", "Failed to process incoming XMTP message", e)
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("AppNavGraph", "XMTP Stream disconnected", e)
-        }
-    }
 
     NavHost(
         navController = navController,
