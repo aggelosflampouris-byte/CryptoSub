@@ -168,7 +168,7 @@ fun AppNavGraph(
                                 lastMessageTimestamp = System.currentTimeMillis(),
                                 unreadCount = 0
                             )
-                            app.database.conversationDao().insert(contact)
+                            app.database.conversationDao().upsert(contact)
 
                             // 4. Navigate to Chat
                             navController.navigate("chat/$userId") {
