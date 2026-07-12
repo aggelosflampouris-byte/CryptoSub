@@ -156,7 +156,23 @@ fun MyQrCodeView(apiClient: ApiClient) {
                     .padding(8.dp)
             )
         }
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = "Your Public Address:",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = userId,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            ),
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
+        )
+
         Text(
             text = "Have a friend scan this code to add you as a contact securely.",
             textAlign = TextAlign.Center,
