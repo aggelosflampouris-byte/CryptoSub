@@ -43,6 +43,15 @@ services:
       timeout: 10s
       retries: 10
 
+  cassandra-init:
+    image: cassandra:4.1
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./db/cassandra/init.cql:/init.cql
+    entrypoint: ["cqlsh", "cassandra", "-f", "/init.cql"]
+
   server:
     build: .
     ports:
@@ -67,6 +76,8 @@ services:
         condition: service_healthy
       cassandra:
         condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:
