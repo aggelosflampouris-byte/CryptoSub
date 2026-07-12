@@ -40,8 +40,8 @@ fun AppNavGraph(
                 if (decryptedSender != null) {
                     val (senderIdentity, contactId) = decryptedSender
                     
-                    // 2. Decrypt Payload
-                    val ratchetEngine = com.privatemessenger.crypto.RatchetEngine(app.protocolStore)
+                    val protocolStore = app.protocolStore ?: return@collect
+                    val ratchetEngine = com.privatemessenger.crypto.RatchetEngine(protocolStore)
                     val type = com.privatemessenger.crypto.EnvelopeType.fromWire(envelope.type)
                     val decryptedPayload = ratchetEngine.decrypt(
                         senderUserId = senderIdentity.userId,
@@ -132,7 +132,8 @@ fun AppNavGraph(
                 apiClient = apiClient,
                 onContactScanned = { userId, deviceId, profileKey ->
                     // 1. Check if session already exists
-                    val sessionBuilder = com.privatemessenger.crypto.SignalSessionBuilder(app.protocolStore)
+                    val protocolStore = app.protocolStore ?: return@ScannerScreen
+                    val sessionBuilder = com.privatemessenger.crypto.SignalSessionBuilder(protocolStore)
                     if (sessionBuilder.hasSession(userId, deviceId)) {
                         navController.navigate("chat/$userId") {
                             popUpTo("chat_list")
@@ -141,7 +142,7 @@ fun AppNavGraph(
                     }
 
                     // 2. Fetch PreKey bundle and build session
-                    coroutineScope.kotlinx.coroutines.launch {
+                    coroutineScope.launch {
                         try {
                             val response = apiClient.api.fetchPreKeyBundle(userId, deviceId.toString())
                             val signedPreKeyRecord = org.whispersystems.libsignal.state.SignedPreKeyRecord(response.signed_pre_key)

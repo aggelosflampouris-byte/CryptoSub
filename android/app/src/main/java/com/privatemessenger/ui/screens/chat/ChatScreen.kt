@@ -131,7 +131,8 @@ fun ChatScreen(
                             try {
                                 val conversation = database.conversationDao().getConversation(conversationId)
                                 if (conversation != null) {
-                                    val ratchetEngine = com.privatemessenger.crypto.RatchetEngine(app.protocolStore)
+                                val protocolStore = app.protocolStore ?: return@launch
+                                val ratchetEngine = com.privatemessenger.crypto.RatchetEngine(protocolStore)
                                     val sealedSenderCrypto = com.privatemessenger.crypto.SealedSenderCrypto()
                                     val myProfileKeyStr = apiClient.getProfileKey()
                                     val myProfileKey = if (myProfileKeyStr != null) android.util.Base64.decode(myProfileKeyStr, android.util.Base64.NO_WRAP) else ByteArray(32)

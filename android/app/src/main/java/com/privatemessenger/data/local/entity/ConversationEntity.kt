@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.local.entity
+package com.privatemessenger.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -15,6 +15,12 @@ data class ConversationEntity(
 
     @ColumnInfo(name = "recipient_user_id")
     val recipientUserId: String? = null,  // null for group chats
+
+    @ColumnInfo(name = "recipient_device_id")
+    val deviceId: Int = 1,
+
+    @ColumnInfo(name = "profile_key")
+    val profileKey: ByteArray? = null,
 
     @ColumnInfo(name = "group_id")
     val groupId: String? = null,  // null for 1:1 chats
