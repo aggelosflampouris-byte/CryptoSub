@@ -48,7 +48,7 @@ dependencies {
     // -------------------------------------------------------------------------
     // Signal Protocol — X3DH key agreement + Double Ratchet encryption
     // -------------------------------------------------------------------------
-    implementation("org.signal:libsignal-client:0.40.0")
+    implementation("org.signal:libsignal-android:0.40.0")
 
     // -------------------------------------------------------------------------
     // Room Database — local persistence for messages, sessions, contacts
