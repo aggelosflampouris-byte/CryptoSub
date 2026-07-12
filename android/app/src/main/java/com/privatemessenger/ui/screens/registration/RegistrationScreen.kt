@@ -77,7 +77,7 @@ fun RegistrationScreen(
                         if (result.isSuccess) {
                             onRegistrationComplete()
                         } else {
-                            errorMessage = "Failed to generate identity. Please try again."
+                            errorMessage = result.exceptionOrNull()?.message ?: "Failed to generate identity. Please try again."
                         }
                     }
                 },

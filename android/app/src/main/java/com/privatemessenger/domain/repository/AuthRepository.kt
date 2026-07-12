@@ -70,9 +70,10 @@ class AuthRepository(
             apiClient.webSocketManager.connect(response.session_token)
 
             Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("AuthRepository", "Failed to register", e)
-            Result.failure(e)
+        } catch (e: Throwable) {
+            val errString = Log.getStackTraceString(e)
+            Log.e("AuthRepository", "Failed to register: $errString")
+            Result.failure(Exception(errString, e))
         }
     }
 }
