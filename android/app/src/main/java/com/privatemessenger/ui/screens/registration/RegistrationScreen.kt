@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.ui.screens.registration
+package com.privatemessenger.ui.screens.registration
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -83,24 +83,29 @@ fun RegistrationScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .heightIn(min = 56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
                 enabled = !isLoading
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                } else {
-                    Text(
-                        text = "Generate Identity & Enter",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxWidth().height(24.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "Generate Identity & Enter",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
