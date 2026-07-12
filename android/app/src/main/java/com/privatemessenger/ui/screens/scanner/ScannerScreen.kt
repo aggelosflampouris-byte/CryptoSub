@@ -153,7 +153,7 @@ fun ScannerScreen(
 
 @Composable
 fun MyQrCodeView(app: PrivateMessengerApp) {
-    val publicAddress = app.xmtpClient?.address ?: "Not registered"
+    val publicAddress = app.xmtpClient?.publicIdentity?.identifier ?: "Not registered"
     
     val uri = "ethereum:$publicAddress"
     

@@ -109,7 +109,7 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(messages, key = { it.id }) { message ->
-                    MessageBubble(message = message, isCurrentUser = message.senderUserId == app.xmtpClient?.address)
+                    MessageBubble(message = message, isCurrentUser = message.senderUserId == app.xmtpClient?.inboxId)
                 }
             }
 
@@ -137,7 +137,7 @@ fun ChatScreen(
                                 val msgEntity = MessageEntity(
                                     id = sentMessageId,
                                     conversationId = conversation.id,
-                                    senderUserId = client.address,
+                                    senderUserId = client.inboxId,
                                     content = textToSend,
                                     timestamp = System.currentTimeMillis(),
                                     status = MessageStatus.SENT

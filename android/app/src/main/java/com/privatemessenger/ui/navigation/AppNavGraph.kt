@@ -34,14 +34,14 @@ fun AppNavGraph(
             client.conversations.streamAllMessages().collect { message ->
                 try {
                     // Save the contact if it's the first time we hear from them
-                    val conversationExists = app.database.conversationDao().getConversationSync(message.senderAddress) != null
+                    val conversationExists = app.database.conversationDao().getConversationSync(message.senderInboxId) != null
                     if (!conversationExists) {
                         val contact = com.privatemessenger.data.local.entity.ConversationEntity(
-                            id = message.senderAddress,
+                            id = message.senderInboxId,
                             deviceId = 1,
-                            displayName = "Contact ${message.senderAddress.take(6)}",
+                            displayName = "Contact ${message.senderInboxId.take(6)}",
                             lastMessage = message.body,
-                            lastMessageTimestamp = message.sent.time,
+                            lastMessageTimestamp = message.sentAt.time,
                             unreadCount = 1
                         )
                         app.database.conversationDao().upsert(contact)
@@ -50,14 +50,14 @@ fun AppNavGraph(
                     // Save the incoming message
                     val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
                         id = message.id,
-                        conversationId = message.senderAddress,
-                        senderUserId = message.senderAddress,
+                        conversationId = message.senderInboxId,
+                        senderUserId = message.senderInboxId,
                         content = message.body,
-                        timestamp = message.sent.time,
+                        timestamp = message.sentAt.time,
                         status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
                     )
                     app.database.messageDao().insert(msgEntity)
-                    app.database.conversationDao().updateLastMessage(message.senderAddress, message.body, message.sent.time)
+                    app.database.conversationDao().updateLastMessage(message.senderInboxId, message.body, message.sentAt.time)
                 } catch (e: Exception) {
                     android.util.Log.e("AppNavGraph", "Failed to process incoming XMTP message", e)
                 }
@@ -127,8 +127,11 @@ fun AppNavGraph(
                         try {
                             val client = app.xmtpClient ?: return@launch
                             
-                            // Verify the address has an identity on the XMTP network
-                            val canMessage = client.canMessage(address)
+                            val publicIdentity = org.xmtp.android.library.libxmtp.PublicIdentity(
+                                org.xmtp.android.library.libxmtp.IdentityKind.ETHEREUM,
+                                address
+                            )
+                            val canMessage = client.canMessage(listOf(publicIdentity))[address] == true
                             
                             if (canMessage) {
                                 // Save contact to local DB
