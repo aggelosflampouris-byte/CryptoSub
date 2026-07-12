@@ -1,4 +1,4 @@
-﻿package com.privatemessenger
+package com.privatemessenger
 
 import android.app.Application
 import com.privatemessenger.crypto.KeyManager
@@ -60,6 +60,9 @@ class PrivateMessengerApp : Application() {
                 .commit() // must be synchronous commit before crash
             defaultHandler?.uncaughtException(thread, exception)
         }
+
+        // Initialize SQLCipher native libraries
+        net.sqlcipher.database.SQLiteDatabase.loadLibs(this)
 
         // 1. Keystore â€” always available
         keyStoreManager = KeyStoreManager(this)
