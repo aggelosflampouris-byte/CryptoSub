@@ -29,7 +29,7 @@ class AuthRepository(
             // The database encryption key is 32 bytes securely stored in Android Keystore
             val dbEncryptionKey = application.keyStoreManager.getDatabasePassphrase()
             
-            val client = Client().build(
+            val client = Client.create(
                 account = account,
                 options = ClientOptions(
                     api = ClientOptions.Api(

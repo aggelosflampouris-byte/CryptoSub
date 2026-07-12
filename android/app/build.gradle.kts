@@ -111,6 +111,7 @@ dependencies {
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("com.google.guava:guava:31.1-android")
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
     // -------------------------------------------------------------------------
     // Web3 / Blockchain Integration

@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
                         val privateKey = org.xmtp.android.library.messages.PrivateKeyBuilder.buildFromPrivateKeyData(keyBytes)
                         val account = org.xmtp.android.library.messages.PrivateKeyBuilder(privateKey)
                         val dbEncryptionKey = app.keyStoreManager.getDatabasePassphrase()
-                        val client = Client().build(
+                        val client = Client.create(
                             account = account,
                             options = ClientOptions(
                                 api = ClientOptions.Api(
