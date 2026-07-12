@@ -43,7 +43,7 @@ class AuthRepository(
 
             trace("3. Storing Private Key Securely")
             // Extract the private key and save it securely
-            val privateKeyHex = account.getPrivateKey().privateKeyBytes.joinToString("") { "%02x".format(it) }
+            val privateKeyHex = account.getPrivateKey().secp256K1.bytes.toByteArray().joinToString("") { "%02x".format(it) }
             application.keyStoreManager.storeEthereumPrivateKey(privateKeyHex)
 
             trace("4. Initializing App Client")

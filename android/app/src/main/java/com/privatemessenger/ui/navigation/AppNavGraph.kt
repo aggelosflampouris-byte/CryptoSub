@@ -34,7 +34,7 @@ fun AppNavGraph(
             client.conversations.streamAllMessages().collect { message ->
                 try {
                     // Save the contact if it's the first time we hear from them
-                    val conversationExists = app.database.conversationDao().getConversationSync(message.senderInboxId) != null
+                    val conversationExists = app.database.conversationDao().getConversation(message.senderInboxId) != null
                     if (!conversationExists) {
                         val contact = com.privatemessenger.data.local.entity.ConversationEntity(
                             id = message.senderInboxId,
