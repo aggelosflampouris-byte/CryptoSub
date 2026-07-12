@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.remote
+package com.privatemessenger.data.remote
 
 import android.content.Context
 import com.google.gson.Gson
@@ -44,7 +44,16 @@ class ApiClient(private val context: Context, private val baseUrl: String) {
         .addInterceptor(authInterceptor)
         .build()
 
-    private val gson: Gson = GsonBuilder().create()
+    private val gson: Gson = GsonBuilder()
+        .registerTypeAdapter(ByteArray::class.java, object : com.google.gson.JsonSerializer<ByteArray>, com.google.gson.JsonDeserializer<ByteArray> {
+            override fun serialize(src: ByteArray, typeOfSrc: java.lang.reflect.Type, context: com.google.gson.JsonSerializationContext): com.google.gson.JsonElement {
+                return com.google.gson.JsonPrimitive(android.util.Base64.encodeToString(src, android.util.Base64.NO_WRAP))
+            }
+            override fun deserialize(json: com.google.gson.JsonElement, typeOfT: java.lang.reflect.Type, context: com.google.gson.JsonDeserializationContext): ByteArray {
+                return android.util.Base64.decode(json.asString, android.util.Base64.NO_WRAP)
+            }
+        })
+        .create()
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(baseUrl)
