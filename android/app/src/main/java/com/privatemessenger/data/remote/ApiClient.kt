@@ -18,6 +18,9 @@ class ApiClient(private val context: Context, private val baseUrl: String) {
     companion object {
         private const val PREFS_FILE = "pm_auth_prefs"
         private const val PREF_SESSION_TOKEN = "session_token"
+        private const val PREF_USER_ID = "user_id"
+        private const val PREF_DEVICE_ID = "device_id"
+        private const val PREF_PROFILE_KEY = "profile_key"
     }
 
     // We use standard SharedPreferences for the session token.
@@ -75,7 +78,36 @@ class ApiClient(private val context: Context, private val baseUrl: String) {
         return authPrefs.getString(PREF_SESSION_TOKEN, null)
     }
 
+    fun saveUserId(userId: String) {
+        authPrefs.edit().putString(PREF_USER_ID, userId).apply()
+    }
+
+    fun getUserId(): String? {
+        return authPrefs.getString(PREF_USER_ID, null)
+    }
+
+    fun saveDeviceId(deviceId: Int) {
+        authPrefs.edit().putInt(PREF_DEVICE_ID, deviceId).apply()
+    }
+
+    fun getDeviceId(): Int {
+        return authPrefs.getInt(PREF_DEVICE_ID, 1) // default to 1
+    }
+
+    fun saveProfileKey(keyBase64: String) {
+        authPrefs.edit().putString(PREF_PROFILE_KEY, keyBase64).apply()
+    }
+
+    fun getProfileKey(): String? {
+        return authPrefs.getString(PREF_PROFILE_KEY, null)
+    }
+
     fun clearSessionToken() {
-        authPrefs.edit().remove(PREF_SESSION_TOKEN).apply()
+        authPrefs.edit()
+            .remove(PREF_SESSION_TOKEN)
+            .remove(PREF_USER_ID)
+            .remove(PREF_DEVICE_ID)
+            .remove(PREF_PROFILE_KEY)
+            .apply()
     }
 }

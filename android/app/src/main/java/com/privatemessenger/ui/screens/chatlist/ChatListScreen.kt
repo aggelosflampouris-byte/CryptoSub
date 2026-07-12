@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.ui.screens.chatlist
+package com.privatemessenger.ui.screens.chatlist
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,7 +27,8 @@ import java.util.Locale
 @Composable
 fun ChatListScreen(
     database: AppDatabase,
-    onChatClicked: (String) -> Unit
+    onChatClicked: (String) -> Unit,
+    onAddContactClicked: () -> Unit
 ) {
     // In a real app this would use a ViewModel and collectAsStateWithLifecycle.
     // For this MVP, we collect directly from the DAO.
@@ -50,7 +51,7 @@ fun ChatListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* TODO: Open new chat dialog/screen */ },
+                onClick = onAddContactClicked,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White
             ) {

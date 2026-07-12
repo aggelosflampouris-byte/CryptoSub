@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.ui.screens.chat
+package com.privatemessenger.ui.screens.chat
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -44,6 +44,8 @@ import java.util.Locale
 fun ChatScreen(
     conversationId: String,
     database: AppDatabase,
+    app: com.privatemessenger.PrivateMessengerApp,
+    apiClient: com.privatemessenger.data.remote.ApiClient,
     onBack: () -> Unit
 ) {
     val messages by database.messageDao().getMessagesForConversation(conversationId).collectAsState(initial = emptyList())
@@ -108,7 +110,7 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(messages, key = { it.id }) { message ->
-                    MessageBubble(message = message, isCurrentUser = message.senderUserId == "local_user_id") // Stub logic
+                    MessageBubble(message = message, isCurrentUser = message.senderUserId == apiClient.getUserId())
                 }
             }
 
@@ -123,8 +125,57 @@ fun ChatScreen(
                 },
                 onSend = {
                     if (inputText.isNotBlank()) {
-                        // TODO: Trigger MessageRepository.sendMessage
+                        val textToSend = inputText
                         inputText = ""
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                val conversation = database.conversationDao().getConversation(conversationId)
+                                if (conversation != null) {
+                                    val ratchetEngine = com.privatemessenger.crypto.RatchetEngine(app.protocolStore)
+                                    val sealedSenderCrypto = com.privatemessenger.crypto.SealedSenderCrypto()
+                                    val myProfileKeyStr = apiClient.getProfileKey()
+                                    val myProfileKey = if (myProfileKeyStr != null) android.util.Base64.decode(myProfileKeyStr, android.util.Base64.NO_WRAP) else ByteArray(32)
+                                    
+                                    val encryptedPayload = ratchetEngine.encrypt(
+                                        recipientUserId = conversation.id,
+                                        recipientDeviceId = conversation.deviceId,
+                                        plaintext = textToSend,
+                                        myProfileKey = myProfileKey
+                                    )
+                                    
+                                    val sealedSenderCiphertext = sealedSenderCrypto.encrypt(
+                                        senderUserId = apiClient.getUserId() ?: "",
+                                        senderDeviceId = apiClient.getDeviceId(),
+                                        myProfileKey = myProfileKey
+                                    )
+                                    
+                                    val envelope = com.privatemessenger.data.remote.websocket.Envelope(
+                                        message_id = java.util.UUID.randomUUID().toString(),
+                                        recipient_user_id = conversation.id,
+                                        recipient_device_id = conversation.deviceId.toString(),
+                                        sealed_sender_ciphertext = sealedSenderCiphertext,
+                                        message_ciphertext = encryptedPayload.ciphertext,
+                                        type = encryptedPayload.type.wire,
+                                        server_timestamp = 0L // Populated by server
+                                    )
+                                    
+                                    apiClient.webSocketManager.sendEnvelope(envelope)
+                                    
+                                    val msgEntity = MessageEntity(
+                                        id = envelope.message_id!!,
+                                        conversationId = conversation.id,
+                                        senderUserId = apiClient.getUserId() ?: "",
+                                        content = textToSend,
+                                        timestamp = System.currentTimeMillis(),
+                                        status = MessageStatus.SENT
+                                    )
+                                    database.messageDao().insert(msgEntity)
+                                    database.conversationDao().updateLastMessage(conversation.id, textToSend, System.currentTimeMillis())
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("ChatScreen", "Failed to send message", e)
+                            }
+                        }
                     }
                 }
             )

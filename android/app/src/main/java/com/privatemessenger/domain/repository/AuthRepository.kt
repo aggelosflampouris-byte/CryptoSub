@@ -54,9 +54,16 @@ class AuthRepository(
             )
             val response = apiClient.api.register(request)
 
-            // 4. Save session token
+            // 4. Save session token and user ID
             trace("4. Saving session token")
             apiClient.saveSessionToken(response.session_token)
+            apiClient.saveUserId(response.user_id)
+            apiClient.saveDeviceId(1) // Device ID is currently hardcoded to 1
+
+            // Generate and save a 32-byte Profile Key for Sealed Sender Trial Decryption
+            val profileKey = ByteArray(32)
+            java.security.SecureRandom().nextBytes(profileKey)
+            apiClient.saveProfileKey(android.util.Base64.encodeToString(profileKey, android.util.Base64.NO_WRAP))
 
             // 5. Initialize the app's crypto services now that we have the identity key
             trace("5. Initializing crypto services")

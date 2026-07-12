@@ -108,4 +108,13 @@ dependencies {
     // Firebase Cloud Messaging (Phase 4)
     // -------------------------------------------------------------------------
     // implementation("com.google.firebase:firebase-messaging-ktx:23.4.0")
+    // -------------------------------------------------------------------------
+    // QR Code Scanning & Generation
+    // -------------------------------------------------------------------------
+    val cameraxVersion = "1.3.1"
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation("com.google.zxing:core:3.5.3")
 }

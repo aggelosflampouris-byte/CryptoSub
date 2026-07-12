@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.local.dao
+package com.privatemessenger.data.local.dao
 
 import androidx.room.*
 import com.privatemessenger.data.local.entity.ConversationEntity
@@ -19,6 +19,9 @@ interface ConversationDao {
 
     @Query("SELECT * FROM conversations WHERE id = :conversationId")
     suspend fun getConversation(conversationId: String): ConversationEntity?
+
+    @Query("SELECT * FROM conversations")
+    suspend fun getAllConversationsSync(): List<ConversationEntity>
 
     @Query("SELECT * FROM conversations WHERE recipient_user_id = :userId LIMIT 1")
     suspend fun getConversationByRecipient(userId: String): ConversationEntity?
