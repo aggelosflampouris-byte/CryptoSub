@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.crypto
+package com.privatemessenger.crypto
 
 import org.whispersystems.libsignal.IdentityKey
 import org.whispersystems.libsignal.InvalidKeyException
@@ -60,7 +60,7 @@ class SignalSessionBuilder(
      */
     fun hasSession(recipientUserId: String, recipientDeviceId: Int): Boolean {
         val address = SignalProtocolAddress(recipientUserId, recipientDeviceId)
-        return protocolStore.loadSession(address).hasSenderChain()
+        return protocolStore.containsSession(address)
     }
 
     /**

@@ -3,7 +3,7 @@ package com.privatemessenger.crypto
 import org.whispersystems.libsignal.IdentityKey
 import org.whispersystems.libsignal.IdentityKeyPair
 import org.whispersystems.libsignal.SignalProtocolAddress
-import org.whispersystems.libsignal.groups.state.SenderKeyRecord
+
 import org.whispersystems.libsignal.state.IdentityKeyStore
 import org.whispersystems.libsignal.state.PreKeyRecord
 import org.whispersystems.libsignal.state.SessionRecord
@@ -38,7 +38,7 @@ class SignalProtocolStoreImpl(
     private val dao: SignalDao,
     private val localIdentityKeyPair: IdentityKeyPair,
     private val localRegistrationId: Int,
-) : SignalProtocolStore, SenderKeyStore {
+) : SignalProtocolStore {
 
     // ==================================================================
     // IdentityKeyStore
@@ -105,20 +105,7 @@ class SignalProtocolStoreImpl(
         return SessionRecord(entity.sessionRecord)
     }
 
-    override fun loadExistingSessions(addresses: MutableList<SignalProtocolAddress>): MutableList<SessionRecord> {
-        val results = mutableListOf<SessionRecord>()
-        for (address in addresses) {
-            val entity = dao.getSession(address.name, address.deviceId)
-            if (entity != null) {
-                results.add(SessionRecord(entity.sessionRecord))
-            }
-        }
-        return results
-    }
 
-    override fun getSubDeviceSessions(name: String): List<Int> {
-        return dao.getSubDeviceSessions(name)
-    }
 
     override fun storeSession(address: SignalProtocolAddress, record: SessionRecord) {
         dao.upsertSession(
@@ -189,28 +176,7 @@ class SignalProtocolStoreImpl(
     override fun containsSignedPreKey(signedPreKeyId: Int): Boolean {
         return dao.getSignedPreKey(signedPreKeyId) != null
     }
-
     override fun removeSignedPreKey(signedPreKeyId: Int) {
         dao.deleteSignedPreKey(signedPreKeyId)
-    }
-
-    // ==================================================================
-    // SenderKeyStore (for group messaging via MLS/Sender Keys)
-    // ==================================================================
-
-    override fun storeSenderKey(
-        senderName: org.whispersystems.libsignal.SignalProtocolAddress,
-        distributionId: java.util.UUID,
-        record: org.whispersystems.libsignal.groups.state.SenderKeyRecord,
-    ) {
-        // Group messaging sender keys — to be implemented in Phase 4
-    }
-
-    override fun loadSenderKey(
-        senderName: org.whispersystems.libsignal.SignalProtocolAddress,
-        distributionId: java.util.UUID,
-    ): org.whispersystems.libsignal.groups.state.SenderKeyRecord? {
-        // Placeholder until group messaging is implemented
-        return null
     }
 }

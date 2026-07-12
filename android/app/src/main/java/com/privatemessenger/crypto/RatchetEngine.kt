@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.crypto
+package com.privatemessenger.crypto
 
 import org.whispersystems.libsignal.DuplicateMessageException
 import org.whispersystems.libsignal.InvalidKeyException
@@ -6,9 +6,9 @@ import org.whispersystems.libsignal.InvalidMessageException
 import org.whispersystems.libsignal.NoSessionException
 import org.whispersystems.libsignal.SessionCipher
 import org.whispersystems.libsignal.SignalProtocolAddress
-import org.whispersystems.libsignal.message.CiphertextMessage
-import org.whispersystems.libsignal.message.PreKeySignalMessage
-import org.whispersystems.libsignal.message.SignalMessage
+import org.whispersystems.libsignal.protocol.CiphertextMessage
+import org.whispersystems.libsignal.protocol.PreKeySignalMessage
+import org.whispersystems.libsignal.protocol.SignalMessage
 import com.google.gson.Gson
 
 /**
@@ -124,13 +124,13 @@ class RatchetEngine(
         val address = SignalProtocolAddress(senderUserId, senderDeviceId)
         val cipher = SessionCipher(protocolStore, address)
 
-        val rawPlaintext = when (type) {
+        val rawPlaintext: ByteArray = when (type) {
             EnvelopeType.PREKEY_MESSAGE -> {
-                val preKeyMessage = PreKeySignalMessage(ciphertext)
+                val preKeyMessage: PreKeySignalMessage = PreKeySignalMessage(ciphertext)
                 cipher.decrypt(preKeyMessage)
             }
             EnvelopeType.CIPHERTEXT -> {
-                val signalMessage = SignalMessage(ciphertext)
+                val signalMessage: SignalMessage = SignalMessage(ciphertext)
                 cipher.decrypt(signalMessage)
             }
             else -> throw InvalidMessageException("Unsupported envelope type: $type")
