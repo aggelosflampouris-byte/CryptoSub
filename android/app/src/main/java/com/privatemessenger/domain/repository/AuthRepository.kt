@@ -50,7 +50,13 @@ class AuthRepository(
             val registrationId = org.signal.libsignal.protocol.util.KeyHelper.generateRegistrationId(false)
 
             // 2. Generate signed prekey
-            val signedPreKey = org.signal.libsignal.protocol.util.KeyHelper.generateSignedPreKey(identityKeyPair, 1)
+            val keyPair = org.signal.libsignal.protocol.ecc.Curve.generateKeyPair()
+            val signature = org.signal.libsignal.protocol.ecc.Curve.calculateSignature(
+                identityKeyPair.privateKey,
+                keyPair.publicKey.serialize()
+            )
+            val timestamp = System.currentTimeMillis()
+            val signedPreKey = org.signal.libsignal.protocol.state.SignedPreKeyRecord(1, timestamp, keyPair, signature)
 
             // 3. Complete registration with the server
             val request = CompleteRegistrationRequest(
