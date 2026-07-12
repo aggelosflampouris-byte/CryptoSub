@@ -90,6 +90,7 @@ class AuthRepository(
             apiClient.webSocketManager.connect(response.session_token)
 
             trace("12. Success")
+            prefs.edit().remove("last_trace").apply()
             Result.success(Unit)
         } catch (e: Throwable) {
             trace("Error: ${e.javaClass.simpleName} - ${e.message}")
