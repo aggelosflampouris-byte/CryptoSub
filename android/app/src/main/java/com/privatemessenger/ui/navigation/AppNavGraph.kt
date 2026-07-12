@@ -98,7 +98,17 @@ fun AppNavGraph(
                 },
                 onAddContactClicked = {
                     navController.navigate("scanner")
+                },
+                onAccountClicked = {
+                    navController.navigate("account")
                 }
+            )
+        }
+
+        composable("account") {
+            com.privatemessenger.ui.screens.account.AccountScreen(
+                app = app,
+                onBack = { navController.popBackStack() }
             )
         }
 

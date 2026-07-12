@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +36,8 @@ fun ChatListScreen(
     database: AppDatabase,
     app: PrivateMessengerApp,
     onChatClicked: (String) -> Unit,
-    onAddContactClicked: () -> Unit
+    onAddContactClicked: () -> Unit,
+    onAccountClicked: () -> Unit
 ) {
     val conversations by database.conversationDao().getAllConversations().collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
@@ -94,7 +96,12 @@ fun ChatListScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
+                ),
+                actions = {
+                    IconButton(onClick = onAccountClicked) {
+                        Icon(androidx.compose.material.icons.Icons.Default.Person, contentDescription = "Account Details")
+                    }
+                }
             )
         },
         floatingActionButton = {
