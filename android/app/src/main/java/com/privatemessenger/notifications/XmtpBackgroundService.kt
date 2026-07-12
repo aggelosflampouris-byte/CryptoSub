@@ -66,12 +66,16 @@ class XmtpBackgroundService : Service() {
                             )
                             app.database.conversationDao().upsert(contact)
                             // 🔔 Push notification: new contact
-                            NotificationHelper.showNewContactNotification(app, label)
+                            if (message.senderInboxId != client.inboxId) {
+                                NotificationHelper.showNewContactNotification(app, label)
+                            }
                         } else {
                             // 🔔 Push notification: new message in existing conversation
                             val conv = app.database.conversationDao().getConversation(convId)
                             val senderLabel = conv?.displayName ?: "${message.senderInboxId.take(6)}..."
-                            NotificationHelper.showNewMessageNotification(app, senderLabel, message.body, convId)
+                            if (message.senderInboxId != client.inboxId) {
+                                NotificationHelper.showNewMessageNotification(app, senderLabel, message.body, convId)
+                            }
                         }
 
                         val msgEntity = MessageEntity(

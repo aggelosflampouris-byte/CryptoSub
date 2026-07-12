@@ -2,9 +2,14 @@ package com.privatemessenger.ui
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import android.app.AlertDialog
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,6 +27,17 @@ import org.xmtp.android.library.XMTPEnvironment
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Request Notification Permission on Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+                    if (!isGranted) {
+                        android.util.Log.w("MainActivity", "Notification permission denied by user.")
+                    }
+                }.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
         
         // Check for captured crash logs and trace logs
         val crashPrefs = getSharedPreferences("crash_prefs", Context.MODE_PRIVATE)
