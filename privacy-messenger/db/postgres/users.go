@@ -16,17 +16,17 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 	return &UserRepository{pool: pool}
 }
 
-// CreateOrGetUser is idempotent on phone_hash: if a user already exists for
-// this phone hash (e.g. reinstalling the app), their existing id is returned
-// rather than creating a duplicate account.
-func (r *UserRepository) CreateOrGetUser(ctx context.Context, phoneHash string) (string, error) {
+// CreateOrGetUser is idempotent on public_key_hash: if a user already exists
+// for this key (e.g. reinstalling the app with the same identity key), their
+// existing id is returned rather than creating a duplicate account.
+func (r *UserRepository) CreateOrGetUser(ctx context.Context, publicKeyHash string) (string, error) {
 	var userID string
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO users (phone_hash)
+		INSERT INTO users (public_key_hash)
 		VALUES ($1)
-		ON CONFLICT (phone_hash) DO UPDATE SET phone_hash = EXCLUDED.phone_hash
+		ON CONFLICT (public_key_hash) DO UPDATE SET public_key_hash = EXCLUDED.public_key_hash
 		RETURNING id
-	`, phoneHash).Scan(&userID)
+	`, publicKeyHash).Scan(&userID)
 	return userID, err
 }
 
@@ -58,20 +58,18 @@ type PreKeyBundle struct {
 	IdentityPublicKey []byte `json:"identity_public_key"`
 	SignedPreKey      []byte `json:"signed_pre_key"`
 	RegistrationID    int    `json:"registration_id"`
-	OneTimePreKeyID   *int   `json:"one_time_pre_key_id,omitempty"` // nil if none were available
-	OneTimePreKey     []byte `json:"one_time_pre_key,omitempty"`    // nil if none were available
+	OneTimePreKeyID   *int   `json:"one_time_pre_key_id,omitempty"`
+	OneTimePreKey     []byte `json:"one_time_pre_key,omitempty"`
 }
 
 // FetchPreKeyBundle returns everything needed to start a session with a
-// device, consuming one one-time prekey if available (one-time keys are
-// deleted on fetch so they're never reused — reuse would weaken forward
-// secrecy for that handshake).
+// device, consuming one one-time prekey if available.
 func (r *UserRepository) FetchPreKeyBundle(ctx context.Context, userID, deviceID string) (*PreKeyBundle, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx) // no-op if committed
+	defer tx.Rollback(ctx)
 
 	bundle := &PreKeyBundle{}
 	err = tx.QueryRow(ctx, `
@@ -100,9 +98,7 @@ func (r *UserRepository) FetchPreKeyBundle(ctx context.Context, userID, deviceID
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		// No one-time prekeys left — the handshake can still proceed using
-		// just the signed prekey, at a small reduction in forward secrecy
-		// for that specific session. The client should be nudged to top up.
+		// No one-time prekeys left — handshake still proceeds
 	case err != nil:
 		return nil, err
 	default:
@@ -122,8 +118,6 @@ func (r *UserRepository) FetchPreKeyBundle(ctx context.Context, userID, deviceID
 }
 
 // UploadOneTimePreKeys lets a device top up its supply of one-time prekeys.
-// Clients should call this periodically (e.g. when the server reports the
-// count has dropped below a threshold).
 func (r *UserRepository) UploadOneTimePreKeys(ctx context.Context, userID, deviceID string, keys map[int][]byte) error {
 	batch := &pgx.Batch{}
 	for keyID, publicKey := range keys {
@@ -145,7 +139,7 @@ func (r *UserRepository) UploadOneTimePreKeys(ctx context.Context, userID, devic
 }
 
 // CountOneTimePreKeys returns the number of unused one-time prekeys still
-// available for a device. Clients poll this to decide when to top up.
+// available for a device.
 func (r *UserRepository) CountOneTimePreKeys(ctx context.Context, userID, deviceID string) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx, `
@@ -155,29 +149,14 @@ func (r *UserRepository) CountOneTimePreKeys(ctx context.Context, userID, device
 	return count, err
 }
 
-// FindUsersByPhoneHashes looks up users by a list of phone hashes.
-// Returns a map of phoneHash -> user_id for matches.
-func (r *UserRepository) FindUsersByPhoneHashes(ctx context.Context, hashes []string) (map[string]string, error) {
-	if len(hashes) == 0 {
-		return make(map[string]string), nil
+// FindUserByID looks up a user by their UUID (used for contact adding via short ID).
+func (r *UserRepository) FindUserByID(ctx context.Context, userID string) (string, error) {
+	var id string
+	err := r.pool.QueryRow(ctx, `
+		SELECT id::text FROM users WHERE id = $1::uuid
+	`, userID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", errors.New("user not found")
 	}
-
-	rows, err := r.pool.Query(ctx, `
-		SELECT phone_hash, id::text FROM users
-		WHERE phone_hash = ANY($1)
-	`, hashes)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := make(map[string]string)
-	for rows.Next() {
-		var hash, id string
-		if err := rows.Scan(&hash, &id); err != nil {
-			return nil, err
-		}
-		result[hash] = id
-	}
-	return result, rows.Err()
+	return id, err
 }

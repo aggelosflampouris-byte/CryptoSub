@@ -4,10 +4,10 @@
 -- a public key, or a hash — never plaintext secrets.
 
 CREATE TABLE IF NOT EXISTS users (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone_hash  TEXT NOT NULL UNIQUE,       -- HMAC-SHA256(phone, pepper); raw phone never stored
-    username    TEXT UNIQUE,                -- optional, chosen by user
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    public_key_hash TEXT NOT NULL UNIQUE,       -- SHA256 of the user's public identity key
+    display_name    TEXT,                       -- optional, chosen by user
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS devices (
@@ -30,13 +30,6 @@ CREATE TABLE IF NOT EXISTS one_time_prekeys (
     public_key  BYTEA NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, device_id, key_id)
-);
-
-CREATE TABLE IF NOT EXISTS otp_codes (
-    phone_hash  TEXT PRIMARY KEY,
-    code_hash   BYTEA NOT NULL,             -- SHA-256 of the code; plaintext code never stored
-    expires_at  TIMESTAMPTZ NOT NULL,
-    tries       INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -62,4 +55,3 @@ CREATE TABLE IF NOT EXISTS group_members (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at);
-CREATE INDEX IF NOT EXISTS idx_otp_codes_expires_at ON otp_codes (expires_at);

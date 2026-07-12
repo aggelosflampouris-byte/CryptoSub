@@ -1,7 +1,17 @@
+// Package auth handles wallet-based identity registration and session management.
+//
+// Unlike phone-based registration, there is no OTP or SMS step. The client
+// generates a cryptographic identity key pair locally and sends only the
+// public half to the server. The user's identity IS their public key.
+//
+// This model is used by Session Messenger, Briar, and SimpleX Chat.
+// It is strictly more private than Signal (which requires a phone number).
 package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 )
@@ -9,25 +19,25 @@ import (
 var ErrDeviceKeyMissing = errors.New("device public key and registration id are required")
 
 // UserStore is the persistence contract for user/device records. Concrete
-// implementation lives in db/postgres. Note this store never touches
-// message content — only identity and public key material.
+// implementation lives in db/postgres.
 type UserStore interface {
-	// CreateOrGetUser returns the existing user id for phoneHash, or creates
-	// a new user row and returns the new id. Idempotent by phoneHash.
-	CreateOrGetUser(ctx context.Context, phoneHash string) (userID string, err error)
+	// CreateOrGetUser returns the existing user id for the given public key
+	// hash, or creates a new user row and returns the new id. Idempotent.
+	CreateOrGetUser(ctx context.Context, publicKeyHash string) (userID string, err error)
 
 	// RegisterDevice stores a device's public identity key and signed
 	// prekey bundle so other clients can initiate X3DH with it.
 	RegisterDevice(ctx context.Context, userID, deviceID string, identityPublicKey, signedPreKey []byte, registrationID int) error
 }
 
+// RegistrationInput contains everything the client sends in a single POST
+// to register. No phone number, no OTP — just cryptographic key material.
 type RegistrationInput struct {
-	PhoneNumber       string
-	OTPCode           string
 	DeviceID          string
 	IdentityPublicKey []byte // client-generated; server never sees the private key
 	SignedPreKey      []byte
 	RegistrationID    int
+	DisplayName       string // optional, user-chosen
 }
 
 type RegistrationResult struct {
@@ -36,43 +46,32 @@ type RegistrationResult struct {
 }
 
 type RegistrationService struct {
-	otp     *OTPService
 	users   UserStore
 	session *SessionService
-	pepper  string // phone-hash pepper, injected from config, never hardcoded
 }
 
-func NewRegistrationService(otp *OTPService, users UserStore, session *SessionService, phoneHashPepper string) *RegistrationService {
-	return &RegistrationService{otp: otp, users: users, session: session, pepper: phoneHashPepper}
+func NewRegistrationService(users UserStore, session *SessionService) *RegistrationService {
+	return &RegistrationService{users: users, session: session}
 }
 
-// StartRegistration sends an OTP to the given phone number. It does not yet
-// create any user record — no account exists until the code is verified.
-func (r *RegistrationService) StartRegistration(ctx context.Context, phoneNumber string) error {
-	phoneHash, err := HashPhoneNumber(phoneNumber, r.pepper)
-	if err != nil {
-		return fmt.Errorf("hashing phone number: %w", err)
-	}
-	return r.otp.RequestOTP(ctx, phoneNumber, phoneHash)
-}
-
-// CompleteRegistration verifies the OTP and, only on success, creates the
-// user + device records and issues a session token.
-func (r *RegistrationService) CompleteRegistration(ctx context.Context, in RegistrationInput) (*RegistrationResult, error) {
+// Register performs single-step, zero-knowledge registration:
+//  1. Derive a deterministic user identity from SHA256(identity_public_key)
+//  2. Create or retrieve the user record (idempotent — reinstalling recovers the account)
+//  3. Register the device's key material
+//  4. Issue a session token
+func (r *RegistrationService) Register(ctx context.Context, in RegistrationInput) (*RegistrationResult, error) {
 	if len(in.IdentityPublicKey) == 0 || len(in.SignedPreKey) == 0 || in.RegistrationID == 0 {
 		return nil, ErrDeviceKeyMissing
 	}
-
-	phoneHash, err := HashPhoneNumber(in.PhoneNumber, r.pepper)
-	if err != nil {
-		return nil, fmt.Errorf("hashing phone number: %w", err)
+	if in.DeviceID == "" {
+		in.DeviceID = "1"
 	}
 
-	if err := r.otp.VerifyOTP(ctx, phoneHash, in.OTPCode); err != nil {
-		return nil, err // ErrOTPExpired / ErrOTPInvalid / ErrOTPTooManyTries surfaced as-is
-	}
+	// Derive a deterministic identifier from the public key so that
+	// reinstalling with the same key pair recovers the same account.
+	publicKeyHash := HashPublicKey(in.IdentityPublicKey)
 
-	userID, err := r.users.CreateOrGetUser(ctx, phoneHash)
+	userID, err := r.users.CreateOrGetUser(ctx, publicKeyHash)
 	if err != nil {
 		return nil, fmt.Errorf("creating user: %w", err)
 	}
@@ -87,4 +86,11 @@ func (r *RegistrationService) CompleteRegistration(ctx context.Context, in Regis
 	}
 
 	return &RegistrationResult{UserID: userID, SessionToken: token}, nil
+}
+
+// HashPublicKey produces a hex-encoded SHA-256 of a public key.
+// This is used as the stable user identifier in the database.
+func HashPublicKey(publicKey []byte) string {
+	sum := sha256.Sum256(publicKey)
+	return hex.EncodeToString(sum[:])
 }

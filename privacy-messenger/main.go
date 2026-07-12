@@ -54,7 +54,6 @@ func run(logger *slog.Logger) error {
 	}
 	defer pgPool.Close()
 
-	otpRepo := postgres.NewOTPRepository(pgPool)
 	sessionRepo := postgres.NewSessionRepository(pgPool)
 	userRepo := postgres.NewUserRepository(pgPool)
 
@@ -78,22 +77,8 @@ func run(logger *slog.Logger) error {
 	messageStore := cassandra.NewMessageStore(cassandraSession, cfg.OfflineMessageTTL)
 
 	// --- Auth services ---
-	// NOTE: PHONE_HASH_PEPPER is deliberately not part of config.Config —
-	// it's read directly here so it's never passed through general config
-	// plumbing or accidentally logged alongside less sensitive settings.
-	phoneHashPepper := os.Getenv("PHONE_HASH_PEPPER")
-	if phoneHashPepper == "" {
-		return errors.New("PHONE_HASH_PEPPER environment variable is required")
-	}
-
-	smsSender, err := newSMSSender(cfg)
-	if err != nil {
-		return err
-	}
-
-	otpService := auth.NewOTPService(otpRepo, smsSender)
 	sessionService := auth.NewSessionService(sessionRepo, cfg.SessionTTL)
-	registrationService := auth.NewRegistrationService(otpService, userRepo, sessionService, phoneHashPepper)
+	registrationService := auth.NewRegistrationService(userRepo, sessionService)
 
 	// --- ACK handler: confirms delivery and deletes from Cassandra ---
 	ackHandler := func(ctx context.Context, userID, deviceID, messageID string) error {
@@ -105,26 +90,15 @@ func run(logger *slog.Logger) error {
 	}
 
 	// --- Relay + gateway wiring ---
-	// gatewayServer needs to exist before router (router needs its Registry
-	// as the live Deliverer), and gatewayServer needs the router's Route
-	// method as its inbound envelope handler — so we construct gateway
-	// first with a placeholder, then wire the router, then patch the
-	// handler in. See NewServer below for the two-step wiring.
 	var router *relay.Router
 
 	gatewayServer := gateway.NewServer(
 		sessionAdapter{sessionService},
 		func(ctx context.Context, envelope *relay.Envelope) error {
-			// Durable write-ahead persist, then hand off to the router for
-			// live delivery / fast-queue fallback. If the durable write
-			// fails we do not attempt delivery — better to reject the
-			// send than to risk silently losing it.
 			messageID, err := messageStore.Save(ctx, envelope)
 			if err != nil {
 				return err
 			}
-			// Stamp the envelope with its durable message ID so the
-			// recipient can send an ACK referencing it.
 			envelope.MessageID = messageID.String()
 			return router.Route(ctx, envelope)
 		},
@@ -148,7 +122,7 @@ func run(logger *slog.Logger) error {
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/ws", gatewayServer)
-	registerHTTPRoutes(mux, registrationService, sessionService, userRepo, phoneHashPepper, s3Store)
+	registerHTTPRoutes(mux, registrationService, sessionService, userRepo, s3Store)
 
 	httpServer := &http.Server{
 		Addr:         cfg.ListenAddr,

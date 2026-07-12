@@ -11,10 +11,9 @@ import (
 	"privacy-messenger/db/postgres"
 )
 
-func registerHTTPRoutes(mux *http.ServeMux, reg *auth.RegistrationService, sessions *auth.SessionService, users *postgres.UserRepository, pepper string, s3Store *attachments.S3Store) {
+func registerHTTPRoutes(mux *http.ServeMux, reg *auth.RegistrationService, sessions *auth.SessionService, users *postgres.UserRepository, s3Store *attachments.S3Store) {
 	// --- Registration & auth ---
-	mux.HandleFunc("POST /v1/register/start", handleStartRegistration(reg))
-	mux.HandleFunc("POST /v1/register/complete", handleCompleteRegistration(reg))
+	mux.HandleFunc("POST /v1/register", handleRegister(reg))
 	mux.HandleFunc("POST /v1/logout", handleLogout(sessions))
 
 	// --- Key exchange (X3DH prekey bundles) ---
@@ -22,8 +21,8 @@ func registerHTTPRoutes(mux *http.ServeMux, reg *auth.RegistrationService, sessi
 	mux.HandleFunc("POST /v1/devices/prekeys", handleUploadPreKeys(users, sessions))
 	mux.HandleFunc("GET /v1/devices/prekeys/count", handlePreKeyCount(users, sessions))
 
-	// --- Contact Sync ---
-	mux.HandleFunc("POST /v1/contacts/sync", handleContactSync(users, sessions, pepper))
+	// --- Identity / Discovery ---
+	mux.HandleFunc("GET /v1/users/{userId}", handleGetUser(users, sessions))
 
 	// --- FCM ---
 	mux.HandleFunc("POST /v1/devices/fcm", handleUpdateFCMToken(users, sessions))
@@ -54,74 +53,39 @@ func authenticateRequest(r *http.Request, sessions *auth.SessionService) (*auth.
 }
 
 // ---------------------------------------------------------------------------
-// Registration handlers (unchanged)
+// Registration handlers
 // ---------------------------------------------------------------------------
 
-type startRegistrationRequest struct {
-	PhoneNumber string `json:"phone_number"`
-}
-
-func handleStartRegistration(reg *auth.RegistrationService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req startRegistrationRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PhoneNumber == "" {
-			writeError(w, http.StatusBadRequest, "phone_number is required")
-			return
-		}
-
-		if err := reg.StartRegistration(r.Context(), req.PhoneNumber); err != nil {
-			// Deliberately generic response: don't reveal whether this
-			// phone number is already registered, rate-limited, etc.
-			// through response variation.
-			writeError(w, http.StatusInternalServerError, "could not send verification code")
-			return
-		}
-
-		w.WriteHeader(http.StatusAccepted)
-	}
-}
-
-type completeRegistrationRequest struct {
-	PhoneNumber       string `json:"phone_number"`
-	OTPCode           string `json:"otp_code"`
+type registerRequest struct {
 	DeviceID          string `json:"device_id"`
 	IdentityPublicKey []byte `json:"identity_public_key"`
 	SignedPreKey      []byte `json:"signed_pre_key"`
 	RegistrationID    int    `json:"registration_id"`
+	DisplayName       string `json:"display_name"`
 }
 
-type completeRegistrationResponse struct {
+type registerResponse struct {
 	UserID       string `json:"user_id"`
 	SessionToken string `json:"session_token"`
 }
 
-func handleCompleteRegistration(reg *auth.RegistrationService) http.HandlerFunc {
+func handleRegister(reg *auth.RegistrationService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req completeRegistrationRequest
+		var req registerRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
 
-		result, err := reg.CompleteRegistration(r.Context(), auth.RegistrationInput{
-			PhoneNumber:       req.PhoneNumber,
-			OTPCode:           req.OTPCode,
+		result, err := reg.Register(r.Context(), auth.RegistrationInput{
 			DeviceID:          req.DeviceID,
 			IdentityPublicKey: req.IdentityPublicKey,
 			SignedPreKey:      req.SignedPreKey,
 			RegistrationID:    req.RegistrationID,
+			DisplayName:       req.DisplayName,
 		})
 
 		switch {
-		case errors.Is(err, auth.ErrOTPInvalid):
-			writeError(w, http.StatusUnauthorized, "invalid verification code")
-			return
-		case errors.Is(err, auth.ErrOTPExpired):
-			writeError(w, http.StatusUnauthorized, "verification code expired")
-			return
-		case errors.Is(err, auth.ErrOTPTooManyTries):
-			writeError(w, http.StatusTooManyRequests, "too many attempts, request a new code")
-			return
 		case errors.Is(err, auth.ErrDeviceKeyMissing):
 			writeError(w, http.StatusBadRequest, "device key material is required")
 			return
@@ -130,7 +94,7 @@ func handleCompleteRegistration(reg *auth.RegistrationService) http.HandlerFunc 
 			return
 		}
 
-		writeJSON(w, http.StatusOK, completeRegistrationResponse{
+		writeJSON(w, http.StatusOK, registerResponse{
 			UserID:       result.UserID,
 			SessionToken: result.SessionToken,
 		})
@@ -157,17 +121,12 @@ func handleLogout(sessions *auth.SessionService) http.HandlerFunc {
 }
 
 // ---------------------------------------------------------------------------
-// Key exchange handlers (NEW — Phase 2)
+// Key exchange handlers
 // ---------------------------------------------------------------------------
 
-// handleFetchPreKeyBundle returns the X3DH prekey bundle for a target
-// device so the requesting client can initiate an encrypted session without
-// the peer being online. One one-time prekey is consumed atomically on each
-// fetch to guarantee forward secrecy for that handshake.
 func handleFetchPreKeyBundle(users *postgres.UserRepository, sessions *auth.SessionService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Any authenticated user may fetch another user's bundle — that's
-		// how X3DH works: you need the recipient's key material to start.
+		// Any authenticated user may fetch another user's bundle
 		if _, err := authenticateRequest(r, sessions); err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid session")
 			return
@@ -190,12 +149,9 @@ func handleFetchPreKeyBundle(users *postgres.UserRepository, sessions *auth.Sess
 	}
 }
 
-// handleUploadPreKeys lets an authenticated device top up its supply of
-// one-time prekeys. The client should call this when the server reports
-// a low prekey count.
 func handleUploadPreKeys(users *postgres.UserRepository, sessions *auth.SessionService) http.HandlerFunc {
 	type uploadRequest struct {
-		Keys map[int][]byte `json:"keys"` // key_id → public_key
+		Keys map[int][]byte `json:"keys"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -207,7 +163,7 @@ func handleUploadPreKeys(users *postgres.UserRepository, sessions *auth.SessionS
 
 		var req uploadRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.Keys) == 0 {
-			writeError(w, http.StatusBadRequest, "keys map is required (key_id → public_key)")
+			writeError(w, http.StatusBadRequest, "keys map is required")
 			return
 		}
 
@@ -220,8 +176,6 @@ func handleUploadPreKeys(users *postgres.UserRepository, sessions *auth.SessionS
 	}
 }
 
-// handlePreKeyCount returns the number of remaining one-time prekeys for
-// the authenticated device so the client knows when to top up.
 func handlePreKeyCount(users *postgres.UserRepository, sessions *auth.SessionService) http.HandlerFunc {
 	type countResponse struct {
 		Count int `json:"count"`
@@ -245,70 +199,37 @@ func handlePreKeyCount(users *postgres.UserRepository, sessions *auth.SessionSer
 }
 
 // ---------------------------------------------------------------------------
-// Contact Sync handler
+// Identity / Discovery handler
 // ---------------------------------------------------------------------------
 
-type contactSyncRequest struct {
-	PhoneNumbers []string `json:"phone_numbers"`
+type userResponse struct {
+	UserID string `json:"user_id"`
 }
 
-type contactMatch struct {
-	PhoneNumber string `json:"phone_number"`
-	UserID      string `json:"user_id"`
-}
-
-type contactSyncResponse struct {
-	Contacts []contactMatch `json:"contacts"`
-}
-
-func handleContactSync(users *postgres.UserRepository, sessions *auth.SessionService, pepper string) http.HandlerFunc {
+// handleGetUser lets a client look up a user by their UUID to verify they exist.
+// This supports the QR code / short-link flow.
+func handleGetUser(users *postgres.UserRepository, sessions *auth.SessionService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, err := authenticateRequest(r, sessions); err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid session")
 			return
 		}
 
-		var req contactSyncRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid request body")
+		userID := r.PathValue("userId")
+		if userID == "" {
+			writeError(w, http.StatusBadRequest, "user_id is required")
 			return
 		}
 
-		if len(req.PhoneNumbers) > 5000 {
-			writeError(w, http.StatusBadRequest, "too many phone numbers in a single sync request")
-			return
-		}
-
-		// Transient hashing: the server computes the hashes in memory to look up the DB,
-		// and never stores the plaintext array.
-		hashToPhone := make(map[string]string)
-		var hashes []string
-		for _, phone := range req.PhoneNumbers {
-			h, err := auth.HashPhoneNumber(phone, pepper)
-			if err != nil {
-				continue
-			}
-			hashes = append(hashes, h)
-			hashToPhone[h] = phone
-		}
-
-		matches, err := users.FindUsersByPhoneHashes(r.Context(), hashes)
+		id, err := users.FindUserByID(r.Context(), userID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to sync contacts")
+			writeError(w, http.StatusNotFound, "user not found")
 			return
 		}
 
-		var resp contactSyncResponse
-		for h, userID := range matches {
-			if phone, ok := hashToPhone[h]; ok {
-				resp.Contacts = append(resp.Contacts, contactMatch{
-					PhoneNumber: phone,
-					UserID:      userID,
-				})
-			}
-		}
-
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, http.StatusOK, userResponse{
+			UserID: id,
+		})
 	}
 }
 
