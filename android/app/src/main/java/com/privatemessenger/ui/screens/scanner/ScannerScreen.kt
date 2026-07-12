@@ -7,6 +7,10 @@ import android.graphics.Color
 import android.net.Uri
 import android.util.Log
 import android.view.ViewGroup
+import android.widget.Toast
+import android.content.ClipboardManager
+import android.content.ClipData
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -20,6 +24,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -107,23 +112,42 @@ fun ScannerScreen(
                 MyQrCodeView(apiClient)
             } else {
                 if (hasCameraPermission) {
-                    CameraPreviewView(
-                        onBarcodeScanned = { barcodeValue ->
-                            try {
-                                val uri = Uri.parse(barcodeValue)
-                                if (uri.scheme == "privatemessenger" && uri.host == "contact") {
-                                    val userId = uri.getQueryParameter("userId")
-                                    val deviceId = uri.getQueryParameter("deviceId")?.toIntOrNull()
-                                    val profileKey = uri.getQueryParameter("profileKey")
-                                    if (userId != null && deviceId != null && profileKey != null) {
-                                        onContactScanned(userId, deviceId, profileKey)
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        CameraPreviewView(
+                            onBarcodeScanned = { barcodeValue ->
+                                try {
+                                    val uri = Uri.parse(barcodeValue)
+                                    if (uri.scheme == "privatemessenger" && uri.host == "contact") {
+                                        val userId = uri.getQueryParameter("userId")
+                                        val deviceId = uri.getQueryParameter("deviceId")?.toIntOrNull()
+                                        val profileKey = uri.getQueryParameter("profileKey")
+                                        if (userId != null && deviceId != null && profileKey != null) {
+                                            onContactScanned(userId, deviceId, profileKey)
+                                        }
                                     }
+                                } catch (e: Exception) {
+                                    Log.e("ScannerScreen", "Invalid QR code format: $barcodeValue")
                                 }
-                            } catch (e: Exception) {
-                                Log.e("ScannerScreen", "Invalid QR code format: $barcodeValue")
                             }
-                        }
-                    )
+                        )
+                        
+                        PasteAddressView(
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                            onAddressPasted = { address ->
+                                try {
+                                    val decoded = String(android.util.Base64.decode(address, android.util.Base64.NO_WRAP))
+                                    val parts = decoded.split(":")
+                                    if (parts.size == 3) {
+                                        onContactScanned(parts[0], parts[1].toInt(), parts[2])
+                                    } else {
+                                        Toast.makeText(context, "Invalid Public Address", Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Invalid Public Address", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    }
                 } else {
                     Text("Camera permission is required to scan QR codes.")
                 }
@@ -139,8 +163,11 @@ fun MyQrCodeView(apiClient: ApiClient) {
     val profileKey = apiClient.getProfileKey() ?: ""
     
     val uri = "privatemessenger://contact?userId=$userId&deviceId=$deviceId&profileKey=$profileKey"
+    val rawAddress = "$userId:$deviceId:$profileKey"
+    val publicAddress = remember(rawAddress) { android.util.Base64.encodeToString(rawAddress.toByteArray(), android.util.Base64.NO_WRAP) }
     
     val qrBitmap = remember(uri) { generateQrCodeBitmap(uri, 800) }
+    val context = LocalContext.current
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -163,15 +190,30 @@ fun MyQrCodeView(apiClient: ApiClient) {
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(
-            text = userId,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-            ),
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.primary,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
-        )
+        ) {
+            Text(
+                text = publicAddress.take(12) + "..." + publicAddress.takeLast(12),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                ),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            IconButton(onClick = {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("Public Address", publicAddress)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(context, "Address copied to clipboard", Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = "Copy Address",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
 
         Text(
             text = "Have a friend scan this code to add you as a contact securely.",
@@ -280,4 +322,49 @@ fun CameraPreviewView(onBarcodeScanned: (String) -> Unit) {
         },
         modifier = Modifier.fillMaxSize()
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PasteAddressView(
+    modifier: Modifier = Modifier,
+    onAddressPasted: (String) -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        tonalElevation = 4.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Or add manually by Public Address",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Paste Base64 Address") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    if (text.isNotBlank()) {
+                        IconButton(onClick = {
+                            onAddressPasted(text)
+                            text = ""
+                        }) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Add Contact", modifier = Modifier.background(MaterialTheme.colorScheme.primary, shape = androidx.compose.foundation.shape.CircleShape).padding(4.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
+                }
+            )
+        }
+    }
 }
