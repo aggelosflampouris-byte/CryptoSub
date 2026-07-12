@@ -62,7 +62,7 @@ class PrivateMessengerApp : Application() {
         }
 
         // Initialize SQLCipher native libraries
-        net.sqlcipher.database.SQLiteDatabase.loadLibs(this)
+        System.loadLibrary("sqlcipher")
 
         // 1. Keystore â€” always available
         keyStoreManager = KeyStoreManager(this)

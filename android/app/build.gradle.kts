@@ -61,7 +61,7 @@ dependencies {
     // SQLCipher — encrypts the Room database at rest using a Keystore-derived
     // passphrase so a device extraction does not expose message history
     // -------------------------------------------------------------------------
-    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("net.zetetic:sqlcipher-android:4.5.4@aar")
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
 
     // -------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.local
+package com.privatemessenger.data.local
 
 import android.content.Context
 import androidx.room.Database
@@ -15,7 +15,7 @@ import com.privatemessenger.data.local.entity.MessageEntity
 import com.privatemessenger.data.local.entity.PreKeyEntity
 import com.privatemessenger.data.local.entity.SessionEntity
 import com.privatemessenger.data.local.entity.SignedPreKeyEntity
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 /**
  * The single Room database for the entire app, encrypted at rest with
@@ -81,7 +81,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         private fun buildDatabase(context: Context, passphrase: ByteArray): AppDatabase {
             // SupportFactory bridges SQLCipher into Room's SupportSQLiteOpenHelper
-            val factory = SupportFactory(passphrase)
+            val factory = SupportOpenHelperFactory(passphrase)
 
             return Room.databaseBuilder(
                 context.applicationContext,
