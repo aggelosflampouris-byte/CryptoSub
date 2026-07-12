@@ -1,4 +1,4 @@
-package com.privatemessenger.crypto
+﻿package com.privatemessenger.crypto
 
 import android.util.Log
 import com.google.gson.Gson

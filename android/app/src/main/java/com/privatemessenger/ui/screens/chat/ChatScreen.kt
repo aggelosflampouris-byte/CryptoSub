@@ -1,4 +1,4 @@
-package com.privatemessenger.ui.screens.chat
+﻿package com.privatemessenger.ui.screens.chat
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -196,10 +196,10 @@ fun MessageBubble(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = when (message.status) {
-                            MessageStatus.SENDING -> "•"
-                            MessageStatus.SENT -> "✓"
-                            MessageStatus.DELIVERED -> "✓✓"
-                            MessageStatus.READ -> "✓✓" // You can color this tertiary
+                            MessageStatus.SENDING -> "â€¢"
+                            MessageStatus.SENT -> "âœ“"
+                            MessageStatus.DELIVERED -> "âœ“âœ“"
+                            MessageStatus.READ -> "âœ“âœ“" // You can color this tertiary
                             MessageStatus.FAILED -> "!"
                         },
                         style = MaterialTheme.typography.labelSmall,

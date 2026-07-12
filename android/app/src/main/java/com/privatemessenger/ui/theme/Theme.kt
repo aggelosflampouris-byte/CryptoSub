@@ -1,4 +1,4 @@
-package com.privatemessenger.ui.theme
+﻿package com.privatemessenger.ui.theme
 
 import android.app.Activity
 import android.os.Build

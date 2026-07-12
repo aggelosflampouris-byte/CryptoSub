@@ -1,4 +1,4 @@
-package com.privatemessenger.data.remote.api
+﻿package com.privatemessenger.data.remote.api
 
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -7,7 +7,7 @@ import retrofit2.http.Path
 
 /**
  * Retrofit interface for the Privacy Messenger backend REST API.
- * All encrypted messaging happens over WebSockets — these endpoints
+ * All encrypted messaging happens over WebSockets â€” these endpoints
  * are strictly for out-of-band operations like registration and
  * key exchange.
  */

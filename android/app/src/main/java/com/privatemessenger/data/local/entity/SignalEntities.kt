@@ -1,11 +1,11 @@
-package com.privatemessenger.data.local.entity
+﻿package com.privatemessenger.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 
 /**
  * Persists a libsignal SessionRecord for a specific remote device.
- * The session contains the current ratchet state — losing it means
+ * The session contains the current ratchet state â€” losing it means
  * the user has to re-establish the session from a fresh prekey bundle.
  */
 @Entity(
@@ -32,7 +32,7 @@ data class SessionEntity(
 
 /**
  * Persists a one-time prekey (private + public). These are consumed
- * by incoming prekey messages — each is deleted after use.
+ * by incoming prekey messages â€” each is deleted after use.
  */
 @Entity(tableName = "signal_prekeys")
 data class PreKeyEntity(
@@ -53,7 +53,7 @@ data class PreKeyEntity(
 
 /**
  * Persists a signed prekey. Unlike one-time prekeys, signed prekeys
- * are rotated rather than consumed — the old one is kept around
+ * are rotated rather than consumed â€” the old one is kept around
  * briefly so in-flight prekey messages can still be processed.
  */
 @Entity(tableName = "signal_signed_prekeys")

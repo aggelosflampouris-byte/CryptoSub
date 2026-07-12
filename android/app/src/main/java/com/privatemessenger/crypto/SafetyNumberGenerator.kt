@@ -1,8 +1,8 @@
-package com.privatemessenger.crypto
+﻿package com.privatemessenger.crypto
 
-import org.signal.libsignal.protocol.IdentityKey
-import org.signal.libsignal.protocol.fingerprint.DisplayableFingerprint
-import org.signal.libsignal.protocol.fingerprint.NumericFingerprintGenerator
+import org.whispersystems.libsignal.IdentityKey
+import org.whispersystems.libsignal.fingerprint.DisplayableFingerprint
+import org.whispersystems.libsignal.fingerprint.NumericFingerprintGenerator
 
 /**
  * SafetyNumberGenerator creates verifiable safety numbers (fingerprints)
@@ -17,7 +17,7 @@ import org.signal.libsignal.protocol.fingerprint.NumericFingerprintGenerator
  *
  * If a user's identity key changes (e.g. they reinstalled the app),
  * the safety number changes, and the peer sees a "safety number changed"
- * warning — the correct response is to re-verify, not to silently continue.
+ * warning â€” the correct response is to re-verify, not to silently continue.
  */
 class SafetyNumberGenerator {
 

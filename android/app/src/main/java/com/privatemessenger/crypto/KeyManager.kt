@@ -1,12 +1,12 @@
 package com.privatemessenger.crypto
 
 import android.content.Context
-import org.signal.libsignal.protocol.IdentityKey
-import org.signal.libsignal.protocol.IdentityKeyPair
-import org.signal.libsignal.protocol.ecc.Curve
-import org.signal.libsignal.protocol.state.PreKeyRecord
-import org.signal.libsignal.protocol.state.SignedPreKeyRecord
-import org.signal.libsignal.protocol.util.KeyHelper
+import org.whispersystems.libsignal.IdentityKey
+import org.whispersystems.libsignal.IdentityKeyPair
+import org.whispersystems.libsignal.ecc.Curve
+import org.whispersystems.libsignal.state.PreKeyRecord
+import org.whispersystems.libsignal.state.SignedPreKeyRecord
+import org.whispersystems.libsignal.util.KeyHelper
 import java.security.SecureRandom
 import java.time.Instant
 
@@ -14,10 +14,10 @@ import java.time.Instant
  * KeyManager generates and manages all cryptographic key material on the device.
  *
  * Key hierarchy:
- *   Identity Key Pair  — long-lived, created once at registration, never changes
+ *   Identity Key Pair  â€” long-lived, created once at registration, never changes
  *                         unless the user explicitly re-registers (which resets trust)
- *   Signed Pre Key     — medium-lived, rotated periodically (e.g. every 7 days)
- *   One-Time Pre Keys  — ephemeral, each consumed by exactly one X3DH handshake
+ *   Signed Pre Key     â€” medium-lived, rotated periodically (e.g. every 7 days)
+ *   One-Time Pre Keys  â€” ephemeral, each consumed by exactly one X3DH handshake
  *
  * The private halves of all keys live ONLY on this device. The server stores
  * only the public halves (see POST /v1/register/complete and POST /v1/devices/prekeys).
@@ -34,7 +34,7 @@ class KeyManager(
     }
 
     // ------------------------------------------------------------------
-    // Identity Key — generated once, used for the lifetime of this device
+    // Identity Key â€” generated once, used for the lifetime of this device
     // ------------------------------------------------------------------
 
     /**
@@ -43,7 +43,7 @@ class KeyManager(
      * happens (see [SignalProtocolStoreImpl]).
      */
     fun generateIdentityKeyPair(): IdentityKeyPair {
-        return IdentityKeyPair.generate()
+        return KeyHelper.generateIdentityKeyPair()
     }
 
     /**
@@ -55,7 +55,7 @@ class KeyManager(
     }
 
     // ------------------------------------------------------------------
-    // Registration ID — a random 14-bit integer identifying this device
+    // Registration ID â€” a random 14-bit integer identifying this device
     // ------------------------------------------------------------------
 
     fun generateRegistrationId(): Int {
@@ -63,7 +63,7 @@ class KeyManager(
     }
 
     // ------------------------------------------------------------------
-    // Signed Pre Key — rotated periodically
+    // Signed Pre Key â€” rotated periodically
     // ------------------------------------------------------------------
 
     /**
@@ -90,7 +90,7 @@ class KeyManager(
     }
 
     // ------------------------------------------------------------------
-    // One-Time Pre Keys — consumed once per X3DH handshake
+    // One-Time Pre Keys â€” consumed once per X3DH handshake
     // ------------------------------------------------------------------
 
     /**

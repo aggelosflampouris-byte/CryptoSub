@@ -1,4 +1,4 @@
-package com.privatemessenger.domain.repository
+﻿package com.privatemessenger.domain.repository
 
 import com.privatemessenger.data.remote.api.MessengerApi
 import kotlinx.coroutines.Dispatchers

@@ -1,4 +1,4 @@
-package com.privatemessenger.data.remote
+﻿package com.privatemessenger.data.remote
 
 import android.content.Context
 import com.google.gson.Gson

@@ -1,4 +1,4 @@
-package com.privatemessenger.domain.repository
+﻿package com.privatemessenger.domain.repository
 
 import android.util.Log
 import com.privatemessenger.crypto.EncryptedPayload
@@ -139,7 +139,7 @@ class MessageRepository(
                 webSocketManager.sendAck(it)
             }
 
-        } catch (e: org.signal.libsignal.protocol.InvalidMessageException) {
+        } catch (e: org.whispersystems.libsignal.InvalidMessageException) {
             Log.e("MessageRepository", "Failed to decrypt message", e)
         } catch (e: Exception) {
             Log.e("MessageRepository", "Error processing envelope", e)

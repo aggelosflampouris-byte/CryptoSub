@@ -1,4 +1,4 @@
-package com.privatemessenger.ui.screens.chatlist
+﻿package com.privatemessenger.ui.screens.chatlist
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

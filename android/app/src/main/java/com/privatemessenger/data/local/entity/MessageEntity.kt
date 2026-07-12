@@ -1,4 +1,4 @@
-package com.privatemessenger.data.local.entity
+﻿package com.privatemessenger.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 
 /**
  * Stores decrypted message content locally. This plaintext exists ONLY
- * in the SQLCipher-encrypted database on the device — never on the server,
+ * in the SQLCipher-encrypted database on the device â€” never on the server,
  * never in plaintext on disk.
  */
 @Entity(
@@ -28,7 +28,7 @@ data class MessageEntity(
     val senderUserId: String,
 
     @ColumnInfo(name = "content")
-    val content: String,  // plaintext — encrypted at rest by SQLCipher
+    val content: String,  // plaintext â€” encrypted at rest by SQLCipher
 
     @ColumnInfo(name = "attachment_uri")
     val attachmentUri: String? = null,

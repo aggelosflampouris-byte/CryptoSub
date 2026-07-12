@@ -1,4 +1,4 @@
-package com.privatemessenger.ui.screens.registration
+﻿package com.privatemessenger.ui.screens.registration
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*

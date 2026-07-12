@@ -1,4 +1,4 @@
-package com.privatemessenger.ui
+﻿package com.privatemessenger.ui
 
 import android.content.Context
 import android.os.Bundle

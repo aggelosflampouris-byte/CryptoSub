@@ -1,4 +1,4 @@
-package com.privatemessenger.data.local.entity
+﻿package com.privatemessenger.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity

@@ -1,4 +1,4 @@
-package com.privatemessenger.ui.navigation
+﻿package com.privatemessenger.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween

@@ -1,11 +1,11 @@
-package com.privatemessenger.data.local.entity
+﻿package com.privatemessenger.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * A known contact — discovered via hashed phone-number matching.
+ * A known contact â€” discovered via hashed phone-number matching.
  * The raw phone number is never sent to the server; only the
  * HMAC-SHA256 hash (see server's HashPhoneNumber) is transmitted
  * for contact discovery.
@@ -22,7 +22,7 @@ data class ContactEntity(
     @ColumnInfo(name = "display_name")
     val displayName: String? = null,
 
-    /** The contact's public identity key — used for safety number generation */
+    /** The contact's public identity key â€” used for safety number generation */
     @ColumnInfo(name = "identity_key", typeAffinity = ColumnInfo.BLOB)
     val identityKey: ByteArray? = null,
 

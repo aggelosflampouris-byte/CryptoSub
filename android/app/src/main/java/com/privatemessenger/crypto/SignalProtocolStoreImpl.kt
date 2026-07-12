@@ -1,18 +1,18 @@
 package com.privatemessenger.crypto
 
-import org.signal.libsignal.protocol.IdentityKey
-import org.signal.libsignal.protocol.IdentityKeyPair
-import org.signal.libsignal.protocol.SignalProtocolAddress
-import org.signal.libsignal.protocol.groups.state.SenderKeyRecord
-import org.signal.libsignal.protocol.state.IdentityKeyStore
-import org.signal.libsignal.protocol.state.PreKeyRecord
-import org.signal.libsignal.protocol.state.SessionRecord
-import org.signal.libsignal.protocol.state.SignedPreKeyRecord
-import org.signal.libsignal.protocol.state.SignalProtocolStore
-import org.signal.libsignal.protocol.state.PreKeyStore
-import org.signal.libsignal.protocol.state.SessionStore
-import org.signal.libsignal.protocol.state.SignedPreKeyStore
-import org.signal.libsignal.protocol.groups.state.SenderKeyStore
+import org.whispersystems.libsignal.IdentityKey
+import org.whispersystems.libsignal.IdentityKeyPair
+import org.whispersystems.libsignal.SignalProtocolAddress
+import org.whispersystems.libsignal.groups.state.SenderKeyRecord
+import org.whispersystems.libsignal.state.IdentityKeyStore
+import org.whispersystems.libsignal.state.PreKeyRecord
+import org.whispersystems.libsignal.state.SessionRecord
+import org.whispersystems.libsignal.state.SignedPreKeyRecord
+import org.whispersystems.libsignal.state.SignalProtocolStore
+import org.whispersystems.libsignal.state.PreKeyStore
+import org.whispersystems.libsignal.state.SessionStore
+import org.whispersystems.libsignal.state.SignedPreKeyStore
+import org.whispersystems.libsignal.groups.state.SenderKeyStore
 import com.privatemessenger.data.local.dao.SignalDao
 import com.privatemessenger.data.local.entity.IdentityKeyEntity
 import com.privatemessenger.data.local.entity.PreKeyEntity
@@ -38,7 +38,7 @@ class SignalProtocolStoreImpl(
     private val dao: SignalDao,
     private val localIdentityKeyPair: IdentityKeyPair,
     private val localRegistrationId: Int,
-) : SignalProtocolStore {
+) : SignalProtocolStore, SenderKeyStore {
 
     // ==================================================================
     // IdentityKeyStore
@@ -65,14 +65,14 @@ class SignalProtocolStoreImpl(
         )
 
         return if (existing != null) {
-            // Key changed — save the new one but return true to indicate change
+            // Key changed â€” save the new one but return true to indicate change
             val changed = !existing.identityKey.contentEquals(identityKey.serialize())
             if (changed) {
                 dao.upsertIdentityKey(entity.copy(trusted = false))
             }
             changed
         } else {
-            // First time seeing this identity — trust on first use
+            // First time seeing this identity â€” trust on first use
             dao.upsertIdentityKey(entity)
             false
         }
@@ -84,7 +84,7 @@ class SignalProtocolStoreImpl(
         direction: IdentityKeyStore.Direction,
     ): Boolean {
         val existing = dao.getIdentityKey(address.name, address.deviceId)
-            ?: return true // No record → trust on first use
+            ?: return true // No record â†’ trust on first use
 
         // Trusted if the key matches what we have stored AND it's marked trusted
         return existing.identityKey.contentEquals(identityKey.serialize()) && existing.trusted
@@ -148,7 +148,7 @@ class SignalProtocolStoreImpl(
 
     override fun loadPreKey(preKeyId: Int): PreKeyRecord {
         val entity = dao.getPreKey(preKeyId)
-            ?: throw org.signal.libsignal.protocol.InvalidKeyIdException("No pre key: $preKeyId")
+            ?: throw org.whispersystems.libsignal.InvalidKeyIdException("No pre key: $preKeyId")
         return PreKeyRecord(entity.preKeyRecord)
     }
 
@@ -172,7 +172,7 @@ class SignalProtocolStoreImpl(
 
     override fun loadSignedPreKey(signedPreKeyId: Int): SignedPreKeyRecord {
         val entity = dao.getSignedPreKey(signedPreKeyId)
-            ?: throw org.signal.libsignal.protocol.InvalidKeyIdException("No signed pre key: $signedPreKeyId")
+            ?: throw org.whispersystems.libsignal.InvalidKeyIdException("No signed pre key: $signedPreKeyId")
         return SignedPreKeyRecord(entity.signedPreKeyRecord)
     }
 
@@ -199,43 +199,18 @@ class SignalProtocolStoreImpl(
     // ==================================================================
 
     override fun storeSenderKey(
-        sender: SignalProtocolAddress,
-        distributionId: UUID,
-        record: SenderKeyRecord,
+        senderName: org.whispersystems.libsignal.SignalProtocolAddress,
+        distributionId: java.util.UUID,
+        record: org.whispersystems.libsignal.groups.state.SenderKeyRecord,
     ) {
         // Group messaging sender keys — to be implemented in Phase 4
-        // when group chat support is added.
     }
 
     override fun loadSenderKey(
-        sender: SignalProtocolAddress,
+        senderName: org.whispersystems.libsignal.SignalProtocolAddress,
         distributionId: java.util.UUID,
-    ): SenderKeyRecord? {
+    ): org.whispersystems.libsignal.groups.state.SenderKeyRecord? {
         // Placeholder until group messaging is implemented
         return null
-    }
-
-    // ==================================================================
-    // KyberPreKeyStore (Post-Quantum)
-    // ==================================================================
-
-    override fun loadKyberPreKey(preKeyId: Int): org.signal.libsignal.protocol.state.KyberPreKeyRecord {
-        throw org.signal.libsignal.protocol.InvalidKeyIdException("No kyber key")
-    }
-
-    override fun loadKyberPreKeys(): MutableList<org.signal.libsignal.protocol.state.KyberPreKeyRecord> {
-        return mutableListOf()
-    }
-
-    override fun storeKyberPreKey(preKeyId: Int, record: org.signal.libsignal.protocol.state.KyberPreKeyRecord) {
-        // No-op for MVP
-    }
-
-    override fun containsKyberPreKey(preKeyId: Int): Boolean {
-        return false
-    }
-
-    override fun markKyberPreKeyUsed(preKeyId: Int) {
-        // No-op
     }
 }

@@ -1,4 +1,4 @@
-package com.privatemessenger.data.local
+﻿package com.privatemessenger.data.local
 
 import android.content.Context
 import androidx.room.Database
@@ -29,13 +29,13 @@ import net.sqlcipher.database.SupportFactory
  *   - A physical device extraction yields only ciphertext.
  *
  * Tables:
- *   - messages          — decrypted message content (plaintext only here)
- *   - conversations     — chat list metadata
- *   - contacts          — discovered contacts + identity keys
- *   - signal_sessions   — Double Ratchet session state
- *   - signal_prekeys    — one-time prekey records
- *   - signal_signed_prekeys — signed prekey records
- *   - signal_identity_keys  — remote identity keys + trust status
+ *   - messages          â€” decrypted message content (plaintext only here)
+ *   - conversations     â€” chat list metadata
+ *   - contacts          â€” discovered contacts + identity keys
+ *   - signal_sessions   â€” Double Ratchet session state
+ *   - signal_prekeys    â€” one-time prekey records
+ *   - signal_signed_prekeys â€” signed prekey records
+ *   - signal_identity_keys  â€” remote identity keys + trust status
  */
 @Database(
     entities = [
@@ -90,7 +90,7 @@ abstract class AppDatabase : RoomDatabase() {
             )
                 .openHelperFactory(factory)
                 // Allow queries on non-main threads (required for libsignal's
-                // synchronous store calls — all crypto happens off the main thread)
+                // synchronous store calls â€” all crypto happens off the main thread)
                 .allowMainThreadQueries()  // TODO: restrict to signal DAO only
                 .build()
         }

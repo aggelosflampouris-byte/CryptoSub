@@ -1,10 +1,10 @@
-package com.privatemessenger.crypto
+﻿package com.privatemessenger.crypto
 
-import org.signal.libsignal.protocol.IdentityKey
-import org.signal.libsignal.protocol.InvalidKeyException
-import org.signal.libsignal.protocol.SessionBuilder
-import org.signal.libsignal.protocol.SignalProtocolAddress
-import org.signal.libsignal.protocol.state.PreKeyBundle
+import org.whispersystems.libsignal.IdentityKey
+import org.whispersystems.libsignal.InvalidKeyException
+import org.whispersystems.libsignal.SessionBuilder
+import org.whispersystems.libsignal.SignalProtocolAddress
+import org.whispersystems.libsignal.state.PreKeyBundle
 
 /**
  * SignalSessionBuilder handles the X3DH (Extended Triple Diffie-Hellman)
@@ -13,12 +13,12 @@ import org.signal.libsignal.protocol.state.PreKeyBundle
  * Flow (initiator side):
  *   1. Fetch the recipient's pre-key bundle from the server
  *      (GET /v1/users/{id}/devices/{id}/bundle)
- *   2. Call [buildSession] with the bundle → creates a local session
+ *   2. Call [buildSession] with the bundle â†’ creates a local session
  *   3. The first message sent through this session is a "prekey message"
  *      that carries the ephemeral key the responder needs to derive the
  *      same shared secret. After that, the Double Ratchet takes over.
  *
- * The server never learns the shared secret — it only relays the public
+ * The server never learns the shared secret â€” it only relays the public
  * key material and the resulting ciphertext.
  */
 class SignalSessionBuilder(
@@ -38,7 +38,7 @@ class SignalSessionBuilder(
      *                            - registration ID
      *
      * @throws InvalidKeyException if the bundle contains invalid key material
-     *         (e.g. a bad signature on the signed pre key — this could
+     *         (e.g. a bad signature on the signed pre key â€” this could
      *         indicate tampering or a server bug and must halt session
      *         creation rather than silently proceeding)
      */
@@ -89,14 +89,14 @@ class SignalSessionBuilder(
                 registrationId,
                 deviceId,
                 oneTimePreKeyId,
-                org.signal.libsignal.protocol.ecc.Curve.decodePoint(oneTimePreKeyPublic, 0),
+                org.whispersystems.libsignal.ecc.Curve.decodePoint(oneTimePreKeyPublic, 0),
                 signedPreKeyId,
-                org.signal.libsignal.protocol.ecc.Curve.decodePoint(signedPreKeyPublic, 0),
+                org.whispersystems.libsignal.ecc.Curve.decodePoint(signedPreKeyPublic, 0),
                 signedPreKeySignature,
                 identityKey,
             )
         } else {
-            // No one-time pre key available — X3DH still works, just
+            // No one-time pre key available â€” X3DH still works, just
             // with slightly reduced forward secrecy for this handshake.
             PreKeyBundle(
                 registrationId,
@@ -104,7 +104,7 @@ class SignalSessionBuilder(
                 -1,   // sentinel: no one-time prekey
                 null, // no one-time prekey
                 signedPreKeyId,
-                org.signal.libsignal.protocol.ecc.Curve.decodePoint(signedPreKeyPublic, 0),
+                org.whispersystems.libsignal.ecc.Curve.decodePoint(signedPreKeyPublic, 0),
                 signedPreKeySignature,
                 identityKey,
             )

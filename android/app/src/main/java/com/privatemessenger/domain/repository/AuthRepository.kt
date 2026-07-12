@@ -24,17 +24,17 @@ class AuthRepository(
     suspend fun register(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             // 1. Generate identity key pair
-            val identityKeyPair = org.signal.libsignal.protocol.IdentityKeyPair.generate()
-            val registrationId = org.signal.libsignal.protocol.util.KeyHelper.generateRegistrationId(false)
+            val identityKeyPair = org.whispersystems.libsignal.util.KeyHelper.generateIdentityKeyPair()
+            val registrationId = org.whispersystems.libsignal.util.KeyHelper.generateRegistrationId(false)
 
             // 2. Generate signed prekey
-            val keyPair = org.signal.libsignal.protocol.ecc.Curve.generateKeyPair()
-            val signature = org.signal.libsignal.protocol.ecc.Curve.calculateSignature(
+            val keyPair = org.whispersystems.libsignal.ecc.Curve.generateKeyPair()
+            val signature = org.whispersystems.libsignal.ecc.Curve.calculateSignature(
                 identityKeyPair.privateKey,
                 keyPair.publicKey.serialize()
             )
             val timestamp = System.currentTimeMillis()
-            val signedPreKey = org.signal.libsignal.protocol.state.SignedPreKeyRecord(1, timestamp, keyPair, signature)
+            val signedPreKey = org.whispersystems.libsignal.state.SignedPreKeyRecord(1, timestamp, keyPair, signature)
 
             // 3. Register with the server
             val request = RegisterRequest(

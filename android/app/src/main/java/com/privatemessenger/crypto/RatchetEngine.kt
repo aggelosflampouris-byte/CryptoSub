@@ -1,14 +1,14 @@
-package com.privatemessenger.crypto
+﻿package com.privatemessenger.crypto
 
-import org.signal.libsignal.protocol.DuplicateMessageException
-import org.signal.libsignal.protocol.InvalidKeyException
-import org.signal.libsignal.protocol.InvalidMessageException
-import org.signal.libsignal.protocol.NoSessionException
-import org.signal.libsignal.protocol.SessionCipher
-import org.signal.libsignal.protocol.SignalProtocolAddress
-import org.signal.libsignal.protocol.message.CiphertextMessage
-import org.signal.libsignal.protocol.message.PreKeySignalMessage
-import org.signal.libsignal.protocol.message.SignalMessage
+import org.whispersystems.libsignal.DuplicateMessageException
+import org.whispersystems.libsignal.InvalidKeyException
+import org.whispersystems.libsignal.InvalidMessageException
+import org.whispersystems.libsignal.NoSessionException
+import org.whispersystems.libsignal.SessionCipher
+import org.whispersystems.libsignal.SignalProtocolAddress
+import org.whispersystems.libsignal.message.CiphertextMessage
+import org.whispersystems.libsignal.message.PreKeySignalMessage
+import org.whispersystems.libsignal.message.SignalMessage
 import com.google.gson.Gson
 
 /**
@@ -36,7 +36,7 @@ data class PlaintextPayload(
  * chain. Out-of-order messages are handled automatically by the ratchet's
  * message-key cache (up to a configurable window).
  *
- * The engine never stores plaintext — it receives plaintext from the UI
+ * The engine never stores plaintext â€” it receives plaintext from the UI
  * layer, returns ciphertext (and vice versa), and delegates all key-state
  * persistence to the [SignalProtocolStoreImpl] (which writes to the
  * encrypted Room database).
@@ -57,7 +57,7 @@ class RatchetEngine(
      * @return [EncryptedPayload] containing the ciphertext bytes and the
      *         type indicator the server needs to route it correctly.
      *
-     * @throws NoSessionException if no session exists with this device —
+     * @throws NoSessionException if no session exists with this device â€”
      *         caller must fetch a pre-key bundle and build a session first.
      */
     @Throws(NoSessionException::class)
@@ -99,7 +99,7 @@ class RatchetEngine(
      * regular ratcheted messages.
      *
      * @param senderUserId   The sender's user ID (from the sealed-sender
-     *                       decryption — see [SealedSenderDecryptor])
+     *                       decryption â€” see [SealedSenderDecryptor])
      * @param senderDeviceId The sender's device ID
      * @param ciphertext     The raw ciphertext bytes
      * @param type           Whether this is a prekey message or regular ciphertext

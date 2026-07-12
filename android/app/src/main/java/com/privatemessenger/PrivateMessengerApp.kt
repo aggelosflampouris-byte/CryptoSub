@@ -1,4 +1,4 @@
-package com.privatemessenger
+﻿package com.privatemessenger
 
 import android.app.Application
 import com.privatemessenger.crypto.KeyManager
@@ -8,17 +8,17 @@ import com.privatemessenger.crypto.SignalProtocolStoreImpl
 import com.privatemessenger.crypto.SignalSessionBuilder
 import com.privatemessenger.data.local.AppDatabase
 import com.privatemessenger.keystore.KeyStoreManager
-import org.signal.libsignal.protocol.IdentityKeyPair
+import org.whispersystems.libsignal.IdentityKeyPair
 
 /**
  * Application subclass that initializes the cryptographic and storage
  * infrastructure on startup.
  *
  * Initialization order matters:
- *   1. KeyStoreManager  — provides the database passphrase
- *   2. AppDatabase       — opens the encrypted database
- *   3. SignalProtocolStoreImpl — backed by the database
- *   4. Crypto services   — KeyManager, SessionBuilder, RatchetEngine
+ *   1. KeyStoreManager  â€” provides the database passphrase
+ *   2. AppDatabase       â€” opens the encrypted database
+ *   3. SignalProtocolStoreImpl â€” backed by the database
+ *   4. Crypto services   â€” KeyManager, SessionBuilder, RatchetEngine
  *
  * In a production app these would be provided via dependency injection
  * (e.g. Hilt). For now they're exposed as lazy properties on the
@@ -61,10 +61,10 @@ class PrivateMessengerApp : Application() {
             defaultHandler?.uncaughtException(thread, exception)
         }
 
-        // 1. Keystore — always available
+        // 1. Keystore â€” always available
         keyStoreManager = KeyStoreManager(this)
 
-        // 2. Encrypted database — always available
+        // 2. Encrypted database â€” always available
         val passphrase = keyStoreManager.getDatabasePassphrase()
         database = AppDatabase.getInstance(this, passphrase)
 

@@ -1,4 +1,4 @@
-package com.privatemessenger.notifications
+﻿package com.privatemessenger.notifications
 
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService

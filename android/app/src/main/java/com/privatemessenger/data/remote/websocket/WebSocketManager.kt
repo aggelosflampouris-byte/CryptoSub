@@ -1,4 +1,4 @@
-package com.privatemessenger.data.remote.websocket
+﻿package com.privatemessenger.data.remote.websocket
 
 import android.util.Log
 import com.google.gson.Gson

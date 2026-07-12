@@ -1,4 +1,4 @@
-package com.privatemessenger.crypto
+﻿package com.privatemessenger.crypto
 
 import android.security.keystore.KeyProperties
 import java.security.SecureRandom

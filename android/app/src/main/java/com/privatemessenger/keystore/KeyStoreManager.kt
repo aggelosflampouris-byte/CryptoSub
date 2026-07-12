@@ -1,4 +1,4 @@
-package com.privatemessenger.keystore
+﻿package com.privatemessenger.keystore
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
@@ -31,13 +31,13 @@ import javax.crypto.spec.SecretKeySpec
  *
  *   3. **Backup key derivation**: Derives an AES key from a user-provided
  *      passphrase (+ a random salt) for encrypting key exports. This key
- *      is never stored — the user must remember their passphrase.
+ *      is never stored â€” the user must remember their passphrase.
  *
  * Security properties:
  *   - Keys stored in Android Keystore are hardware-backed on devices with
  *     a Secure Element or StrongBox (API 28+). On older devices they're
  *     software-backed but still isolated from the app's process memory.
- *   - Keystore keys cannot be exported — only used for encrypt/decrypt
+ *   - Keystore keys cannot be exported â€” only used for encrypt/decrypt
  *     operations via the Keystore provider.
  *   - All encryption uses AES-256-GCM (authenticated encryption).
  */
@@ -178,7 +178,7 @@ class KeyStoreManager(private val context: Context) {
      * salt, which must be stored alongside the encrypted backup so the
      * key can be re-derived on restore.
      *
-     * This key is never stored on the device — the user must remember
+     * This key is never stored on the device â€” the user must remember
      * (or securely record) their backup passphrase.
      */
     fun deriveBackupKey(passphrase: String): BackupKey {
