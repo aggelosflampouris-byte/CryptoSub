@@ -25,7 +25,7 @@ fun AppNavGraph(
 
     // Setup basic dependencies for the UI
     // In a real app with DI (e.g., Hilt), these would be injected into ViewModels
-    val apiClient = ApiClient(app, "http://10.0.2.2:8080/") // Android emulator localhost
+    val apiClient = ApiClient(app, "https://contemporary-tons-hrs-annie.trycloudflare.com/") // Cloudflare Tunnel for live testing IP
     val authRepository = AuthRepository(apiClient, app)
 
     NavHost(
