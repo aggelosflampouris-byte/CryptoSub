@@ -80,7 +80,10 @@ class AuthRepository(
 
             trace("10. Uploading prekeys")
             val uploadRequest = UploadPreKeysRequest(keys = preKeyBatch.publicKeysForServer)
-            apiClient.api.uploadPreKeys(uploadRequest)
+            val uploadResponse = apiClient.api.uploadPreKeys(uploadRequest)
+            if (!uploadResponse.isSuccessful) {
+                throw retrofit2.HttpException(uploadResponse)
+            }
 
             // 7. Connect WebSocket
             trace("11. Connecting websocket")

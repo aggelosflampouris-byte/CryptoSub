@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.remote.api
+package com.privatemessenger.data.remote.api
 
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -21,7 +21,7 @@ interface MessengerApi {
     suspend fun register(@Body request: RegisterRequest): RegisterResponse
 
     @POST("/v1/logout")
-    suspend fun logout(@Body request: LogoutRequest)
+    suspend fun logout(@Body request: LogoutRequest): retrofit2.Response<Unit>
 
     // ------------------------------------------------------------------
     // Identity / Discovery
@@ -41,7 +41,7 @@ interface MessengerApi {
     ): PreKeyBundleResponse
 
     @POST("/v1/devices/prekeys")
-    suspend fun uploadPreKeys(@Body request: UploadPreKeysRequest)
+    suspend fun uploadPreKeys(@Body request: UploadPreKeysRequest): retrofit2.Response<Unit>
 
     @GET("/v1/devices/prekeys/count")
     suspend fun getPreKeyCount(): PreKeyCountResponse
