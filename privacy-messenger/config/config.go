@@ -37,9 +37,6 @@ type Config struct {
 	APNsKeyID          string
 	APNsTeamID         string
 
-	// SMS OTP provider (e.g. Twilio) — credentials only, no vendor lock-in here
-	SMSProviderAPIKey string
-	SMSProviderSecret string
 
 	// How long an offline message may sit in the queue before it's dropped
 	OfflineMessageTTL time.Duration
@@ -77,12 +74,6 @@ func Load() (*Config, error) {
 	cfg.MediaAccessKey = os.Getenv("MEDIA_ACCESS_KEY")
 	cfg.MediaSecretKey = os.Getenv("MEDIA_SECRET_KEY")
 
-	if cfg.SMSProviderAPIKey, err = requireEnv("SMS_PROVIDER_API_KEY"); err != nil {
-		return nil, err
-	}
-	if cfg.SMSProviderSecret, err = requireEnv("SMS_PROVIDER_SECRET"); err != nil {
-		return nil, err
-	}
 
 	// Push credentials are optional at boot (server can run without them in dev),
 	// but are required for a real deployment — validated at the call site instead
