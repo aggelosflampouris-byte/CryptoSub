@@ -38,7 +38,14 @@ class ApiClient(private val context: Context, private val baseUrl: String) {
     }
 
     private val authInterceptor = Interceptor { chain ->
-        val token = getSessionToken()
+        val token = try {
+            getSessionToken()
+        } catch (e: Exception) {
+            // If EncryptedSharedPreferences fails to initialize (known bug on some devices),
+            // we MUST throw an IOException so OkHttp catches it, instead of crashing the thread.
+            throw java.io.IOException("Failed to access secure keystore", e)
+        }
+        
         val request = chain.request().newBuilder().apply {
             if (token != null) {
                 addHeader("Authorization", "Bearer $token")
