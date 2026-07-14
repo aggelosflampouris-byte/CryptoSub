@@ -35,7 +35,7 @@ object NotificationHelper {
             NotificationChannel(
                 CHANNEL_SERVICE,
                 "Background Service",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_MIN
             ).apply { description = "Keeps the app listening for new messages" }
         )
     }
@@ -53,7 +53,7 @@ object NotificationHelper {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Privacy Messenger")
             .setContentText("Listening for messages...")
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setContentIntent(pi)
             .build()
     }

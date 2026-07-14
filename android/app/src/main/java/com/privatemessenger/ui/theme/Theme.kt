@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.ui.theme
+package com.privatemessenger.ui.theme
 
 import android.app.Activity
 import android.os.Build
@@ -16,14 +16,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Rich, vibrant color palette for a premium feel
-val PrimaryAccent = Color(0xFF6C63FF)
-val PrimaryAccentDark = Color(0xFF5A52D5)
-val BackgroundDark = Color(0xFF0F0F1A)
-val SurfaceDark = Color(0xFF1A1A2E)
-val SurfaceVariantDark = Color(0xFF232336)
-val TextPrimaryDark = Color(0xFFE0E0E0)
-val TextSecondaryDark = Color(0xFFA0A0B5)
+// Minimal, pure black aesthetic
+val PrimaryAccent = Color(0xFFFFFFFF) // White as primary accent for stark contrast
+val PrimaryAccentDark = Color(0xFFE0E0E0)
+val BackgroundDark = Color(0xFF000000) // Pure Black
+val SurfaceDark = Color(0xFF0A0A0A) // Very dark gray for surfaces
+val SurfaceVariantDark = Color(0xFF141414)
+val TextPrimaryDark = Color(0xFFFFFFFF)
+val TextSecondaryDark = Color(0xFF888888)
 val SuccessGreen = Color(0xFF00E676)
 
 private val DarkColorScheme = darkColorScheme(
@@ -33,9 +33,9 @@ private val DarkColorScheme = darkColorScheme(
     background = BackgroundDark,
     surface = SurfaceDark,
     surfaceVariant = SurfaceVariantDark,
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
+    onPrimary = Color.Black,
+    onSecondary = Color.Black,
+    onTertiary = Color.Black,
     onBackground = TextPrimaryDark,
     onSurface = TextPrimaryDark,
     onSurfaceVariant = TextSecondaryDark,

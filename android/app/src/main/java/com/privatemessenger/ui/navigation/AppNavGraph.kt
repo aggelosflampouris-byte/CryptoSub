@@ -27,6 +27,7 @@ fun AppNavGraph(
 ) {
     val navController = rememberNavController()
     val authRepository = AuthRepository(app)
+    val coroutineScope = rememberCoroutineScope()
 
 
     NavHost(
@@ -108,7 +109,18 @@ fun AppNavGraph(
         composable("account") {
             com.privatemessenger.ui.screens.account.AccountScreen(
                 app = app,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onLogout = {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        app.keyStoreManager.clearAllKeys()
+                        app.database.clearAllTables()
+                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            navController.navigate("registration") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                }
             )
         }
 

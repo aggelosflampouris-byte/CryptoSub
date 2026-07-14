@@ -114,8 +114,6 @@ fun RegistrationScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
                 .padding(32.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
