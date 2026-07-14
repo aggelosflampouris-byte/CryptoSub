@@ -238,6 +238,7 @@ fun ChatListItem(
                     }
                 }
             }
+        }
     }
 }
 
