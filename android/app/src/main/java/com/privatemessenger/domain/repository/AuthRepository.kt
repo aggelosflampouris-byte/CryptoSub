@@ -16,7 +16,7 @@ class AuthRepository(
     /**
      * Generate a brand-new Ethereum wallet and register on XMTP.
      */
-    suspend fun register(): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun register(): Result<String> = withContext(Dispatchers.IO) {
         val prefs = application.getSharedPreferences("trace_prefs", android.content.Context.MODE_PRIVATE)
         fun trace(msg: String) {
             prefs.edit().putString("last_trace", msg).commit()
@@ -56,7 +56,7 @@ class AuthRepository(
 
             trace("5. Success")
             prefs.edit().remove("last_trace").apply()
-            Result.success(Unit)
+            Result.success(privateKeyHex)
         } catch (e: Throwable) {
             trace("Error: ${e.javaClass.simpleName} - ${e.message}")
             val errString = Log.getStackTraceString(e)

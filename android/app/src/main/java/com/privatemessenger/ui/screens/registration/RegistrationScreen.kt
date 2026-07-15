@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,8 +37,77 @@ fun RegistrationScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
     var importKeyText by remember { mutableStateOf("") }
+    var generatedKey by remember { mutableStateOf<String?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
+
+    if (generatedKey != null) {
+        AnimatedBackground {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .clip(RoundedCornerShape(32.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(32.dp))
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Crucial Security Step",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "This is your Ethereum Private Key. It is the ONLY way to access your account and messages if you lose this device.",
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.Black, RoundedCornerShape(12.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            generatedKey!!,
+                            color = Color.White,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        "Memorize it or store it securely offline. DO NOT share it with anyone.",
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    BounceButton(
+                        onClick = { onRegistrationComplete() },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("I have safely stored it", fontWeight = FontWeight.Bold, color = Color.Black)
+                    }
+                }
+            }
+        }
+        return
+    }
 
     // ── Import Key Dialog ───────────────────────────────────────────
     if (showImportDialog) {
@@ -92,9 +162,9 @@ fun RegistrationScreen(
                     enabled = !isLoading && importKeyText.isNotBlank()
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.Black)
                     } else {
-                        Text("Restore")
+                        Text("Restore", color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                 }
             },
@@ -168,7 +238,7 @@ fun RegistrationScreen(
                             val result = authRepository.register()
                             isLoading = false
                             if (result.isSuccess) {
-                                onRegistrationComplete()
+                                generatedKey = result.getOrNull()
                             } else {
                                 errorMessage = result.exceptionOrNull()?.message
                                     ?: "Failed to generate identity."
