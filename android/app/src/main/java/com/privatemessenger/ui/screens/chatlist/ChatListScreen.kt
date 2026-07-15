@@ -8,9 +8,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,6 +50,7 @@ fun ChatListScreen(
 ) {
     val conversations by database.conversationDao().getAllConversations().collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     LaunchedEffect(Unit) {
         NotificationHelper.createChannels(app)
@@ -88,85 +94,154 @@ fun ChatListScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Messages",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.5.sp
-                        )
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                drawerContentColor = MaterialTheme.colorScheme.onSurface
+            ) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "CryptoSub",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                Spacer(Modifier.height(8.dp))
+                NavigationDrawerItem(
+                    label = { Text("Account", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = { 
+                        coroutineScope.launch { drawerState.close() }
+                        onAccountClicked() 
+                    },
+                    icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                    colors = NavigationDrawerItemDefaults.colors(
+                        unselectedContainerColor = Color.Transparent,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurface
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                ),
-                actions = {
-                    IconButton(onClick = onAccountClicked) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = "Account Details",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(20.dp)
+                )
+                NavigationDrawerItem(
+                    label = { Text("Contacts", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = { coroutineScope.launch { drawerState.close() } },
+                    icon = { Icon(Icons.Default.Contacts, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                    colors = NavigationDrawerItemDefaults.colors(
+                        unselectedContainerColor = Color.Transparent,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+                NavigationDrawerItem(
+                    label = { Text("Groups", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = { coroutineScope.launch { drawerState.close() } },
+                    icon = { Icon(Icons.Default.Group, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                    colors = NavigationDrawerItemDefaults.colors(
+                        unselectedContainerColor = Color.Transparent,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+                NavigationDrawerItem(
+                    label = { Text("Customization", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = { coroutineScope.launch { drawerState.close() } },
+                    icon = { Icon(Icons.Default.Palette, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                    colors = NavigationDrawerItemDefaults.colors(
+                        unselectedContainerColor = Color.Transparent,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+                NavigationDrawerItem(
+                    label = { Text("Share", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = { coroutineScope.launch { drawerState.close() } },
+                    icon = { Icon(Icons.Default.Share, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                    colors = NavigationDrawerItemDefaults.colors(
+                        unselectedContainerColor = Color.Transparent,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "Messages",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
                             )
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    ),
+                    navigationIcon = {
+                        IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onBackground)
                         }
                     }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddContactClicked,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.Black,
-                shape = RoundedCornerShape(16.dp),
-                elevation = FloatingActionButtonDefaults.elevation(8.dp)
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "New Chat", modifier = Modifier.size(28.dp))
-            }
-        },
-        containerColor = Color.Transparent
-    ) { padding ->
-        AnimatedBackground {
-            if (conversations.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = onAddContactClicked,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.Black,
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
                 ) {
-                    Text(
-                        text = "No active conversations.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
+                    Icon(Icons.Filled.Add, contentDescription = "New Chat", modifier = Modifier.size(28.dp))
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentPadding = PaddingValues(vertical = 12.dp)
-                ) {
-                    items(conversations, key = { it.id }) { conversation ->
-                        ChatListItem(
-                            conversation = conversation,
-                            onClick = { onChatClicked(conversation.id) },
-                            onEditName = {
-                                renameText = conversation.displayName ?: ""
-                                renamingConversation = conversation
-                            }
+            },
+            containerColor = Color.Transparent
+        ) { padding ->
+            AnimatedBackground {
+                if (conversations.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No active conversations.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                        contentPadding = PaddingValues(vertical = 12.dp)
+                    ) {
+                        items(conversations, key = { it.id }) { conversation ->
+                            ChatListItem(
+                                conversation = conversation,
+                                onClick = { onChatClicked(conversation.id) },
+                                onEditName = {
+                                    renameText = conversation.displayName ?: ""
+                                    renamingConversation = conversation
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -201,7 +276,6 @@ fun ChatListItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar Placeholder with Gradient
             Box(
                 modifier = Modifier
                     .size(52.dp)
@@ -282,7 +356,6 @@ fun ChatListItem(
                 }
             }
 
-            // Edit name button
             IconButton(onClick = onEditName, modifier = Modifier.size(36.dp)) {
                 Icon(
                     Icons.Default.Edit,
