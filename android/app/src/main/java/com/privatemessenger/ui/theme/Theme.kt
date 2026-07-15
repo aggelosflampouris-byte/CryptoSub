@@ -16,18 +16,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Premium Futuristic OLED Aesthetic
-val PrimaryAccent = Color(0xFF00E5FF) // Electric Cyan
-val PrimaryAccentDark = Color(0xFF00B8CC)
-val SecondaryAccent = Color(0xFFB000FF) // Electric Purple
-val SecondaryAccentDark = Color(0xFF8800CC)
-val BackgroundDark = Color(0xFF050505) // OLED Black
-val SurfaceDark = Color(0xFF12121A) // Deep Glass Gray
-val SurfaceVariantDark = Color(0xFF1C1C26)
+// Premium Monochromatic (Black & White) Aesthetic
+val PrimaryAccent = Color(0xFFFFFFFF) // Pure White
+val PrimaryAccentDark = Color(0xFFE0E0E0)
+val SecondaryAccent = Color(0xFF888888) // Mid Gray
+val SecondaryAccentDark = Color(0xFF555555)
+val BackgroundDark = Color(0xFF000000) // Pure Black
+val SurfaceDark = Color(0xFF0A0A0A) // Very Dark Gray for Glass
+val SurfaceVariantDark = Color(0xFF141414)
 val TextPrimaryDark = Color(0xFFFFFFFF)
 val TextSecondaryDark = Color(0xFFAAAAAA)
-val SuccessGreen = Color(0xFF00FF88) // Neon Green
-val ErrorRed = Color(0xFFFF0055) // Neon Red
+val SuccessGreen = Color(0xFFFFFFFF) // Use white instead of green
+val ErrorRed = Color(0xFF555555) // Use gray instead of red for errors in mono
 
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryAccent,
@@ -38,7 +38,7 @@ private val DarkColorScheme = darkColorScheme(
     surface = SurfaceDark,
     surfaceVariant = SurfaceVariantDark,
     onPrimary = Color.Black,
-    onSecondary = Color.White,
+    onSecondary = Color.Black,
     onTertiary = Color.Black,
     onBackground = TextPrimaryDark,
     onSurface = TextPrimaryDark,
