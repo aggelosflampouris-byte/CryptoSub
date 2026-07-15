@@ -1,6 +1,7 @@
 package com.privatemessenger.ui.screens.registration
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +21,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.privatemessenger.domain.repository.AuthRepository
+import com.privatemessenger.ui.components.AnimatedBackground
+import com.privatemessenger.ui.components.BounceButton
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,16 +43,15 @@ fun RegistrationScreen(
     if (showImportDialog) {
         AlertDialog(
             onDismissRequest = { if (!isLoading) showImportDialog = false },
-            title = { Text("Import Private Key") },
+            title = { Text("Import Private Key", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     Text(
-                        "Paste the private key you saved during your first registration. " +
-                            "It can start with 0x or be raw hex (64 characters).",
+                        "Paste the private key you saved during your first registration.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
                         value = importKeyText,
                         onValueChange = { importKeyText = it },
@@ -57,7 +59,8 @@ fun RegistrationScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
-                        enabled = !isLoading
+                        enabled = !isLoading,
+                        shape = RoundedCornerShape(12.dp)
                     )
                     if (errorMessage != null) {
                         Spacer(Modifier.height(8.dp))
@@ -70,7 +73,7 @@ fun RegistrationScreen(
                 }
             },
             confirmButton = {
-                TextButton(
+                BounceButton(
                     onClick = {
                         coroutineScope.launch {
                             isLoading = true
@@ -89,7 +92,7 @@ fun RegistrationScreen(
                     enabled = !isLoading && importKeyText.isNotBlank()
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
                     } else {
                         Text("Restore")
                     }
@@ -100,119 +103,132 @@ fun RegistrationScreen(
                     onClick = { showImportDialog = false; errorMessage = null },
                     enabled = !isLoading
                 ) { Text("Cancel") }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
     // ── Main Screen ─────────────────────────────────────────────────
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .padding(32.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+    AnimatedBackground {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "Welcome",
-                style = MaterialTheme.typography.displayMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Privacy Messenger uses a zero-knowledge identity system. " +
-                    "No phone number or email is required. Your identity is a " +
-                    "cryptographic key generated entirely on your device.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            if (errorMessage != null && !showImportDialog) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                        RoundedCornerShape(32.dp)
+                    )
+                    .padding(horizontal = 32.dp, vertical = 48.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
-                    text = errorMessage!!,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center
+                    text = "CryptoSub",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
 
-            // ── Generate New Identity ───────────────────────────────
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        isLoading = true
-                        errorMessage = null
-                        val result = authRepository.register()
-                        isLoading = false
-                        if (result.isSuccess) {
-                            onRegistrationComplete()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "A zero-knowledge identity system. No phone number or email required.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+
+                Spacer(modifier = Modifier.height(40.dp))
+
+                if (errorMessage != null && !showImportDialog) {
+                    Text(
+                        text = errorMessage!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // ── Generate New Identity ───────────────────────────────
+                BounceButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            isLoading = true
+                            errorMessage = null
+                            val result = authRepository.register()
+                            isLoading = false
+                            if (result.isSuccess) {
+                                onRegistrationComplete()
+                            } else {
+                                errorMessage = result.exceptionOrNull()?.message
+                                    ?: "Failed to generate identity."
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    enabled = !isLoading
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        if (isLoading && !showImportDialog) {
+                            CircularProgressIndicator(
+                                color = Color.Black,
+                                modifier = Modifier.size(24.dp)
+                            )
                         } else {
-                            errorMessage = result.exceptionOrNull()?.message
-                                ?: "Failed to generate identity. Please try again."
+                            Icon(Icons.Default.VpnKey, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.Black)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Generate Identity", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                         }
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                enabled = !isLoading
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth().height(24.dp)
-                ) {
-                    if (isLoading && !showImportDialog) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    } else {
-                        Icon(Icons.Default.VpnKey, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Generate New Identity", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Import Existing Key ─────────────────────────────────
-            OutlinedButton(
-                onClick = {
-                    errorMessage = null
-                    importKeyText = ""
-                    showImportDialog = true
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                shape = RoundedCornerShape(16.dp),
-                enabled = !isLoading
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth().height(24.dp)
+                // ── Import Existing Key ─────────────────────────────────
+                BounceButton(
+                    onClick = {
+                        errorMessage = null
+                        importKeyText = ""
+                        showImportDialog = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                    ),
+                    enabled = !isLoading
                 ) {
-                    Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Import Existing Key", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Import Key", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }

@@ -37,8 +37,7 @@ import com.privatemessenger.PrivateMessengerApp
 @Composable
 fun AccountScreen(
     app: PrivateMessengerApp,
-    onBack: () -> Unit,
-    onLogout: () -> Unit
+    onBack: () -> Unit
 ) {
     val context = LocalContext.current
     var privateKeyVisible by remember { mutableStateOf(false) }
@@ -144,19 +143,6 @@ fun AccountScreen(
                     }
                 }
             )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            Button(
-                onClick = onLogout,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                )
-            ) {
-                Text("Log Out")
-            }
             
             Spacer(modifier = Modifier.height(32.dp))
         }

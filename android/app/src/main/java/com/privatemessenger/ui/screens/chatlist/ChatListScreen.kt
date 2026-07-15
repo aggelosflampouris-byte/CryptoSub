@@ -2,8 +2,6 @@ package com.privatemessenger.ui.screens.chatlist
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,20 +9,25 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.privatemessenger.PrivateMessengerApp
 import com.privatemessenger.data.local.AppDatabase
 import com.privatemessenger.data.local.entity.ConversationEntity
 import com.privatemessenger.notifications.NotificationHelper
+import com.privatemessenger.ui.components.AnimatedBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -43,27 +46,25 @@ fun ChatListScreen(
     val conversations by database.conversationDao().getAllConversations().collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
 
-    // Create notification channels once when this screen first appears
     LaunchedEffect(Unit) {
         NotificationHelper.createChannels(app)
     }
 
-    // State for the rename dialog
     var renamingConversation by remember { mutableStateOf<ConversationEntity?>(null) }
     var renameText by remember { mutableStateOf("") }
 
-    // Rename dialog
     renamingConversation?.let { conv ->
         AlertDialog(
             onDismissRequest = { renamingConversation = null },
-            title = { Text("Edit Contact Name") },
+            title = { Text("Edit Contact Name", fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = renameText,
                     onValueChange = { renameText = it },
                     label = { Text("Name") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 )
             },
             confirmButton = {
@@ -77,11 +78,13 @@ fun ChatListScreen(
                         }
                         renamingConversation = null
                     }
-                ) { Text("Save") }
+                ) { Text("Save", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { renamingConversation = null }) { Text("Cancel") }
-            }
+                TextButton(onClick = { renamingConversation = null }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -91,16 +94,32 @@ fun ChatListScreen(
                 title = {
                     Text(
                         "Messages",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.5.sp
+                        )
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    containerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 ),
                 actions = {
                     IconButton(onClick = onAccountClicked) {
-                        Icon(androidx.compose.material.icons.Icons.Default.Person, contentDescription = "Account Details")
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = "Account Details",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             )
@@ -109,134 +128,168 @@ fun ChatListScreen(
             FloatingActionButton(
                 onClick = onAddContactClicked,
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = Color.Black,
+                shape = RoundedCornerShape(16.dp),
+                elevation = FloatingActionButtonDefaults.elevation(8.dp)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "New Chat")
+                Icon(Icons.Filled.Add, contentDescription = "New Chat", modifier = Modifier.size(28.dp))
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { padding ->
-        if (conversations.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No messages yet.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                items(conversations, key = { it.id }) { conversation ->
-                    ChatListItem(
-                        conversation = conversation,
-                        onClick = { onChatClicked(conversation.id) },
-                        onEditName = {
-                            renameText = conversation.displayName ?: ""
-                            renamingConversation = conversation
-                        }
+        AnimatedBackground {
+            if (conversations.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No active conversations.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    items(conversations, key = { it.id }) { conversation ->
+                        ChatListItem(
+                            conversation = conversation,
+                            onClick = { onChatClicked(conversation.id) },
+                            onEditName = {
+                                renameText = conversation.displayName ?: ""
+                                renamingConversation = conversation
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatListItem(
     conversation: ConversationEntity,
     onClick: () -> Unit,
     onEditName: () -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onEditName
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .shadow(
+                elevation = if (conversation.unreadCount > 0) 12.dp else 4.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = if (conversation.unreadCount > 0) MaterialTheme.colorScheme.primary else Color.Black
             )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+        )
     ) {
-        // Avatar Placeholder
-        Box(
+        Row(
             modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = conversation.displayName?.take(1)?.uppercase() ?: "?",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Avatar Placeholder with Gradient
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = conversation.displayName ?: "Unknown",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = formatTimestamp(conversation.lastMessageTimestamp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (conversation.unreadCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    text = conversation.displayName?.take(1)?.uppercase() ?: "?",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.Black
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = conversation.lastMessage ?: "",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = conversation.displayName ?: "Unknown",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = formatTimestamp(conversation.lastMessageTimestamp),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = if (conversation.unreadCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-                if (conversation.unreadCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .size(20.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = conversation.unreadCount.toString(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White
-                        )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = conversation.lastMessage ?: "No messages yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (conversation.unreadCount > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (conversation.unreadCount > 0) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (conversation.unreadCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = conversation.unreadCount.toString(),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                color = Color.Black
+                            )
+                        }
                     }
                 }
+            }
+
+            // Edit name button
+            IconButton(onClick = onEditName, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Rename contact",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

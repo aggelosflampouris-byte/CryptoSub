@@ -16,43 +16,49 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Minimal, pure black aesthetic
-val PrimaryAccent = Color(0xFFFFFFFF) // White as primary accent for stark contrast
-val PrimaryAccentDark = Color(0xFFE0E0E0)
-val BackgroundDark = Color(0xFF000000) // Pure Black
-val SurfaceDark = Color(0xFF0A0A0A) // Very dark gray for surfaces
-val SurfaceVariantDark = Color(0xFF141414)
+// Premium Futuristic OLED Aesthetic
+val PrimaryAccent = Color(0xFF00E5FF) // Electric Cyan
+val PrimaryAccentDark = Color(0xFF00B8CC)
+val SecondaryAccent = Color(0xFFB000FF) // Electric Purple
+val SecondaryAccentDark = Color(0xFF8800CC)
+val BackgroundDark = Color(0xFF050505) // OLED Black
+val SurfaceDark = Color(0xFF12121A) // Deep Glass Gray
+val SurfaceVariantDark = Color(0xFF1C1C26)
 val TextPrimaryDark = Color(0xFFFFFFFF)
-val TextSecondaryDark = Color(0xFF888888)
-val SuccessGreen = Color(0xFF00E676)
+val TextSecondaryDark = Color(0xFFAAAAAA)
+val SuccessGreen = Color(0xFF00FF88) // Neon Green
+val ErrorRed = Color(0xFFFF0055) // Neon Red
 
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryAccent,
-    secondary = PrimaryAccentDark,
+    secondary = SecondaryAccent,
     tertiary = SuccessGreen,
+    error = ErrorRed,
     background = BackgroundDark,
     surface = SurfaceDark,
     surfaceVariant = SurfaceVariantDark,
     onPrimary = Color.Black,
-    onSecondary = Color.Black,
+    onSecondary = Color.White,
     onTertiary = Color.Black,
     onBackground = TextPrimaryDark,
     onSurface = TextPrimaryDark,
     onSurfaceVariant = TextSecondaryDark,
 )
 
+// For light mode, a sleek Frosted White aesthetic
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryAccent,
-    secondary = PrimaryAccentDark,
+    primary = PrimaryAccentDark,
+    secondary = SecondaryAccentDark,
     tertiary = SuccessGreen,
-    background = Color(0xFFF4F4F9),
+    error = ErrorRed,
+    background = Color(0xFFF7F7F9),
     surface = Color.White,
-    surfaceVariant = Color(0xFFEBEBF0),
+    surfaceVariant = Color(0xFFEFEFF4),
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
-    onBackground = Color(0xFF1E1E1E),
-    onSurface = Color(0xFF1E1E1E),
+    onBackground = Color(0xFF121212),
+    onSurface = Color(0xFF121212),
     onSurfaceVariant = Color(0xFF666666),
 )
 

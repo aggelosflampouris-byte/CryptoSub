@@ -244,21 +244,6 @@ class KeyStoreManager(private val context: Context) {
     }
 
     // ------------------------------------------------------------------
-    // Clear Keys (Logout)
-    // ------------------------------------------------------------------
-
-    fun clearAllKeys() {
-        encryptedPrefs.edit().clear().apply()
-        try {
-            keyStore.deleteEntry(MASTER_KEY_ALIAS)
-            keyStore.deleteEntry(IDENTITY_KEY_ALIAS)
-            keyStore.deleteEntry(ETH_KEY_ALIAS)
-        } catch (e: Exception) {
-            // Ignore if aliases don't exist
-        }
-    }
-
-    // ------------------------------------------------------------------
     // Internal helpers
     // ------------------------------------------------------------------
 

@@ -258,7 +258,8 @@ fun ChatInputArea(
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.background,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
