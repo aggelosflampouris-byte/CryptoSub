@@ -55,11 +55,15 @@ class XmtpBackgroundService : Service() {
                         val conversationExists = app.database.conversationDao().getConversation(convId) != null
                         
                         if (!conversationExists) {
-                            val label = "${message.senderInboxId.take(6)}...${message.senderInboxId.takeLast(4)}"
+                            val xmtpConv = client.conversations.findConversation(convId)
+                            val isGroup = xmtpConv is org.xmtp.android.library.Conversation.Group
+                            val label = if (isGroup) "Group Chat" else "${message.senderInboxId.take(6)}...${message.senderInboxId.takeLast(4)}"
+                            
                             val contact = ConversationEntity(
                                 id = convId,
                                 deviceId = 1,
                                 displayName = label,
+                                isGroup = isGroup,
                                 lastMessage = message.body,
                                 lastMessageTimestamp = message.sentAt.time,
                                 unreadCount = 1

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Share
@@ -46,6 +47,7 @@ fun ChatListScreen(
     app: PrivateMessengerApp,
     onChatClicked: (String) -> Unit,
     onAddContactClicked: () -> Unit,
+    onAddGroupClicked: () -> Unit,
     onAccountClicked: () -> Unit
 ) {
     val conversations by database.conversationDao().getAllConversations().collectAsState(initial = emptyList())
@@ -194,6 +196,11 @@ fun ChatListScreen(
                     navigationIcon = {
                         IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onBackground)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onAddGroupClicked) {
+                            Icon(Icons.Default.GroupAdd, contentDescription = "New Group", tint = MaterialTheme.colorScheme.onBackground)
                         }
                     }
                 )

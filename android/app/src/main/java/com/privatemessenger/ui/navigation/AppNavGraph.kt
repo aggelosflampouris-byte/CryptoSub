@@ -14,6 +14,7 @@ import com.privatemessenger.domain.repository.AuthRepository
 import com.privatemessenger.notifications.NotificationHelper
 import com.privatemessenger.ui.screens.chat.ChatScreen
 import com.privatemessenger.ui.screens.chatlist.ChatListScreen
+import com.privatemessenger.ui.screens.chatlist.CreateGroupScreen
 import com.privatemessenger.ui.screens.registration.RegistrationScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -99,6 +100,9 @@ fun AppNavGraph(
                 onAddContactClicked = {
                     navController.navigate("scanner")
                 },
+                onAddGroupClicked = {
+                    navController.navigate("create_group")
+                },
                 onAccountClicked = {
                     navController.navigate("account")
                 }
@@ -108,6 +112,18 @@ fun AppNavGraph(
         composable("account") {
             com.privatemessenger.ui.screens.account.AccountScreen(
                 app = app,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("create_group") {
+            CreateGroupScreen(
+                app = app,
+                onGroupCreated = { groupId ->
+                    navController.navigate("chat/$groupId") {
+                        popUpTo("chat_list")
+                    }
+                },
                 onBack = { navController.popBackStack() }
             )
         }
