@@ -178,6 +178,7 @@ fun ChatListScreen(
                             type = "text/plain"
                         }
                         val shareIntent = android.content.Intent.createChooser(sendIntent, "Share CryptoSub")
+                        shareIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                         context.startActivity(shareIntent)
                     },
                     icon = { Icon(Icons.Default.Share, contentDescription = null) },

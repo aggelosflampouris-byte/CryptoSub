@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
                         
                         // Start the background listening service
                         val serviceIntent = android.content.Intent(this@MainActivity, com.privatemessenger.notifications.XmtpBackgroundService::class.java)
-                        androidx.core.content.ContextCompat.startForegroundService(this@MainActivity, serviceIntent)
+                        this@MainActivity.startService(serviceIntent)
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("MainActivity", "Failed to initialize XMTP Client on boot", e)

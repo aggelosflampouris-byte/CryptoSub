@@ -27,8 +27,6 @@ class XmtpBackgroundService : Service() {
         Log.d("XmtpBackgroundService", "Service started")
         
         NotificationHelper.createChannels(this)
-        val notification = NotificationHelper.buildForegroundNotification(this)
-        startForeground(1001, notification)
 
         startListening()
 
