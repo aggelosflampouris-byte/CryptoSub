@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,6 +54,7 @@ fun ChatListScreen(
     val conversations by database.conversationDao().getAllConversations().collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         NotificationHelper.createChannels(app)
@@ -165,7 +167,19 @@ fun ChatListScreen(
                 NavigationDrawerItem(
                     label = { Text("Share", fontWeight = FontWeight.Bold) },
                     selected = false,
-                    onClick = { coroutineScope.launch { drawerState.close() } },
+                    onClick = { 
+                        coroutineScope.launch { drawerState.close() }
+                        val sendIntent = android.content.Intent().apply {
+                            action = android.content.Intent.ACTION_SEND
+                            putExtra(
+                                android.content.Intent.EXTRA_TEXT, 
+                                "Check out CryptoSub! Download the latest release here: https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest"
+                            )
+                            type = "text/plain"
+                        }
+                        val shareIntent = android.content.Intent.createChooser(sendIntent, "Share CryptoSub")
+                        context.startActivity(shareIntent)
+                    },
                     icon = { Icon(Icons.Default.Share, contentDescription = null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                     colors = NavigationDrawerItemDefaults.colors(
