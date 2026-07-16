@@ -1,6 +1,7 @@
 package com.privatemessenger.ui.screens.chatlist
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -221,7 +222,7 @@ fun ContactSelectionItem(
                 .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                 .run {
                     if (!isSelected) {
-                        androidx.compose.foundation.border(
+                        border(
                             1.dp,
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             CircleShape
