@@ -40,15 +40,14 @@ fun AccountScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    var privateKeyVisible by remember { mutableStateOf(false) }
-
+    val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    var username by remember { mutableStateOf(prefs.getString("username", "") ?: "") }
+    
     val publicAddress = app.xmtpClient?.publicIdentity?.identifier ?: "Unknown"
-    val privateKeyHex = app.keyStoreManager.getEthereumPrivateKey() ?: ""
-    val shareUrl = "https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest"
 
     // Generate QR code bitmap
-    val qrBitmap = remember {
-        generateQrCode(shareUrl, 512)
+    val qrBitmap = remember(publicAddress) {
+        generateQrCode("ethereum:$publicAddress", 512)
     }
 
     Scaffold(
@@ -75,6 +74,21 @@ fun AccountScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // ── Username Profile ────────────────────────────────────
+            OutlinedTextField(
+                value = username,
+                onValueChange = { 
+                    username = it
+                    prefs.edit().putString("username", it).apply()
+                },
+                label = { Text("Display Name") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+
             // ── Share App QR Code ───────────────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -85,13 +99,13 @@ fun AccountScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "Share CryptoSub",
+                        "Share Your Profile",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Scan to download the latest release",
+                        "Have a friend scan this QR to add you",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -105,6 +119,22 @@ fun AccountScreen(
                                 .size(200.dp)
                                 .clip(RoundedCornerShape(8.dp))
                         )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            val sendIntent = android.content.Intent().apply {
+                                action = android.content.Intent.ACTION_SEND
+                                putExtra(android.content.Intent.EXTRA_TEXT, "Add me on CryptoSub! My address is: $publicAddress")
+                                type = "text/plain"
+                            }
+                            val shareIntent = android.content.Intent.createChooser(sendIntent, "Share Public Address")
+                            context.startActivity(shareIntent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Share Public Address")
                     }
                 }
             }
@@ -125,23 +155,6 @@ fun AccountScreen(
                 value = publicAddress,
                 isSecret = false,
                 onCopy = { copyToClipboard(context, "Public Address", publicAddress) }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            KeyCard(
-                label = "Private Key",
-                value = if (privateKeyVisible) "0x$privateKeyHex" else "••••••••••••••••••••••••••••••••",
-                isSecret = true,
-                isRevealed = privateKeyVisible,
-                onToggleVisibility = { privateKeyVisible = !privateKeyVisible },
-                onCopy = {
-                    if (privateKeyVisible) {
-                        copyToClipboard(context, "Private Key", "0x$privateKeyHex")
-                    } else {
-                        Toast.makeText(context, "Reveal the key first", Toast.LENGTH_SHORT).show()
-                    }
-                }
             )
             
             Spacer(modifier = Modifier.height(32.dp))
