@@ -62,8 +62,7 @@ fun AppNavGraph(
             RegistrationScreen(
                 authRepository = authRepository,
                 onRegistrationComplete = {
-                    // New identity → show key reveal so user can save keys
-                    navController.navigate("key_reveal") {
+                    navController.navigate("chat_list") {
                         popUpTo("registration") { inclusive = true }
                     }
                 },
@@ -76,19 +75,7 @@ fun AppNavGraph(
             )
         }
 
-        composable("key_reveal") {
-            val publicAddress = app.xmtpClient?.publicIdentity?.identifier ?: ""
-            val privateKeyHex = app.keyStoreManager.getEthereumPrivateKey() ?: ""
-            com.privatemessenger.ui.screens.registration.KeyRevealScreen(
-                publicAddress = publicAddress,
-                privateKeyHex = privateKeyHex,
-                onContinue = {
-                    navController.navigate("chat_list") {
-                        popUpTo("key_reveal") { inclusive = true }
-                    }
-                }
-            )
-        }
+
 
         composable("chat_list") {
             ChatListScreen(
