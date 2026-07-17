@@ -28,6 +28,9 @@ class XmtpBackgroundService : Service() {
         
         NotificationHelper.createChannels(this)
 
+        val notification = NotificationHelper.buildForegroundNotification(this)
+        startForeground(1001, notification)
+
         startListening()
 
         // If the system kills the service, recreate it
