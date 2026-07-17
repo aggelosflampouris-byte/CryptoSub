@@ -52,7 +52,8 @@ fun ChatListScreen(
     onChatClicked: (String) -> Unit,
     onAddContactClicked: () -> Unit,
     onAddGroupClicked: () -> Unit,
-    onAccountClicked: () -> Unit
+    onAccountClicked: () -> Unit,
+    onShareAppClicked: () -> Unit
 ) {
     val conversations by database.conversationDao().getAllConversations().collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
@@ -65,8 +66,6 @@ fun ChatListScreen(
 
     var renamingConversation by remember { mutableStateOf<ConversationEntity?>(null) }
     var renameText by remember { mutableStateOf("") }
-    var showShareDialog by remember { mutableStateOf(false) }
-
     renamingConversation?.let { conv ->
         AlertDialog(
             onDismissRequest = { renamingConversation = null },
@@ -96,67 +95,6 @@ fun ChatListScreen(
             },
             dismissButton = {
                 TextButton(onClick = { renamingConversation = null }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp)
-        )
-    }
-
-    val githubLink = "https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest"
-
-    if (showShareDialog) {
-        val qrBitmap = remember { com.privatemessenger.utils.QRCodeHelper.generateQRCode(githubLink)?.asImageBitmap() }
-
-        AlertDialog(
-            onDismissRequest = { showShareDialog = false },
-            title = { Text("Share CryptoSub", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    qrBitmap?.let {
-                        Image(
-                            bitmap = it,
-                            contentDescription = "QR Code",
-                            modifier = Modifier.size(200.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = githubLink,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = {
-                            val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            cm.setPrimaryClip(android.content.ClipData.newPlainText("Link", githubLink))
-                            android.widget.Toast.makeText(context, "Link copied!", android.widget.Toast.LENGTH_SHORT).show()
-                        }) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val sendIntent = android.content.Intent().apply {
-                            action = android.content.Intent.ACTION_SEND
-                            putExtra(
-                                android.content.Intent.EXTRA_TEXT, 
-                                "Check out CryptoSub! Download the latest release here: $githubLink"
-                            )
-                            type = "text/plain"
-                        }
-                        val shareIntent = android.content.Intent.createChooser(sendIntent, "Share CryptoSub")
-                        shareIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(shareIntent)
-                        showShareDialog = false
-                    }
-                ) { Text("Share", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showShareDialog = false }) { Text("Close", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             },
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp)
@@ -234,7 +172,7 @@ fun ChatListScreen(
                     selected = false,
                     onClick = { 
                         coroutineScope.launch { drawerState.close() }
-                        showShareDialog = true
+                        onShareAppClicked()
                     },
                     icon = { Icon(Icons.Default.Share, contentDescription = null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),

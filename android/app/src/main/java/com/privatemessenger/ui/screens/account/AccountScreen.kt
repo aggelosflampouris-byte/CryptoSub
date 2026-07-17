@@ -41,8 +41,7 @@ fun AccountScreen(
 ) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-    var username by remember { mutableStateOf(prefs.getString("username", "") ?: "") }
-    
+
     val publicAddress = app.xmtpClient?.publicIdentity?.identifier ?: "Unknown"
 
     // Generate QR code bitmap
@@ -74,21 +73,6 @@ fun AccountScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── Username Profile ────────────────────────────────────
-            OutlinedTextField(
-                value = username,
-                onValueChange = { 
-                    username = it
-                    prefs.edit().putString("username", it).apply()
-                },
-                label = { Text("Display Name") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-
             // ── Share App QR Code ───────────────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),

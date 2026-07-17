@@ -16,6 +16,7 @@ import com.privatemessenger.ui.screens.chat.ChatScreen
 import com.privatemessenger.ui.screens.chatlist.ChatListScreen
 import com.privatemessenger.ui.screens.chatlist.CreateGroupScreen
 import com.privatemessenger.ui.screens.registration.RegistrationScreen
+import com.privatemessenger.ui.screens.share.ShareAppScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.xmtp.android.library.libxmtp.IdentityKind
@@ -92,7 +93,16 @@ fun AppNavGraph(
                 },
                 onAccountClicked = {
                     navController.navigate("account")
+                },
+                onShareAppClicked = {
+                    navController.navigate("share_app")
                 }
+            )
+        }
+
+        composable("share_app") {
+            ShareAppScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 
