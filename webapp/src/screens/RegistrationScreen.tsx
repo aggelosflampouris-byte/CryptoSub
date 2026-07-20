@@ -131,6 +131,7 @@ export default function RegistrationScreen() {
         )}
 
         <button
+          type="button"
           className="btn btn-primary"
           onClick={handleGenerate}
           disabled={isLoading}
@@ -140,6 +141,7 @@ export default function RegistrationScreen() {
         </button>
 
         <button
+          type="button"
           className="btn btn-secondary"
           onClick={() => setView('import')}
           disabled={isLoading}
