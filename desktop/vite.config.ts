@@ -1,9 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills({
+      include: ['buffer', 'process', 'crypto', 'stream', 'util'],
+      globals: { Buffer: true, global: true, process: true },
+    })
+  ],
   base: './',
   resolve: {
     alias: {
@@ -12,15 +19,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-  },
-  optimizeDeps: {
-    // XMTP JS has some Node.js-specific modules that need polyfills
-    exclude: ['@xmtp/xmtp-js'],
-    esbuildOptions: {
-      define: {
-        global: 'globalThis',
-      },
-    },
   },
   build: {
     outDir: 'dist',
