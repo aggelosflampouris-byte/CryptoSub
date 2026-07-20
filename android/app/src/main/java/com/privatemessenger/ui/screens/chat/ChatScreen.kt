@@ -53,9 +53,11 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Mark as read when entering
-    LaunchedEffect(conversationId) {
-        database.conversationDao().markAsRead(conversationId)
+    // Mark as read when entering or receiving new messages while in the chat
+    LaunchedEffect(allMessages.size) {
+        if (allMessages.isNotEmpty()) {
+            database.conversationDao().markAsRead(conversationId)
+        }
     }
 
     // Auto-scroll to bottom on new messages

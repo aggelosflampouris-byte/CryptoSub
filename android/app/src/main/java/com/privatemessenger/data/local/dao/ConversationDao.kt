@@ -29,11 +29,19 @@ interface ConversationDao {
     @Query("""
         UPDATE conversations 
         SET last_message = :lastMessage, 
+            last_message_timestamp = :timestamp
+        WHERE id = :conversationId
+    """)
+    suspend fun updateLastMessage(conversationId: String, lastMessage: String, timestamp: Long)
+
+    @Query("""
+        UPDATE conversations 
+        SET last_message = :lastMessage, 
             last_message_timestamp = :timestamp,
             unread_count = unread_count + 1
         WHERE id = :conversationId
     """)
-    suspend fun updateLastMessage(conversationId: String, lastMessage: String, timestamp: Long)
+    suspend fun updateLastMessageAndIncrementUnread(conversationId: String, lastMessage: String, timestamp: Long)
 
     @Query("UPDATE conversations SET unread_count = 0 WHERE id = :conversationId")
     suspend fun markAsRead(conversationId: String)

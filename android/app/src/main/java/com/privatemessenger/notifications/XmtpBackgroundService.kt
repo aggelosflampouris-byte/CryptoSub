@@ -74,7 +74,7 @@ class XmtpBackgroundService : Service() {
                                 isGroup = isGroup,
                                 lastMessage = message.body,
                                 lastMessageTimestamp = message.sentAt.time,
-                                unreadCount = 1
+                                unreadCount = if (message.senderInboxId != client.inboxId) 1 else 0
                             )
                             app.database.conversationDao().upsert(contact)
                             // 🔔 Push notification: new contact
@@ -99,7 +99,11 @@ class XmtpBackgroundService : Service() {
                             status = MessageStatus.DELIVERED
                         )
                         app.database.messageDao().insert(msgEntity)
-                        app.database.conversationDao().updateLastMessage(convId, message.body, message.sentAt.time)
+                        if (message.senderInboxId != client.inboxId) {
+                            app.database.conversationDao().updateLastMessageAndIncrementUnread(convId, message.body, message.sentAt.time)
+                        } else {
+                            app.database.conversationDao().updateLastMessage(convId, message.body, message.sentAt.time)
+                        }
                     } catch (e: Exception) {
                         Log.e("XmtpBackgroundService", "Failed to process incoming message", e)
                     }
