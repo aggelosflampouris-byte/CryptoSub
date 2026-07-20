@@ -52,6 +52,13 @@ class XmtpBackgroundService : Service() {
                 Log.d("XmtpBackgroundService", "Listening for incoming XMTP messages...")
                 client.conversations.streamAllMessages().collect { message ->
                     try {
+                        // Ignore XMTP system messages (group updates / member additions)
+                        // These typically look like "@<inboxId>\n@<inboxId>"
+                        if (message.body.matches(Regex("^(@[a-fA-F0-9]{40,}\\s*)+$"))) {
+                            Log.d("XmtpBackgroundService", "Ignoring system message: ${message.body}")
+                            return@collect
+                        }
+
                         val convId = message.conversationId
                         val conversationExists = app.database.conversationDao().getConversation(convId) != null
                         

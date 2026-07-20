@@ -47,7 +47,8 @@ fun ChatScreen(
     app: com.privatemessenger.PrivateMessengerApp,
     onBack: () -> Unit
 ) {
-    val messages by database.messageDao().getMessagesForConversation(conversationId).collectAsState(initial = emptyList())
+    val allMessages by database.messageDao().getMessagesForConversation(conversationId).collectAsState(initial = emptyList())
+    val messages = remember(allMessages) { allMessages.filter { !it.content.matches(Regex("^(@[a-fA-F0-9]{40,}\\s*)+$")) } }
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
