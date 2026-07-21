@@ -14,7 +14,15 @@ export default function AddContactModal({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const myAddress = (client as any)?.accountIdentifier || (client as any)?.inboxId || (client as any)?.address || ''
+  const getMyAddress = () => {
+    if (!client) return ''
+    const c = client as any
+    if (c.accountIdentifier) {
+      return typeof c.accountIdentifier === 'object' ? c.accountIdentifier.identifier : c.accountIdentifier
+    }
+    return c.inboxId || c.address || ''
+  }
+  const myAddress = getMyAddress()
 
   // Generate our own QR code on mount
   useEffect(() => {
