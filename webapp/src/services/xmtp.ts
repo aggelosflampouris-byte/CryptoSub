@@ -68,6 +68,12 @@ export async function findOrCreateDm(client: Client, address: string): Promise<a
   if ('findOrCreateDm' in client.conversations) {
     return (client.conversations as any).findOrCreateDm(address)
   }
+  if ('newDmWithIdentifier' in client.conversations) {
+    return (client.conversations as any).newDmWithIdentifier({
+      identifier: address,
+      identifierKind: 'Ethereum'
+    })
+  }
   if ('newDm' in client.conversations) {
     return (client.conversations as any).newDm(address)
   }
