@@ -27,7 +27,10 @@ export async function createXmtpClient(privateKeyHex: string): Promise<Client> {
   // V3 Signer Interface wrapping the ethers Wallet
   const signer = {
     type: 'EOA' as const,
-    getIdentifier: async () => wallet.address as any,
+    getIdentifier: async () => ({
+      identifier: wallet.address,
+      identifierKind: 'Ethereum'
+    }) as any,
     getChainId: () => 1,
     signMessage: async (message: string | Uint8Array) => ethers.utils.arrayify(await wallet.signMessage(message))
   }
@@ -41,7 +44,10 @@ export async function createXmtpClient(privateKeyHex: string): Promise<Client> {
  */
 export async function canMessage(client: Client, address: string): Promise<boolean> {
   try {
-    const result = await client.canMessage([address as any])
+    const result = await client.canMessage([{
+      identifier: address,
+      identifierKind: 'Ethereum'
+    } as any])
     return result.get(address) || false
   } catch {
     return false
