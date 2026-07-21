@@ -114,19 +114,27 @@ fun ScannerScreen(
                 if (hasCameraPermission) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         CameraPreviewView(
-                            onBarcodeScanned = { barcodeValue ->
+                            onBarcodeScanned = { barcodeValue, resetScanner ->
                                 try {
                                     val uri = Uri.parse(barcodeValue)
                                     if (uri.scheme == "ethereum") {
                                         val address = uri.path ?: uri.schemeSpecificPart
                                         if (address.startsWith("0x")) {
                                             onContactScanned(address)
+                                            return@CameraPreviewView
                                         }
                                     } else if (barcodeValue.startsWith("0x")) {
                                         onContactScanned(barcodeValue)
+                                        return@CameraPreviewView
                                     }
+                                    
+                                    // If we reach here, it's not a recognized address
+                                    Toast.makeText(context, "Unrecognized QR code format. Expected Ethereum address.", Toast.LENGTH_LONG).show()
+                                    resetScanner() // Reset scanner so user can try again
                                 } catch (e: Exception) {
                                     Log.e("ScannerScreen", "Invalid QR code format: $barcodeValue")
+                                    Toast.makeText(context, "Failed to parse QR code", Toast.LENGTH_SHORT).show()
+                                    resetScanner()
                                 }
                             }
                         )
@@ -232,7 +240,7 @@ private fun generateQrCodeBitmap(text: String, size: Int): Bitmap? {
 }
 
 @Composable
-fun CameraPreviewView(onBarcodeScanned: (String) -> Unit) {
+fun CameraPreviewView(onBarcodeScanned: (String, () -> Unit) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -283,7 +291,9 @@ fun CameraPreviewView(onBarcodeScanned: (String) -> Unit) {
                                     val rawValue = barcode.rawValue
                                     if (rawValue != null) {
                                         isScanned = true
-                                        onBarcodeScanned(rawValue)
+                                        onBarcodeScanned(rawValue) {
+                                            isScanned = false
+                                        }
                                         break
                                     }
                                 }

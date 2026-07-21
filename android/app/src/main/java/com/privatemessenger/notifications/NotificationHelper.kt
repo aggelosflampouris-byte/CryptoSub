@@ -11,7 +11,7 @@ import com.privatemessenger.ui.MainActivity
 object NotificationHelper {
     private const val CHANNEL_CONTACTS = "new_contacts"
     private const val CHANNEL_MESSAGES = "new_messages"
-    private const val CHANNEL_SERVICE = "background_service"
+    private const val CHANNEL_SERVICE = "background_service_v2"
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -54,6 +54,7 @@ object NotificationHelper {
             .setContentTitle("Privacy Messenger")
             .setContentText("Listening for messages...")
             .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setContentIntent(pi)
             .build()
     }
