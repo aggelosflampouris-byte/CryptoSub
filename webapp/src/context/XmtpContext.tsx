@@ -95,10 +95,19 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       if (!msg || typeof msg.content !== 'string') continue
       if (isSystemMessage(msg.content)) continue
 
+      const convId = (msg as any).conversationId
+
+      if (!convMapRef.current.has(convId)) {
+        // New conversation! Reload the list in the background
+        loadConversations(xmtpClient).catch(console.error)
+      }
+
       // Update conversation list
       setConversations(prev => {
-        const idx = prev.findIndex(c => c.id === (msg as any).conversationId)
-        const updated = { ...prev[idx < 0 ? 0 : idx] }
+        const idx = prev.findIndex(c => c.id === convId)
+        if (idx < 0) return prev // Wait for loadConversations to populate it
+
+        const updated = { ...prev[idx] }
         updated.lastMessage = msg.content as string
         updated.lastMessageTs = ((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).getTime()
 
@@ -110,16 +119,12 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         }
 
         setActiveConversationId(activeId => {
-          if (activeId === (msg as any).conversationId && senderId?.toLowerCase() !== myId?.toLowerCase()) {
+          if (activeId === convId && senderId?.toLowerCase() !== myId?.toLowerCase()) {
             updated.unreadCount = 0 // Clear if the chat is open
           }
           return activeId
         })
 
-        if (idx < 0) {
-          convMapRef.current.set((msg as any).conversationId, (msg as any).conversation || null)
-          return [updated, ...prev].sort((a, b) => b.lastMessageTs - a.lastMessageTs)
-        }
         const next = [...prev]
         next[idx] = updated
         return next.sort((a, b) => b.lastMessageTs - a.lastMessageTs)
