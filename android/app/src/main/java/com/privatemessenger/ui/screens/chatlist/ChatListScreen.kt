@@ -94,7 +94,19 @@ fun ChatListScreen(
                 ) { Text("Save", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { renamingConversation = null }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Row {
+                    TextButton(
+                        onClick = {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                database.conversationDao().delete(conv.id)
+                                database.messageDao().deleteAllInConversation(conv.id)
+                            }
+                            renamingConversation = null
+                        }
+                    ) { Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = { renamingConversation = null }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
             },
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp)

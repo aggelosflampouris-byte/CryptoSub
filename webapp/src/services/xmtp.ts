@@ -58,6 +58,9 @@ export async function canMessage(client: Client, address: string): Promise<boole
  * Returns all conversations for the client, sorted by most recent activity.
  */
 export async function listConversations(client: Client): Promise<any[]> {
+  if ('sync' in client.conversations) {
+    await (client.conversations as any).sync()
+  }
   return client.conversations.list()
 }
 
