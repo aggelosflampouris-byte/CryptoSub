@@ -87,6 +87,13 @@ export async function findOrCreateDm(client: Client, address: string): Promise<a
  * Loads all messages for a conversation.
  */
 export async function loadMessages(conversation: any): Promise<any[]> {
+  if (typeof conversation.sync === 'function') {
+    try {
+      await conversation.sync()
+    } catch (e) {
+      console.error("Failed to sync conversation messages", e)
+    }
+  }
   const all = await conversation.messages()
   return all.filter((m: any) => {
     // V3 message might have text in m.content or m.content?.text depending on content type

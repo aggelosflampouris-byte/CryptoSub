@@ -107,8 +107,14 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     const stream = await xmtpClient.conversations.streamAllMessages()
     streamRef.current = stream as any
     for await (const msg of stream) {
-      if (!msg || typeof msg.content !== 'string') continue
-      if (isSystemMessage(msg.content)) continue
+      if (!msg) continue
+      
+      let contentStr = ''
+      if (typeof msg.content === 'string') contentStr = msg.content
+      else if ((msg.content as any)?.text) contentStr = (msg.content as any).text
+      else continue
+      
+      if (isSystemMessage(contentStr)) continue
 
       const convId = (msg as any).conversationId
 
@@ -123,7 +129,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         if (idx < 0) return prev // Wait for loadConversations to populate it
 
         const updated = { ...prev[idx] }
-        updated.lastMessage = msg.content as string
+        updated.lastMessage = contentStr
         updated.lastMessageTs = ((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).getTime()
 
         // Only increment unread if message is from the peer
