@@ -65,11 +65,26 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     const lastText = last && typeof last.content === 'string' && !isSystemMessage(last.content)
       ? last.content
       : ''
+    let peerId = 'unknown'
+    if (conv.peerAddress && typeof conv.peerAddress === 'string') {
+      peerId = conv.peerAddress
+    } else if (typeof conv.peerInboxId === 'function') {
+      try {
+        peerId = await conv.peerInboxId()
+      } catch (e) {
+        console.error("Failed to get peerInboxId", e)
+      }
+    } else if (typeof conv.peerInboxId === 'string') {
+      peerId = conv.peerInboxId
+    }
+
+    const display = peerId === 'unknown' ? 'Unknown' : `${peerId.slice(0, 6)}…${peerId.slice(-4)}`
+
     return {
       id: conv.id,
       topic: conv.id,
-      peerAddress: conv.peerAddress || conv.peerInboxId || 'unknown',
-      displayName: conv.peerAddress ? `${conv.peerAddress.slice(0, 6)}…${conv.peerAddress.slice(-4)}` : (conv.peerInboxId || 'Unknown').slice(0, 8),
+      peerAddress: peerId,
+      displayName: display,
       lastMessage: lastText,
       lastMessageTs: last ? ((last as any).sentAt || (last as any).sent || (last as any).createdAt || new Date()).getTime() : 0,
       unreadCount: 0,
