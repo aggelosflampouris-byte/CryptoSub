@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useXmtp } from '../context/XmtpContext'
-import { DecodedMessage } from '@xmtp/xmtp-js'
+import { DecodedMessage } from '@xmtp/browser-sdk'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -74,7 +74,7 @@ export default function ChatScreen() {
   // Group messages by day
   const grouped: { day: string; messages: DecodedMessage[] }[] = []
   for (const msg of messages) {
-    const day = formatDay(msg.sent)
+    const day = formatDay(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()))
     if (!grouped.length || grouped[grouped.length - 1].day !== day) {
       grouped.push({ day, messages: [msg] })
     } else {
@@ -107,13 +107,13 @@ export default function ChatScreen() {
               <div key={group.day}>
                 <div className="day-divider">{group.day}</div>
                 {group.messages.map((msg, i) => {
-                  const isOutgoing = msg.senderAddress.toLowerCase() === client?.address.toLowerCase()
+                  const isMine = ((msg as any).senderInboxId || (msg as any).senderAddress)?.toLowerCase() === ((client as any).inboxId || (client as any).address)?.toLowerCase()
                   return (
-                    <div key={msg.id ?? i} className={`message-group ${isOutgoing ? 'outgoing' : 'incoming'}`}>
-                      <div className={`message-bubble ${isOutgoing ? 'outgoing' : 'incoming'}`}>
-                        {typeof msg.content === 'string' ? msg.content : '[attachment]'}
+                    <div key={msg.id ?? i} className={`message-group ${isMine ? 'outgoing' : 'incoming'}`}>
+                      <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
+                        <div className="chat-text">{msg.content as string}</div>
+                        <div className="chat-time">{formatTime(new Date(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date())))}</div>
                       </div>
-                      <span className="message-time">{formatTime(msg.sent)}</span>
                     </div>
                   )
                 })}

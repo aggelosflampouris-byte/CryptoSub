@@ -40,9 +40,9 @@ export default function AccountModal({ onClose }: Props) {
             <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>XMTP Inbox / Ethereum Address</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, wordBreak: 'break-all', flex: 1, color: 'var(--text-primary)' }}>
-                {client?.address ?? '—'}
+                {((client as any)?.inboxId || (client as any)?.address) ?? '—'}
               </span>
-              <button className="copy-btn" onClick={() => handleCopy(client?.address ?? '')} title="Copy address">
+              <button className="copy-btn" onClick={() => handleCopy(((client as any)?.inboxId || (client as any)?.address) ?? '')} title="Copy address">
                 {copied ? '✓' : '⎘'}
               </button>
             </div>

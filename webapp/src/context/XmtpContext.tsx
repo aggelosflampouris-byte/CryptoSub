@@ -1,4 +1,4 @@
-import { Client, Conversation, DecodedMessage } from '@xmtp/xmtp-js'
+import { Client, Conversation, DecodedMessage } from '@xmtp/browser-sdk'
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { clearKeystore, getPrivateKey, storePrivateKey } from '../services/keyVault'
 import {
@@ -59,19 +59,19 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  const buildMeta = useCallback(async (conv: Conversation): Promise<ConversationMeta> => {
-    const msgs = await conv.messages({ limit: 1 })
+  const buildMeta = useCallback(async (conv: any): Promise<ConversationMeta> => {
+    const msgs = await conv.messages({ limit: 1n })
     const last = msgs.length > 0 ? msgs[msgs.length - 1] : null
     const lastText = last && typeof last.content === 'string' && !isSystemMessage(last.content)
       ? last.content
       : ''
     return {
-      id: conv.topic,
-      topic: conv.topic,
-      peerAddress: conv.peerAddress,
-      displayName: `${conv.peerAddress.slice(0, 6)}…${conv.peerAddress.slice(-4)}`,
+      id: conv.id,
+      topic: conv.id,
+      peerAddress: conv.peerAddress || conv.peerInboxId || 'unknown',
+      displayName: conv.peerAddress ? `${conv.peerAddress.slice(0, 6)}…${conv.peerAddress.slice(-4)}` : (conv.peerInboxId || 'Unknown').slice(0, 8),
       lastMessage: lastText,
-      lastMessageTs: last ? last.sent.getTime() : 0,
+      lastMessageTs: last ? ((last as any).sentAt || (last as any).sent || (last as any).createdAt || new Date()).getTime() : 0,
       unreadCount: 0,
     }
   }, [])
@@ -79,7 +79,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const loadConversations = useCallback(async (xmtpClient: Client) => {
     const convs = await listConversations(xmtpClient)
     const metas = await Promise.all(convs.map(async c => {
-      convMapRef.current.set(c.topic, c)
+      convMapRef.current.set(c.id, c)
       return buildMeta(c)
     }))
     setConversations(metas.sort((a, b) => b.lastMessageTs - a.lastMessageTs))
@@ -97,25 +97,27 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
 
       // Update conversation list
       setConversations(prev => {
-        const idx = prev.findIndex(c => c.topic === msg.conversation.topic)
+        const idx = prev.findIndex(c => c.id === (msg as any).conversationId)
         const updated = { ...prev[idx < 0 ? 0 : idx] }
         updated.lastMessage = msg.content as string
-        updated.lastMessageTs = msg.sent.getTime()
+        updated.lastMessageTs = ((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).getTime()
 
         // Only increment unread if message is from the peer
-        if (msg.senderAddress.toLowerCase() !== xmtpClient.address.toLowerCase()) {
+        const senderId = (msg as any).senderInboxId || (msg as any).senderAddress
+        const myId = (xmtpClient as any).inboxId || (xmtpClient as any).address
+        if (senderId?.toLowerCase() !== myId?.toLowerCase()) {
           updated.unreadCount = (updated.unreadCount || 0) + 1
         }
 
         setActiveConversationId(activeId => {
-          if (activeId === msg.conversation.topic && msg.senderAddress.toLowerCase() !== xmtpClient.address.toLowerCase()) {
+          if (activeId === (msg as any).conversationId && senderId?.toLowerCase() !== myId?.toLowerCase()) {
             updated.unreadCount = 0 // Clear if the chat is open
           }
           return activeId
         })
 
         if (idx < 0) {
-          convMapRef.current.set(msg.conversation.topic, msg.conversation)
+          convMapRef.current.set((msg as any).conversationId, (msg as any).conversation || null)
           return [updated, ...prev].sort((a, b) => b.lastMessageTs - a.lastMessageTs)
         }
         const next = [...prev]
@@ -125,7 +127,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
 
       // Append message to active chat
       setActiveConversationId(activeId => {
-        if (activeId === msg.conversation.topic) {
+        if (activeId === (msg as any).conversationId) {
           setMessages(prev => [...prev, msg])
         }
         return activeId
@@ -220,14 +222,14 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const startNewConversation = useCallback(async (address: string) => {
     if (!client) throw new Error('Not connected')
     const conv = await findOrCreateDm(client, address)
-    convMapRef.current.set(conv.topic, conv)
+    convMapRef.current.set(conv.id, conv)
     const meta = await buildMeta(conv)
     setConversations(prev => {
-      const exists = prev.find(c => c.id === conv.topic)
+      const exists = prev.find(c => c.id === conv.id)
       if (exists) return prev
       return [meta, ...prev]
     })
-    selectConversation(conv.topic)
+    selectConversation(conv.id)
   }, [client, buildMeta, selectConversation])
 
   const sendMessage = useCallback(async (text: string) => {

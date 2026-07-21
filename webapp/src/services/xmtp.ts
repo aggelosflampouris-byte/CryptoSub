@@ -1,4 +1,4 @@
-import { Client, Conversation, DecodedMessage, SortDirection } from '@xmtp/xmtp-js'
+import { Client, DecodedMessage } from '@xmtp/browser-sdk'
 import { ethers } from 'ethers'
 
 /**
@@ -14,13 +14,25 @@ export function generateWallet(): { privateKey: string; address: string } {
 }
 
 /**
- * Creates an authenticated XMTP client from a private key hex string.
- * Connects to the XMTP production network (V2).
+ * Creates an authenticated XMTP client for the V3 network.
  */
 export async function createXmtpClient(privateKeyHex: string): Promise<Client> {
   const normalized = privateKeyHex.startsWith('0x') ? privateKeyHex : `0x${privateKeyHex}`
   const wallet = new ethers.Wallet(normalized)
-  const client = await Client.create(wallet, { env: 'production' })
+  
+  // Deterministically generate the local DB encryption key from the private key
+  const hash = ethers.utils.sha256(wallet.privateKey)
+  const dbEncryptionKey = ethers.utils.arrayify(hash)
+
+  // V3 Signer Interface wrapping the ethers Wallet
+  const signer = {
+    type: 'EOA' as const,
+    getIdentifier: async () => wallet.address as any,
+    getChainId: () => 1,
+    signMessage: async (message: string | Uint8Array) => ethers.utils.arrayify(await wallet.signMessage(message))
+  }
+
+  const client = await Client.create(signer, { env: 'production', dbEncryptionKey })
   return client
 }
 
@@ -29,7 +41,8 @@ export async function createXmtpClient(privateKeyHex: string): Promise<Client> {
  */
 export async function canMessage(client: Client, address: string): Promise<boolean> {
   try {
-    return await client.canMessage(address)
+    const result = await client.canMessage([address as any])
+    return result.get(address) || false
   } catch {
     return false
   }
@@ -38,38 +51,50 @@ export async function canMessage(client: Client, address: string): Promise<boole
 /**
  * Returns all conversations for the client, sorted by most recent activity.
  */
-export async function listConversations(client: Client): Promise<Conversation[]> {
+export async function listConversations(client: Client): Promise<any[]> {
   return client.conversations.list()
 }
 
 /**
- * Finds or creates a 1:1 DM conversation with the given Ethereum address.
+ * Finds or creates a 1:1 DM conversation.
  */
-export async function findOrCreateDm(client: Client, address: string): Promise<Conversation> {
-  return client.conversations.newConversation(address)
+export async function findOrCreateDm(client: Client, address: string): Promise<any> {
+  if ('findOrCreateDm' in client.conversations) {
+    return (client.conversations as any).findOrCreateDm(address)
+  }
+  if ('newDm' in client.conversations) {
+    return (client.conversations as any).newDm(address)
+  }
+  return (client.conversations as any).newConversation(address)
 }
 
 /**
  * Loads all messages for a conversation.
- * Filters out XMTP system messages (raw public key payloads) the same way
- * the Android app does using a regex check.
  */
-export async function loadMessages(conversation: Conversation): Promise<DecodedMessage[]> {
-  const all = await conversation.messages({ direction: SortDirection.SORT_DIRECTION_ASCENDING })
-  return all.filter(m => {
-    if (typeof m.content !== 'string') return false
-    // Filter out XMTP system messages (inbox ID / public key blob patterns)
-    if (/^(@?[a-fA-F0-9]{40,}\s*)+$/.test(m.content.trim())) return false
+export async function loadMessages(conversation: any): Promise<any[]> {
+  const all = await conversation.messages()
+  return all.filter((m: any) => {
+    // V3 message might have text in m.content or m.content?.text depending on content type
+    let contentStr = ''
+    if (typeof m.content === 'string') contentStr = m.content
+    else if (m.content?.text) contentStr = m.content.text
+    else return false
+
+    if (/^(@?[a-fA-F0-9]{40,}\s*)+$/.test(contentStr.trim())) return false
     return true
+  }).sort((a: any, b: any) => {
+    const timeA = a.sentAt || a.sent || a.createdAt
+    const timeB = b.sentAt || b.sent || b.createdAt
+    return new Date(timeA).getTime() - new Date(timeB).getTime()
   })
 }
 
 /**
  * Sends a text message to a conversation. Returns the message ID.
  */
-export async function sendMessage(conversation: Conversation, text: string): Promise<string> {
+export async function sendMessage(conversation: any, text: string): Promise<string> {
   const sent = await conversation.send(text)
-  return sent
+  return typeof sent === 'string' ? sent : sent.id
 }
 
 /** System message filter — shared regex to keep behaviour in sync with Android. */
