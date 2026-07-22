@@ -1,103 +1,71 @@
-name: Build & Publish Desktop App (Rolling Release)
+name: Build & Publish Desktop App (Windows)
 
 on:
   push:
-    branches: [main]           # Build on every push to main
+    branches: [main]
     paths:
       - 'desktop/**'
       - '.github/workflows/build-desktop.yml'
-  workflow_dispatch:            # Allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 permissions:
-  contents: write               # Required to create/update releases
+  contents: write
 
 jobs:
-  build-tauri:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'windows-latest'
-            args: ''
-          - platform: 'ubuntu-22.04'
-            args: ''
-          - platform: 'macos-latest'
-            args: '--target universal-apple-darwin'
-            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
-
-    runs-on: ${{ matrix.platform }}
-    name: Build (${{ matrix.platform }})
+  build-windows:
+    runs-on: windows-latest
+    name: Build Windows Installer
 
     steps:
       # ── 1. Source ──────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. System Dependencies (Linux only) ────────────────────────
-      - name: Install Linux system dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf
-
-      # ── 3. Node.js ─────────────────────────────────────────────────
+      # ── 2. Node.js ─────────────────────────────────────────────────
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # ── 4. Rust ────────────────────────────────────────────────────
+      # ── 3. Rust ────────────────────────────────────────────────────
       - name: Set up Rust (stable)
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-targets }}
 
       - name: Cache Rust build artefacts
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './desktop/src-tauri -> target'
 
-      # ── 5. Frontend ────────────────────────────────────────────────
+      # ── 4. Frontend ────────────────────────────────────────────────
       - name: Install npm dependencies
         working-directory: desktop
         run: npm install
 
-      # ── 6. Tauri Build + Rolling Release ───────────────────────────
-      - name: Build Tauri & publish to rolling "latest" release
+      # ── 5. Tauri Build + Rolling Release ───────────────────────────
+      - name: Build Tauri Windows installer & publish to rolling "latest" release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: desktop
-          args: ${{ matrix.args }}
-          # Always publish to the same "latest" tag (overwrite)
+          # Always publish to the same "latest" tag (overwritten on each push)
           tagName: latest
           releaseName: 'CryptoSub — Latest Build'
           releaseBody: |
-            ## 📥 CryptoSub — Latest Desktop Build
+            ## 📥 CryptoSub — Latest Desktop Build (Windows)
 
             This release is **automatically updated** on every push to `main`.
             Always download from here for the most recent version.
 
             ---
 
-            ### Windows
-            - Download **`CryptoSub_x.x.x_x64-setup.exe`** → run the installer.
-
-            ### macOS (Universal — Apple Silicon + Intel)
-            - Download **`CryptoSub_x.x.x_universal.dmg`** → drag to Applications.
-
-            ### Linux
-            - Download **`cryptosub_x.x.x_amd64.AppImage`** → make executable and run.
-            - Download **`cryptosub_x.x.x_amd64.deb`** → install with `dpkg -i`.
+            ### 🪟 Windows Installation
+            1. Download **`CryptoSub_x.x.x_x64-setup.exe`** below.
+            2. Run the installer — it will install CryptoSub and create a Start Menu shortcut.
+            3. On first launch, Windows SmartScreen may warn about an unknown publisher.
+               Click **"More info → Run anyway"** to proceed.
 
             ---
-            > ⚠️ **First-time Windows install:** Windows SmartScreen may warn about an unknown publisher. Click "More info → Run anyway." This is normal for self-distributed apps without an EV code-signing certificate.
+            > macOS and Linux builds coming soon.
           releaseDraft: false
           prerelease: false
-          # Overwrite the release body and assets on every build
-          includeUpdaterJson: false
