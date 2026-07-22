@@ -3,6 +3,7 @@ package com.privatemessenger
 import android.app.Application
 import com.privatemessenger.data.local.AppDatabase
 import com.privatemessenger.keystore.KeyStoreManager
+import kotlinx.coroutines.launch
 import org.xmtp.android.library.Client
 
 /**
