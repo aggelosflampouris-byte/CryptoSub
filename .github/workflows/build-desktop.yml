@@ -1,13 +1,15 @@
-name: Build & Release Desktop App
+name: Build & Publish Desktop App (Rolling Release)
 
 on:
   push:
-    tags:
-      - 'v*'  # Trigger on version tags e.g. v0.1.0
-  workflow_dispatch:  # Allow manual trigger
+    branches: [main]           # Build on every push to main
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-desktop.yml'
+  workflow_dispatch:            # Allow manual trigger from GitHub UI
 
 permissions:
-  contents: write
+  contents: write               # Required to create/update releases
 
 jobs:
   build-tauri:
@@ -15,26 +17,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-            target: 'aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-            target: 'x86_64-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            args: ''
-            target: ''
           - platform: 'windows-latest'
             args: ''
-            target: ''
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
 
     runs-on: ${{ matrix.platform }}
+    name: Build (${{ matrix.platform }})
 
     steps:
+      # ── 1. Source ──────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies (Ubuntu)
+      # ── 2. System Dependencies (Linux only) ────────────────────────
+      - name: Install Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
@@ -44,46 +44,60 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: Set up Node.js
+      # ── 3. Node.js ─────────────────────────────────────────────────
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
 
-      - name: Set up Rust stable
+      # ── 4. Rust ────────────────────────────────────────────────────
+      - name: Set up Rust (stable)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.rust-targets }}
 
       - name: Cache Rust build artefacts
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './desktop/src-tauri -> target'
 
-      - name: Install frontend dependencies
+      # ── 5. Frontend ────────────────────────────────────────────────
+      - name: Install npm dependencies
         working-directory: desktop
-        run: npm ci
+        run: npm install
 
-      - name: Build Tauri app
+      # ── 6. Tauri Build + Rolling Release ───────────────────────────
+      - name: Build Tauri & publish to rolling "latest" release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: desktop
           args: ${{ matrix.args }}
-          tagName: ${{ github.ref_name }}
-          releaseName: 'CryptoSub ${{ github.ref_name }}'
+          # Always publish to the same "latest" tag (overwrite)
+          tagName: latest
+          releaseName: 'CryptoSub — Latest Build'
           releaseBody: |
-            ## CryptoSub Desktop ${{ github.ref_name }}
-            
-            ### Downloads
-            - **Windows**: Download the `.exe` or `.msi` installer.
-            - **macOS (Apple Silicon)**: Download the `.dmg` (aarch64).
-            - **macOS (Intel)**: Download the `.dmg` (x86_64).
-            - **Linux**: Download the `.AppImage` or `.deb`.
+            ## 📥 CryptoSub — Latest Desktop Build
 
-            ### What's New
-            See the commit history for details.
+            This release is **automatically updated** on every push to `main`.
+            Always download from here for the most recent version.
+
+            ---
+
+            ### Windows
+            - Download **`CryptoSub_x.x.x_x64-setup.exe`** → run the installer.
+
+            ### macOS (Universal — Apple Silicon + Intel)
+            - Download **`CryptoSub_x.x.x_universal.dmg`** → drag to Applications.
+
+            ### Linux
+            - Download **`cryptosub_x.x.x_amd64.AppImage`** → make executable and run.
+            - Download **`cryptosub_x.x.x_amd64.deb`** → install with `dpkg -i`.
+
+            ---
+            > ⚠️ **First-time Windows install:** Windows SmartScreen may warn about an unknown publisher. Click "More info → Run anyway." This is normal for self-distributed apps without an EV code-signing certificate.
           releaseDraft: false
           prerelease: false
+          # Overwrite the release body and assets on every build
+          includeUpdaterJson: false

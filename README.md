@@ -1,52 +1,83 @@
 # CryptoSub 🛡️
 
-CryptoSub is a secure, zero-knowledge privacy messenger leveraging the state-of-the-art **XMTP V3** protocol. 
-It requires absolutely no phone numbers, no emails, and no centralized databases. Your identity is simply a cryptographic key pair, giving you complete ownership and privacy over your communications.
-
-## 🚀 Access the App
-
-We provide two primary ways to access and use CryptoSub:
-
-### 1. Web App (Recommended)
-Experience CryptoSub instantly in your browser. The web app is fully responsive and offers all the features of the native client.
-- **[Launch Web App](https://aggelosflampouris-byte.github.io/CryptoSub/)**
-
-### 2. Android Native App (APK)
-For a native mobile experience with background notifications, you can download the latest Android build.
-- **[Download Latest APK](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest)**
-
-*Note: When downloading the APK from GitHub Releases, you may need to allow installation from "Unknown Sources" in your Android settings.*
+> **Secure, zero-knowledge, peer-to-peer encrypted messenger — no phone number, no email, no server.**  
+> Powered by **XMTP V3** · End-to-End Encrypted · Fully decentralised
 
 ---
 
-## 🏗️ Technical Details
+## 📥 Download & Install
 
-CryptoSub is built with modern, secure technologies:
-- **Protocol:** [XMTP V3](https://xmtp.org/) (Extensible Message Transport Protocol)
-- **Encryption:** End-to-End Encryption (E2EE) by default.
-- **Web App:** React, Vite, TypeScript, and `@xmtp/browser-sdk` utilizing WebAssembly (WASM) for high-performance cryptographic operations in the browser.
-- **Android App:** Native Kotlin, Jetpack Compose, Coroutines, and the XMTP Kotlin SDK.
+### 🖥️ Desktop App (Windows · macOS · Linux)
 
-### Build Instructions
+| Platform | Download |
+|---|---|
+| 🪟 **Windows** | [⬇️ Download `.exe` installer](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) |
+| 🍎 **macOS** | [⬇️ Download `.dmg`](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) |
+| 🐧 **Linux** | [⬇️ Download `.AppImage` / `.deb`](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) |
 
-**For the Web App (`/webapp`):**
+> 🔄 The desktop app is **automatically built and published** on every update — the link above always points to the latest version.
+
+**First-time install notes:**
+- **Windows:** If SmartScreen warns about an unknown publisher, click *"More info → Run anyway."*
+- **macOS:** If Gatekeeper blocks the app, right-click the `.dmg` and choose *Open.*
+- **Linux:** Make the AppImage executable: `chmod +x CryptoSub*.AppImage && ./CryptoSub*.AppImage`
+
+---
+
+### 📱 Android App (APK)
+
+| Platform | Download |
+|---|---|
+| 🤖 **Android** | [⬇️ Download Latest APK](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) |
+
+> ⚠️ You may need to enable *"Install from Unknown Sources"* in Android Settings → Security before installing.
+
+---
+
+## 🔒 How It Works
+
+CryptoSub is built on **XMTP V3 (MLS)** — a fully decentralised messaging protocol:
+
+- **No accounts, no servers:** Your identity is a cryptographic key pair you own entirely.
+- **End-to-End Encrypted:** Messages are encrypted before they leave your device. Nobody can read them — not even us.
+- **Zero metadata:** No phone numbers, no emails, no centralized databases.
+- **Cross-platform:** The Android app and Desktop app share the same cryptographic identity — one key, both devices.
+
+---
+
+## 🏗️ Build from Source
+
+### Desktop App (`/desktop`)
 ```bash
-cd webapp
+# Requires: Node.js 20+, Rust stable, and platform WebView (pre-installed on Windows/macOS)
+cd desktop
 npm install
-npm run dev      # Start local development server
-npm run build    # Build for production
+npm run tauri:dev      # Run in development mode (native window)
+npm run tauri:build    # Build the production installer
 ```
 
-**For the Android App (`/android`):**
-- Open the `/android` folder in Android Studio.
-- Sync Gradle.
-- Run the app on a connected device or emulator.
-*(Alternatively, run `./gradlew assembleDebug` from the command line).*
+### Android App (`/android`)
+```bash
+# Requires: Android Studio, Android SDK 26+
+# Open /android in Android Studio, sync Gradle, and run on device.
+```
 
 ---
 
-## 🔒 Security & Privacy
+## ⚙️ Tech Stack
 
-Your chats are entirely off-grid from traditional servers. 
-- **No Centralized Accounts:** You generate your own Ethereum-based private key offline.
-- **Save Your Key:** Because there are no centralized accounts, losing your private key means losing access to your identity and messages permanently. **Always store your private key securely offline.**
+| Layer | Technology |
+|---|---|
+| **Protocol** | [XMTP V3 / MLS](https://xmtp.org/) |
+| **Desktop Frontend** | React 18, Vite, TypeScript |
+| **Desktop Shell** | [Tauri v2](https://tauri.app/) (Rust + native OS WebView) |
+| **Mobile** | Kotlin, Jetpack Compose, XMTP Android SDK |
+| **Encryption** | WebCrypto API (browser), BouncyCastle (Android) |
+
+---
+
+## 🔑 Security Notice
+
+> **Save your private key!** CryptoSub generates a local Ethereum key pair as your identity.  
+> There are **no accounts to recover.** If you lose your key, you lose access to your messages permanently.  
+> Store it securely — use a password manager or write it down offline.
