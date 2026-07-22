@@ -16,11 +16,12 @@ import {
 export interface ConversationMeta {
   id: string
   topic: string
-  peerAddress: string
+  peerAddress: string // For groups, this will just be the group ID
   displayName: string
   lastMessage: string
   lastMessageTs: number
   unreadCount: number
+  isGroup: boolean
 }
 
 interface XmtpContextValue {
@@ -66,19 +67,27 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       ? last.content
       : ''
     let peerId = 'unknown'
-    if (conv.peerAddress && typeof conv.peerAddress === 'string') {
-      peerId = conv.peerAddress
-    } else if (typeof conv.peerInboxId === 'function') {
-      try {
-        peerId = await conv.peerInboxId()
-      } catch (e) {
-        console.error("Failed to get peerInboxId", e)
+    let isGroup = false
+    let display = 'Unknown'
+    
+    if (typeof conv.members === 'function' || typeof conv.listMembers === 'function' || 'admins' in conv || 'name' in conv) {
+      isGroup = true
+      display = conv.name || 'Unnamed Group'
+      peerId = conv.id // groups don't have a single peer
+    } else {
+      if (conv.peerAddress && typeof conv.peerAddress === 'string') {
+        peerId = conv.peerAddress
+      } else if (typeof conv.peerInboxId === 'function') {
+        try {
+          peerId = await conv.peerInboxId()
+        } catch (e) {
+          console.error("Failed to get peerInboxId", e)
+        }
+      } else if (typeof conv.peerInboxId === 'string') {
+        peerId = conv.peerInboxId
       }
-    } else if (typeof conv.peerInboxId === 'string') {
-      peerId = conv.peerInboxId
+      display = peerId === 'unknown' ? 'Unknown' : `${peerId.slice(0, 6)}…${peerId.slice(-4)}`
     }
-
-    const display = peerId === 'unknown' ? 'Unknown' : `${peerId.slice(0, 6)}…${peerId.slice(-4)}`
 
     return {
       id: conv.id,
@@ -88,6 +97,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       lastMessage: lastText,
       lastMessageTs: last ? ((last as any).sentAt || (last as any).sent || (last as any).createdAt || new Date()).getTime() : 0,
       unreadCount: 0,
+      isGroup
     }
   }, [])
 

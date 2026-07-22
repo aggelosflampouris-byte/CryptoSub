@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import AddContactModal from '../components/AddContactModal'
+import CreateGroupModal from '../components/CreateGroupModal'
 
 interface Props {
   onOpenAccount: () => void
@@ -9,13 +10,19 @@ interface Props {
 export default function Sidebar({ onOpenAccount }: Props) {
   const { conversations, activeConversationId, selectConversation, refreshConversations } = useXmtp()
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'all' | 'contacts' | 'groups'>('all')
   const [showAddContact, setShowAddContact] = useState(false)
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  const filtered = conversations.filter(c =>
-    c.displayName.toLowerCase().includes(search.toLowerCase()) ||
-    c.peerAddress.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = conversations.filter(c => {
+    const matchesSearch = c.displayName.toLowerCase().includes(search.toLowerCase()) ||
+                          c.peerAddress.toLowerCase().includes(search.toLowerCase())
+    if (!matchesSearch) return false
+    if (activeTab === 'contacts' && c.isGroup) return false
+    if (activeTab === 'groups' && !c.isGroup) return false
+    return true
+  })
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -30,6 +37,9 @@ export default function Sidebar({ onOpenAccount }: Props) {
         <div className="sidebar-actions">
           <button className="icon-btn" title="Refresh" onClick={handleRefresh} disabled={refreshing}>
             {refreshing ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '↻'}
+          </button>
+          <button className="icon-btn" title="Create Group" onClick={() => setShowCreateGroup(true)}>
+            👥
           </button>
           <button className="icon-btn" title="Add Contact" onClick={() => setShowAddContact(true)}>
             ✚
@@ -47,6 +57,24 @@ export default function Sidebar({ onOpenAccount }: Props) {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
+      </div>
+
+      <div className="sidebar-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
+        <button 
+          className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`} 
+          onClick={() => setActiveTab('all')}
+          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', color: activeTab === 'all' ? 'var(--primary-color)' : 'var(--text-secondary)', fontWeight: activeTab === 'all' ? 'bold' : 'normal', cursor: 'pointer' }}
+        >All</button>
+        <button 
+          className={`tab-btn ${activeTab === 'contacts' ? 'active' : ''}`} 
+          onClick={() => setActiveTab('contacts')}
+          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', color: activeTab === 'contacts' ? 'var(--primary-color)' : 'var(--text-secondary)', fontWeight: activeTab === 'contacts' ? 'bold' : 'normal', cursor: 'pointer' }}
+        >Contacts</button>
+        <button 
+          className={`tab-btn ${activeTab === 'groups' ? 'active' : ''}`} 
+          onClick={() => setActiveTab('groups')}
+          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', color: activeTab === 'groups' ? 'var(--primary-color)' : 'var(--text-secondary)', fontWeight: activeTab === 'groups' ? 'bold' : 'normal', cursor: 'pointer' }}
+        >Groups</button>
       </div>
 
       <div className="conversation-list">
@@ -83,6 +111,7 @@ export default function Sidebar({ onOpenAccount }: Props) {
       </div>
 
       {showAddContact && <AddContactModal onClose={() => setShowAddContact(false)} />}
+      {showCreateGroup && <CreateGroupModal onClose={() => setShowCreateGroup(false)} />}
     </aside>
   )
 }

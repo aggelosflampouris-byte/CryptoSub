@@ -37,7 +37,8 @@ import com.privatemessenger.PrivateMessengerApp
 @Composable
 fun AccountScreen(
     app: PrivateMessengerApp,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onLogoutComplete: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -140,6 +141,19 @@ fun AccountScreen(
                 isSecret = false,
                 onCopy = { copyToClipboard(context, "Public Address", publicAddress) }
             )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = {
+                    app.logout()
+                    onLogoutComplete()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Logout")
+            }
             
             Spacer(modifier = Modifier.height(32.dp))
         }

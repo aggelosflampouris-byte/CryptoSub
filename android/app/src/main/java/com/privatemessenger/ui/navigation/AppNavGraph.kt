@@ -96,6 +96,12 @@ fun AppNavGraph(
                 },
                 onShareAppClicked = {
                     navController.navigate("share_app")
+                },
+                onContactsClicked = {
+                    navController.navigate("contacts")
+                },
+                onGroupsClicked = {
+                    navController.navigate("groups")
                 }
             )
         }
@@ -109,6 +115,41 @@ fun AppNavGraph(
         composable("account") {
             com.privatemessenger.ui.screens.account.AccountScreen(
                 app = app,
+                onBack = { navController.popBackStack() },
+                onLogoutComplete = {
+                    navController.navigate("registration") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable("contacts") {
+            com.privatemessenger.ui.screens.contacts.ContactsScreen(
+                database = app.database,
+                onChatClicked = { conversationId ->
+                    navController.navigate("chat/$conversationId") {
+                        popUpTo("chat_list")
+                    }
+                },
+                onAddContactClicked = {
+                    navController.navigate("scanner")
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("groups") {
+            com.privatemessenger.ui.screens.groups.GroupsScreen(
+                database = app.database,
+                onChatClicked = { conversationId ->
+                    navController.navigate("chat/$conversationId") {
+                        popUpTo("chat_list")
+                    }
+                },
+                onCreateGroupClicked = {
+                    navController.navigate("create_group")
+                },
                 onBack = { navController.popBackStack() }
             )
         }

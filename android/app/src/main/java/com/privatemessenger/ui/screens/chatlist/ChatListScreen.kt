@@ -53,7 +53,9 @@ fun ChatListScreen(
     onAddContactClicked: () -> Unit,
     onAddGroupClicked: () -> Unit,
     onAccountClicked: () -> Unit,
-    onShareAppClicked: () -> Unit
+    onShareAppClicked: () -> Unit,
+    onContactsClicked: () -> Unit,
+    onGroupsClicked: () -> Unit
 ) {
     val conversations by database.conversationDao().getAllConversations().collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
@@ -146,7 +148,10 @@ fun ChatListScreen(
                 NavigationDrawerItem(
                     label = { Text("Contacts", fontWeight = FontWeight.Bold) },
                     selected = false,
-                    onClick = { coroutineScope.launch { drawerState.close() } },
+                    onClick = { 
+                        coroutineScope.launch { drawerState.close() }
+                        onContactsClicked()
+                    },
                     icon = { Icon(Icons.Default.Contacts, contentDescription = null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                     colors = NavigationDrawerItemDefaults.colors(
@@ -158,7 +163,10 @@ fun ChatListScreen(
                 NavigationDrawerItem(
                     label = { Text("Groups", fontWeight = FontWeight.Bold) },
                     selected = false,
-                    onClick = { coroutineScope.launch { drawerState.close() } },
+                    onClick = { 
+                        coroutineScope.launch { drawerState.close() }
+                        onGroupsClicked()
+                    },
                     icon = { Icon(Icons.Default.Group, contentDescription = null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                     colors = NavigationDrawerItemDefaults.colors(

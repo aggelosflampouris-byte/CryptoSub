@@ -243,6 +243,13 @@ class KeyStoreManager(private val context: Context) {
         return SecretKeySpec(keyBytes, "AES")
     }
 
+    /**
+     * Clears all cryptographic keys and encrypted preferences.
+     */
+    fun clearAll() {
+        encryptedPrefs.edit().clear().apply()
+    }
+
     // ------------------------------------------------------------------
     // Internal helpers
     // ------------------------------------------------------------------

@@ -76,4 +76,15 @@ class PrivateMessengerApp : Application() {
      * crypto layer is initialized.
      */
     fun isRegistered(): Boolean = keyStoreManager.getEthereumPrivateKey() != null
+
+    /**
+     * Logs the user out by clearing all keys and database contents.
+     */
+    fun logout() {
+        keyStoreManager.clearAll()
+        xmtpClient = null
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            database.clearAllTables()
+        }
+    }
 }

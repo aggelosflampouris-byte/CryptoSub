@@ -17,6 +17,12 @@ interface ConversationDao {
     @Query("SELECT * FROM conversations ORDER BY last_message_timestamp DESC")
     fun getAllConversations(): Flow<List<ConversationEntity>>
 
+    @Query("SELECT * FROM conversations WHERE is_group = 0 ORDER BY last_message_timestamp DESC")
+    fun getContacts(): Flow<List<ConversationEntity>>
+
+    @Query("SELECT * FROM conversations WHERE is_group = 1 ORDER BY last_message_timestamp DESC")
+    fun getGroups(): Flow<List<ConversationEntity>>
+
     @Query("SELECT * FROM conversations WHERE id = :conversationId")
     suspend fun getConversation(conversationId: String): ConversationEntity?
 
@@ -51,4 +57,7 @@ interface ConversationDao {
 
     @Query("DELETE FROM conversations WHERE id = :conversationId")
     suspend fun delete(conversationId: String)
+
+    @Query("DELETE FROM conversations")
+    suspend fun clearAll()
 }
