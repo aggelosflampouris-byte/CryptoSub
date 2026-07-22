@@ -49,9 +49,12 @@ export default function CreateGroupModal({ onClose }: Props) {
       
       let group: any
       if (typeof client.conversations.newGroupWithIdentifiers === 'function') {
-        const identifiers = addresses.map(addr => ({ inboxId: addr }))
+        const identifiers = addresses.map(addr => ({
+          inboxId: addr,
+          identifierKind: 'inboxId' as const
+        }))
         try {
-          group = await client.conversations.newGroupWithIdentifiers(addresses.map(a => ({ inboxId: a, identifier: a })))
+          group = await client.conversations.newGroupWithIdentifiers(identifiers)
         } catch {
           group = await client.conversations.newGroup(addresses)
         }

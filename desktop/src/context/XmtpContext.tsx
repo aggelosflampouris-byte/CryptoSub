@@ -188,6 +188,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     try {
       const stream = await xmtpClient.conversations.stream()
       for await (const conv of stream) {
+        if (!conv) continue
         if (!convMapRef.current.has(conv.id)) {
           loadConversations(xmtpClient).catch(console.error)
           
