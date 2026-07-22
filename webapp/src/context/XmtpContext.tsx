@@ -70,7 +70,9 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     let isGroup = false
     let display = 'Unknown'
     
-    if (typeof conv.members === 'function' || typeof conv.listMembers === 'function' || 'admins' in conv || 'name' in conv) {
+    // XMTP v3 Group vs Dm detection
+    // DMs in v3 have peerInboxId(), DMs in v2 have peerAddress
+    if (typeof conv.peerInboxId !== 'function' && typeof conv.peerAddress !== 'string') {
       isGroup = true
       display = conv.name || 'Unnamed Group'
       peerId = conv.id // groups don't have a single peer
@@ -114,29 +116,33 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
 
   const startStreaming = useCallback(async (xmtpClient: Client) => {
     if (streamRef.current) return
-    const stream = await xmtpClient.conversations.streamAllMessages()
-    streamRef.current = stream as any
-    for await (const msg of stream) {
-      if (!msg) continue
-      
-      let contentStr = ''
-      if (typeof msg.content === 'string') contentStr = msg.content
-      else if ((msg.content as any)?.text) contentStr = (msg.content as any).text
-      else continue
-      
-      if (isSystemMessage(contentStr)) continue
+    try {
+      const stream = await xmtpClient.conversations.streamAllMessages()
+      streamRef.current = stream as any
+      for await (const msg of stream) {
+        if (!msg) continue
+        
+        let contentStr = ''
+        if (typeof msg.content === 'string') contentStr = msg.content
+        else if ((msg.content as any)?.text) contentStr = (msg.content as any).text
+        else continue
+        
+        if (isSystemMessage(contentStr)) continue
 
-      const convId = (msg as any).conversationId
+        const convId = (msg as any).conversationId
 
-      if (!convMapRef.current.has(convId)) {
-        // New conversation! Reload the list in the background
-        loadConversations(xmtpClient).catch(console.error)
-      }
+        if (!convMapRef.current.has(convId)) {
+          // New conversation! Reload the list in the background
+          loadConversations(xmtpClient).catch(console.error)
+        }
 
       // Update conversation list
       setConversations(prev => {
         const idx = prev.findIndex(c => c.id === convId)
-        if (idx < 0) return prev // Wait for loadConversations to populate it
+        if (idx < 0) {
+          // If we haven't loaded it yet, just return prev. loadConversations will get it soon.
+          return prev 
+        }
 
         const updated = { ...prev[idx] }
         updated.lastMessage = contentStr
@@ -163,10 +169,18 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
 
       setActiveConversationId(activeId => {
         if (activeId === (msg as any).conversationId) {
-          setMessages(prev => [...prev, msg])
+          setMessages(prev => {
+            if (prev.some(m => m.id === msg.id)) return prev
+            return [...prev, msg]
+          })
         }
         return activeId
       })
+    }
+    } catch (e) {
+      console.error("Message stream failed, restarting...", e)
+      streamRef.current = null
+      setTimeout(() => startStreaming(xmtpClient), 3000)
     }
   }, [loadConversations])
 
@@ -186,7 +200,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-      console.error("Conversation stream failed", e)
+      console.error("Conversation stream failed, restarting...", e)
+      setTimeout(() => startConversationStream(xmtpClient), 3000)
     }
   }, [loadConversations, startStreaming])
 
