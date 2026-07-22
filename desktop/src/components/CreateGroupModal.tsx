@@ -49,9 +49,12 @@ export default function CreateGroupModal({ onClose }: Props) {
       
       let group: any
       if (typeof client.conversations.newGroupWithIdentifiers === 'function') {
+        // Identifier type from @xmtp/wasm-bindings requires:
+        //   identifier: string  (the Ethereum address)
+        //   identifierKind: "Ethereum" | "Passkey"
         const identifiers = addresses.map(addr => ({
-          inboxId: addr,
-          identifierKind: 'inboxId' as const
+          identifier: addr,
+          identifierKind: 'Ethereum' as const
         }))
         try {
           group = await client.conversations.newGroupWithIdentifiers(identifiers)
