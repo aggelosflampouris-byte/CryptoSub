@@ -217,8 +217,12 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   }, [loadConversations, startStreaming, startConversationStream])
 
   // Restore session on startup
+  const initRef = useRef(false)
   useEffect(() => {
-    (async () => {
+    if (initRef.current) return
+    initRef.current = true
+    
+    ;(async () => {
       try {
         const stored = await getPrivateKey()
         if (stored) await initClient(stored)
@@ -229,6 +233,15 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       }
     })()
   }, [initClient])
+
+  // Background Sync polling (fallback for when Waku stream drops)
+  useEffect(() => {
+    if (!client) return
+    const interval = setInterval(() => {
+      client.conversations.sync().catch(console.error)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [client])
 
   const register = useCallback(async (): Promise<string | null> => {
     setIsLoading(true)
