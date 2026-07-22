@@ -38,6 +38,7 @@ import com.privatemessenger.data.local.AppDatabase
 import com.privatemessenger.data.local.entity.ConversationEntity
 import com.privatemessenger.notifications.NotificationHelper
 import com.privatemessenger.ui.components.AnimatedBackground
+import com.privatemessenger.utils.AppUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -62,8 +63,38 @@ fun ChatListScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val context = LocalContext.current
 
+    var updateInfo by remember { mutableStateOf<AppUpdater.UpdateInfo?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         NotificationHelper.createChannels(app)
+        val info = AppUpdater.checkForUpdate()
+        if (info.isUpdateAvailable && info.downloadUrl != null) {
+            updateInfo = info
+            showUpdateDialog = true
+        }
+    }
+
+    if (showUpdateDialog && updateInfo != null) {
+        AlertDialog(
+            onDismissRequest = { showUpdateDialog = false },
+            title = { Text("Update Available") },
+            text = { Text("A new version (${updateInfo!!.latestVersion}) of CryptoSub is available! Would you like to update now?") },
+            confirmButton = {
+                Button(onClick = {
+                    showUpdateDialog = false
+                    android.widget.Toast.makeText(context, "Downloading update...", android.widget.Toast.LENGTH_SHORT).show()
+                    AppUpdater.downloadAndInstallUpdate(context, updateInfo!!.downloadUrl!!, updateInfo!!.latestVersion)
+                }) {
+                    Text("Update Now")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUpdateDialog = false }) {
+                    Text("Later")
+                }
+            }
+        )
     }
 
     var renamingConversation by remember { mutableStateOf<ConversationEntity?>(null) }
