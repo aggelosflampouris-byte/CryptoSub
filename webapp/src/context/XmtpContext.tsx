@@ -151,7 +151,6 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         return next.sort((a, b) => b.lastMessageTs - a.lastMessageTs)
       })
 
-      // Append message to active chat
       setActiveConversationId(activeId => {
         if (activeId === (msg as any).conversationId) {
           setMessages(prev => [...prev, msg])
@@ -159,7 +158,27 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         return activeId
       })
     }
-  }, [])
+  }, [loadConversations])
+
+  const startConversationStream = useCallback(async (xmtpClient: Client) => {
+    try {
+      const stream = await xmtpClient.conversations.stream()
+      for await (const conv of stream) {
+        if (!convMapRef.current.has(conv.id)) {
+          loadConversations(xmtpClient).catch(console.error)
+          
+          // Restart the message stream to include the new conversation's topic
+          if (streamRef.current) {
+            try { (streamRef.current as any).return?.() } catch(e) {}
+            streamRef.current = null
+          }
+          startStreaming(xmtpClient)
+        }
+      }
+    } catch (e) {
+      console.error("Conversation stream failed", e)
+    }
+  }, [loadConversations, startStreaming])
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -168,8 +187,9 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     setClient(xmtpClient)
     await loadConversations(xmtpClient)
     startStreaming(xmtpClient)
+    startConversationStream(xmtpClient)
     return xmtpClient
-  }, [loadConversations, startStreaming])
+  }, [loadConversations, startStreaming, startConversationStream])
 
   // Restore session on startup
   useEffect(() => {
@@ -255,8 +275,16 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       if (exists) return prev
       return [meta, ...prev]
     })
+    
+    // Restart message stream so we receive replies in this new conversation
+    if (streamRef.current) {
+      try { (streamRef.current as any).return?.() } catch(e) {}
+      streamRef.current = null
+    }
+    startStreaming(client)
+    
     selectConversation(conv.id)
-  }, [client, buildMeta, selectConversation])
+  }, [client, selectConversation, buildMeta, startStreaming])
 
   const sendMessage = useCallback(async (text: string) => {
     if (!client || !activeConversationId) return
