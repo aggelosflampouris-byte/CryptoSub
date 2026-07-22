@@ -41,7 +41,15 @@ jobs:
         working-directory: desktop
         run: npm install
 
-      # ── 5. Tauri Build + Rolling Release ───────────────────────────
+      # ── 5. Generate properly-formatted icons ───────────────────────
+      # The Windows Resource Compiler (RC.EXE) requires ICO files in v3.00 format.
+      # Tauri CLI's `icon` command correctly converts a source PNG into all
+      # required formats: .ico (Windows), .icns (macOS), and sized PNGs.
+      - name: Generate Tauri icons from source PNG
+        working-directory: desktop
+        run: npx @tauri-apps/cli icon src-tauri/icons/128x128.png
+
+      # ── 6. Tauri Build + Rolling Release ───────────────────────────
       - name: Build Tauri Windows installer & publish to rolling "latest" release
         uses: tauri-apps/tauri-action@v0
         env:
