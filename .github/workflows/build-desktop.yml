@@ -42,12 +42,15 @@ jobs:
         run: npm install
 
       # ── 5. Generate properly-formatted icons ───────────────────────
-      # The Windows Resource Compiler (RC.EXE) requires ICO files in v3.00 format.
-      # Tauri CLI's `icon` command correctly converts a source PNG into all
-      # required formats: .ico (Windows), .icns (macOS), and sized PNGs.
-      - name: Generate Tauri icons from source PNG
+      # Download a valid 512×512 PNG source (Tauri's own default app icon)
+      # then let `tauri icon` convert it into the correct ICO / ICNS / PNG sizes.
+      - name: Generate Tauri icons from a valid PNG source
         working-directory: desktop
-        run: npx @tauri-apps/cli icon src-tauri/icons/128x128.png
+        run: |
+          curl -L -o app-icon.png "https://github.com/tauri-apps/tauri/raw/dev/crates/tauri-build/test/icon.png" || \
+          curl -L -o app-icon.png "https://raw.githubusercontent.com/tauri-apps/create-tauri-app/main/templates/template-svelte-ts/src-tauri/icons/icon.png" || \
+          curl -L -o app-icon.png "https://raw.githubusercontent.com/tauri-apps/tauri/2-stable/examples/api/src-tauri/icons/icon.png"
+          npx @tauri-apps/cli icon app-icon.png
 
       # ── 6. Tauri Build + Rolling Release ───────────────────────────
       - name: Build Tauri Windows installer & publish to rolling "latest" release
