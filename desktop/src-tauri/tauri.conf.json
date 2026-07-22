@@ -28,6 +28,17 @@
     },
     "withGlobalTauri": true
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE0RUM4MjEwN0FFRTZBOEIKUldTTGF1NTZFSUxzRkErSzdNek1LbkFIdytyMU9zVXo3dnJVU3pqMWpqdUZhWnBUREpKdTBYZ1AK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

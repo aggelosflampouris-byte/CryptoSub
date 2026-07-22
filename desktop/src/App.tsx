@@ -4,6 +4,7 @@ import RegistrationScreen from './screens/RegistrationScreen'
 import ChatScreen from './screens/ChatScreen'
 import Sidebar from './components/Sidebar'
 import AccountModal from './components/AccountModal'
+import { UpdateModal } from './components/UpdateModal'
 
 /** Main app — routing is done with simple state, no router library needed. */
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
 
   return (
     <div className="app-layout">
+      <UpdateModal />
       <div className="main-layout">
         <Sidebar onOpenAccount={() => setShowAccount(true)} />
         <ChatScreen />

@@ -9,3 +9,4 @@ dist/
 # Build outputs
 *.log
 *.pid
+*.key 
