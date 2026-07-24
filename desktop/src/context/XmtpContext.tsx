@@ -56,6 +56,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
 
+  const activeConvRef = useRef<string | null>(null)
   const convMapRef = useRef<Map<string, Conversation>>(new Map())
   const streamRef = useRef<AsyncGenerator | null>(null)
 
@@ -152,6 +153,13 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
           loadConversations(xmtpClient).catch(console.error)
         }
 
+        const senderId = (msg as any).senderInboxId || (msg as any).senderAddress
+        const myId = (xmtpClient as any).inboxId || (xmtpClient as any).address
+        const isFromPeer = senderId?.toLowerCase() !== myId?.toLowerCase()
+        const isActiveChat = activeConvRef.current === convId
+        let shouldNotify = false
+        let notifyLabel = 'New Message'
+
       // Update conversation list
       setConversations(prev => {
         const idx = prev.findIndex(c => c.id === convId)
@@ -164,34 +172,35 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         updated.lastMessage = contentStr
         updated.lastMessageTs = ((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).getTime()
 
-        const senderId = (msg as any).senderInboxId || (msg as any).senderAddress
-        const myId = (xmtpClient as any).inboxId || (xmtpClient as any).address
-        if (senderId?.toLowerCase() !== myId?.toLowerCase()) {
-          updated.unreadCount = (updated.unreadCount || 0) + 1
-          
-          // Send native desktop notification
+        if (isFromPeer) {
+          if (!isActiveChat) {
+            updated.unreadCount = (updated.unreadCount || 0) + 1
+            shouldNotify = true
+            notifyLabel = updated.displayName || 'New Message'
+          } else {
+            updated.unreadCount = 0
+          }
+        }
+
+        const next = [...prev]
+        next[idx] = updated
+        return next.sort((a, b) => b.lastMessageTs - a.lastMessageTs)
+      })
+
+      if (shouldNotify) {
+        try {
           let permissionGranted = await isPermissionGranted()
           if (!permissionGranted) {
             const permission = await requestPermission()
             permissionGranted = permission === 'granted'
           }
           if (permissionGranted) {
-            const label = updated.displayName || 'New Message'
-            sendNotification({ title: label, body: contentStr })
+            sendNotification({ title: notifyLabel, body: contentStr })
           }
+        } catch (e) {
+          console.error('Failed to send notification', e)
         }
-
-        setActiveConversationId(activeId => {
-          if (activeId === convId && senderId?.toLowerCase() !== myId?.toLowerCase()) {
-            updated.unreadCount = 0 // Clear if the chat is open
-          }
-          return activeId
-        })
-
-        const next = [...prev]
-        next[idx] = updated
-        return next.sort((a, b) => b.lastMessageTs - a.lastMessageTs)
-      })
+      }
 
       setActiveConversationId(activeId => {
         if (activeId === (msg as any).conversationId) {
@@ -349,6 +358,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     setConversations([])
     setMessages([])
     setActiveConversationId(null)
+    activeConvRef.current = null
     convMapRef.current.clear()
     await clearKeystore()
   }, [])
@@ -357,6 +367,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
 
   const selectConversation = useCallback((id: string) => {
     setActiveConversationId(id)
+    activeConvRef.current = id
     // Clear unread when opening
     setConversations(prev => prev.map(c => c.id === id ? { ...c, unreadCount: 0 } : c))
     // Load messages
