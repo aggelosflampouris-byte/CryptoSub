@@ -1,5 +1,6 @@
 import { Client, Conversation, DecodedMessage } from '@xmtp/browser-sdk'
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 import { clearKeystore, getPrivateKey, storePrivateKey } from '../services/keyVault'
 import {
   createXmtpClient,
@@ -116,11 +117,26 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
 
   const startStreaming = useCallback(async (xmtpClient: Client) => {
     if (streamRef.current) return
-    try {
-      const stream = await xmtpClient.conversations.streamAllMessages()
-      streamRef.current = stream as any
-      for await (const msg of stream) {
-        if (!msg) continue
+    
+    // We run the stream in an async IIFE so we don't block
+    ;(async () => {
+      let retryDelay = 3000
+      let isActive = true
+      
+      // Store a cleanup function to allow logging out
+      streamRef.current = { return: () => { isActive = false } } as any
+
+      while (isActive) {
+        try {
+          // Sync first to catch anything missed while disconnected
+          await xmtpClient.conversations.sync().catch(console.error)
+          
+          const stream = await xmtpClient.conversations.streamAllMessages()
+          retryDelay = 3000 // reset on success
+
+          for await (const msg of stream) {
+            if (!isActive) break
+            if (!msg) continue
         
         let contentStr = ''
         if (typeof msg.content === 'string') contentStr = msg.content
@@ -148,11 +164,21 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         updated.lastMessage = contentStr
         updated.lastMessageTs = ((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).getTime()
 
-        // Only increment unread if message is from the peer
         const senderId = (msg as any).senderInboxId || (msg as any).senderAddress
         const myId = (xmtpClient as any).inboxId || (xmtpClient as any).address
         if (senderId?.toLowerCase() !== myId?.toLowerCase()) {
           updated.unreadCount = (updated.unreadCount || 0) + 1
+          
+          // Send native desktop notification
+          let permissionGranted = await isPermissionGranted()
+          if (!permissionGranted) {
+            const permission = await requestPermission()
+            permissionGranted = permission === 'granted'
+          }
+          if (permissionGranted) {
+            const label = updated.displayName || 'New Message'
+            sendNotification({ title: label, body: contentStr })
+          }
         }
 
         setActiveConversationId(activeId => {
@@ -173,38 +199,64 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
             if (prev.some(m => m.id === msg.id)) return prev
             return [...prev, msg]
           })
+          }
+          return activeId
+        })
+      }
+      
+      // Stream cleanly ended
+      if (isActive) await new Promise(r => setTimeout(r, retryDelay))
+      
+      } catch (e) {
+        console.error("Message stream failed, restarting...", e)
+        if (isActive) {
+          await new Promise(r => setTimeout(r, retryDelay))
+          retryDelay = Math.min(retryDelay * 2, 30000)
         }
-        return activeId
-      })
+      }
     }
-    } catch (e) {
-      console.error("Message stream failed, restarting...", e)
-      streamRef.current = null
-      setTimeout(() => startStreaming(xmtpClient), 3000)
-    }
+    })()
   }, [loadConversations])
 
   const startConversationStream = useCallback(async (xmtpClient: Client) => {
-    try {
-      const stream = await xmtpClient.conversations.stream()
-      for await (const conv of stream) {
-        if (!conv) continue
-        if (!convMapRef.current.has(conv.id)) {
-          loadConversations(xmtpClient).catch(console.error)
-          
-          // Restart the message stream to include the new conversation's topic
-          if (streamRef.current) {
-            try { (streamRef.current as any).return?.() } catch(e) {}
-            streamRef.current = null
+    let isActive = true
+    ;(async () => {
+      let retryDelay = 3000
+      while (isActive) {
+        try {
+          const stream = await xmtpClient.conversations.stream()
+          retryDelay = 3000
+          for await (const conv of stream) {
+            if (!isActive) break
+            if (!conv) continue
+            if (!convMapRef.current.has(conv.id)) {
+              loadConversations(xmtpClient).catch(console.error)
+              
+              // New contact notification
+              let permissionGranted = await isPermissionGranted()
+              if (!permissionGranted) {
+                const permission = await requestPermission()
+                permissionGranted = permission === 'granted'
+              }
+              if (permissionGranted) {
+                sendNotification({ title: 'New Contact', body: 'Someone has started a conversation with you on CryptoSub.' })
+              }
+            }
           }
-          startStreaming(xmtpClient)
+          if (isActive) await new Promise(r => setTimeout(r, retryDelay))
+        } catch (e) {
+          console.error("Conversation stream failed, restarting...", e)
+          if (isActive) {
+            await new Promise(r => setTimeout(r, retryDelay))
+            retryDelay = Math.min(retryDelay * 2, 30000)
+          }
         }
       }
-    } catch (e) {
-      console.error("Conversation stream failed, restarting...", e)
-      setTimeout(() => startConversationStream(xmtpClient), 3000)
-    }
-  }, [loadConversations, startStreaming])
+    })()
+    
+    // Return a function to stop the loop when logging out
+    return () => { isActive = false }
+  }, [loadConversations])
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -238,11 +290,24 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   // Background Sync polling (fallback for when Waku stream drops)
   useEffect(() => {
     if (!client) return
-    const interval = setInterval(() => {
-      client.conversations.sync().catch(console.error)
-    }, 3000)
+    const interval = setInterval(async () => {
+      try {
+        await client.conversations.sync()
+        // We also want to manually pull the UI data just in case the stream missed it
+        await loadConversations(client)
+        if (activeConversationId) {
+          const conv = convMapRef.current.get(activeConversationId)
+          if (conv) {
+             const msgs = await loadMessages(conv)
+             setMessages(msgs)
+          }
+        }
+      } catch (e) {
+        console.error('Poll failed:', e)
+      }
+    }, 5000)
     return () => clearInterval(interval)
-  }, [client])
+  }, [client, activeConversationId, loadConversations])
 
   const register = useCallback(async (): Promise<string | null> => {
     setIsLoading(true)
