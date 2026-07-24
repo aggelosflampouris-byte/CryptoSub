@@ -6,6 +6,8 @@ import Sidebar from './components/Sidebar'
 import AccountModal from './components/AccountModal'
 import { UpdateModal } from './components/UpdateModal'
 
+// Desktop App Entry Point
+
 /** Main app — routing is done with simple state, no router library needed. */
 export default function App() {
   const { isRegistered, isLoading } = useXmtp()
