@@ -10,13 +10,20 @@ import android.app.AlertDialog
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.privatemessenger.PrivateMessengerApp
 import com.privatemessenger.ui.navigation.AppNavGraph
+import com.privatemessenger.ui.screens.settings.AppTheme
+import com.privatemessenger.ui.screens.settings.ThemePreference
 import com.privatemessenger.ui.theme.PrivateMessengerTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -99,14 +106,24 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            PrivateMessengerTheme {
+            val initialTheme = ThemePreference.load(this@MainActivity)
+            var currentTheme by remember { mutableStateOf(initialTheme) }
+            val isSystemDark = isSystemInDarkTheme()
+            val useDark = when (currentTheme) {
+                AppTheme.DARK   -> true
+                AppTheme.LIGHT  -> false
+                AppTheme.SYSTEM -> isSystemDark
+            }
+            PrivateMessengerTheme(darkTheme = useDark) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     AppNavGraph(
                         startDestination = startDestination,
-                        app = app
+                        app = app,
+                        currentTheme = currentTheme,
+                        onThemeChanged = { currentTheme = it }
                     )
                 }
             }

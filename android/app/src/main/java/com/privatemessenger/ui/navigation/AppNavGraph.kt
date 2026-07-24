@@ -16,6 +16,8 @@ import com.privatemessenger.ui.screens.chat.ChatScreen
 import com.privatemessenger.ui.screens.chatlist.ChatListScreen
 import com.privatemessenger.ui.screens.chatlist.CreateGroupScreen
 import com.privatemessenger.ui.screens.registration.RegistrationScreen
+import com.privatemessenger.ui.screens.settings.AppTheme
+import com.privatemessenger.ui.screens.settings.SettingsScreen
 import com.privatemessenger.ui.screens.share.ShareAppScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,7 +27,9 @@ import org.xmtp.android.library.libxmtp.PublicIdentity
 @Composable
 fun AppNavGraph(
     startDestination: String,
-    app: PrivateMessengerApp
+    app: PrivateMessengerApp,
+    currentTheme: AppTheme,
+    onThemeChanged: (AppTheme) -> Unit
 ) {
     val navController = rememberNavController()
     val authRepository = AuthRepository(app)
@@ -102,7 +106,18 @@ fun AppNavGraph(
                 },
                 onGroupsClicked = {
                     navController.navigate("groups")
+                },
+                onSettingsClicked = {
+                    navController.navigate("settings")
                 }
+            )
+        }
+
+        composable("settings") {
+            SettingsScreen(
+                currentTheme = currentTheme,
+                onThemeChanged = onThemeChanged,
+                onBack = { navController.popBackStack() }
             )
         }
 
