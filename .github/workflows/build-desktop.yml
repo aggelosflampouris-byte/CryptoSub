@@ -46,8 +46,9 @@ jobs:
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('desktop/package.json','utf8'));p.version='${VERSION}';fs.writeFileSync('desktop/package.json',JSON.stringify(p,null,2)+'\n');"
           # Patch tauri.conf.json
           node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('desktop/src-tauri/tauri.conf.json','utf8'));c.version='${VERSION}';fs.writeFileSync('desktop/src-tauri/tauri.conf.json',JSON.stringify(c,null,2)+'\n');"
-          # Write version-desktop.json
+          # Write version-desktop.json and legacy version.json
           echo "{\"version\":\"${VERSION}\",\"build\":${BUILD}}" > version-desktop.json
+          echo "{\"version\":\"${VERSION}\",\"build\":${BUILD}}" > version.json
 
       # ── 6. Frontend ────────────────────────────────────────────────
       - name: Install npm dependencies
@@ -94,10 +95,10 @@ jobs:
           releasePrerelease: false
           prerelease: false
 
-      - name: Upload version-desktop.json to release
+      - name: Upload version-desktop.json and legacy version.json to release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "version-desktop.json"
+          artifacts: "version-desktop.json,version.json"
           tag: "latest"
           makeLatest: true
           allowUpdates: true

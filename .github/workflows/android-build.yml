@@ -41,9 +41,10 @@ jobs:
     - name: Build Debug APK
       run: cd android && ./gradlew assembleDebug
 
-    - name: Write version-android.json
+    - name: Write version-android.json and legacy version.json
       run: |
         echo '{"version":"0.1.${{ github.run_number }}","build":${{ github.run_number }}}' > version-android.json
+        echo '{"version":"0.1.${{ github.run_number }}","build":${{ github.run_number }}}' > version.json
 
     - name: Upload APK as Artifact
       uses: actions/upload-artifact@v4
@@ -54,7 +55,7 @@ jobs:
     - name: Create or Update Release
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "android/app/build/outputs/apk/debug/app-debug.apk,version-android.json"
+        artifacts: "android/app/build/outputs/apk/debug/app-debug.apk,version-android.json,version.json"
         tag: "latest"
         name: "CryptoSub — Latest Build"
         makeLatest: true
