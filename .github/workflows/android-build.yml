@@ -42,12 +42,15 @@ jobs:
         name: PrivateMessenger-Debug-APK
         path: android/app/build/outputs/apk/debug/app-debug.apk
 
-    - name: Create GitHub Release
+    - name: Create or Update Release
       uses: ncipollo/release-action@v1
       with:
         artifacts: "android/app/build/outputs/apk/debug/app-debug.apk"
-        tag: "build-${{ github.run_number }}"
-        name: "Build #${{ github.run_number }}"
+        tag: "latest"
+        name: "CryptoSub — Latest Build"
         makeLatest: true
+        allowUpdates: true
+        replacesArtifacts: true
+        omitBodyDuringUpdate: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
