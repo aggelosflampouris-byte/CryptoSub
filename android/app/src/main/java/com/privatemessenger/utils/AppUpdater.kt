@@ -36,8 +36,8 @@ data class VersionJson(
 object AppUpdater {
 
     private const val TAG = "AppUpdater"
-    private const val RELEASE_API  = "https://api.github.com/repos/aggelosflampouris-byte/CryptoSub/releases/latest"
-    private const val VERSION_JSON = "https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest/download/version-android.json"
+    private val RELEASE_API  = "https://api.github.com/repos/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest"
+    private val VERSION_JSON = "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest/download/version-android.json"
     private val client = OkHttpClient()
     private val gson = Gson()
 

@@ -2,6 +2,10 @@
   "name": "cryptosub-desktop",
   "version": "0.1.0",
   "description": "CryptoSub — Secure E2E Encrypted Messenger (Desktop)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aggelosflampouris-byte/CryptoSub.git"
+  },
   "private": true,
   "type": "module",
   "scripts": {

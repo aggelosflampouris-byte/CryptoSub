@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 
-const RELEASES_PAGE = 'https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest'
-const VERSION_JSON  = 'https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest/download/version-desktop.json'
+declare const __APP_REPO__: string
+const RELEASES_PAGE = `${__APP_REPO__}/releases/latest`
+const VERSION_JSON  = `${__APP_REPO__}/releases/latest/download/version-desktop.json`
 
 // Injected by Vite at build time from tauri.conf.json → version
 declare const __APP_VERSION__: string

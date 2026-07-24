@@ -35,6 +35,7 @@ export default defineConfig(async () => ({
 
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_REPO__: JSON.stringify(pkg.repository?.url?.replace('git+', '').replace('.git', '') || 'https://github.com/aggelosflampouris-byte/CryptoSub'),
   },
 
   build: {
