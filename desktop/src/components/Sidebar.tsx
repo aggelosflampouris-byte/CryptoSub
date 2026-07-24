@@ -14,6 +14,7 @@ export default function Sidebar({ onOpenAccount }: Props) {
   const [showAddContact, setShowAddContact] = useState(false)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
 
   const filtered = conversations.filter(c => {
     const matchesSearch = c.displayName.toLowerCase().includes(search.toLowerCase()) ||
@@ -32,22 +33,62 @@ export default function Sidebar({ onOpenAccount }: Props) {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-header">
+      <div className="sidebar-header" style={{ position: 'relative' }}>
         <h1>CryptoSub</h1>
         <div className="sidebar-actions">
-          <button className="icon-btn" title="Refresh" onClick={handleRefresh} disabled={refreshing}>
-            {refreshing ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '↻'}
-          </button>
-          <button className="icon-btn" title="Create Group" onClick={() => setShowCreateGroup(true)}>
-            👥
-          </button>
-          <button className="icon-btn" title="Add Contact" onClick={() => setShowAddContact(true)}>
-            ✚
-          </button>
-          <button className="icon-btn" title="Account" onClick={onOpenAccount}>
-            ⚙
+          <button className="icon-btn" title="Menu" onClick={() => setShowMenu(!showMenu)}>
+            ☰
           </button>
         </div>
+        {showMenu && (
+          <div
+            className="burger-menu-dropdown"
+            style={{
+              position: 'absolute',
+              top: '48px',
+              right: '16px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              zIndex: 100,
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: '160px',
+              overflow: 'hidden'
+            }}
+          >
+            <button
+              className="burger-menu-item"
+              onClick={() => { setShowMenu(false); handleRefresh(); }}
+              disabled={refreshing}
+              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
+            >
+              {refreshing ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '↻'} Refresh
+            </button>
+            <button
+              className="burger-menu-item"
+              onClick={() => { setShowMenu(false); setShowCreateGroup(true); }}
+              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
+            >
+              👥 Create Group
+            </button>
+            <button
+              className="burger-menu-item"
+              onClick={() => { setShowMenu(false); setShowAddContact(true); }}
+              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
+            >
+              ✚ Add Contact
+            </button>
+            <button
+              className="burger-menu-item"
+              onClick={() => { setShowMenu(false); onOpenAccount(); }}
+              style={{ padding: '12px 16px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
+            >
+              ⚙ Account & Settings
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="sidebar-search">
