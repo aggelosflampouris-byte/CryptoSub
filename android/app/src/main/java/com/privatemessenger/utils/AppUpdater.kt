@@ -38,6 +38,9 @@ object AppUpdater {
     private const val TAG = "AppUpdater"
     private val RELEASE_API  = "https://api.github.com/repos/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest"
     private val VERSION_JSON = "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest/download/version-android.json"
+    // Use the static download URL for the APK instead of hitting the API which gets rate-limited
+    private val APK_DOWNLOAD_URL = "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest/download/app-debug.apk"
+    
     private val client = OkHttpClient()
     private val gson = Gson()
 
@@ -49,10 +52,11 @@ object AppUpdater {
 
     suspend fun checkForUpdate(): UpdateInfo = withContext(Dispatchers.IO) {
         try {
-            // 1. Fetch version.json published alongside the APK
+            // 1. Fetch version-android.json published alongside the APK
             val versionRequest = Request.Builder()
                 .url(VERSION_JSON)
                 .header("Accept", "application/octet-stream")
+                .header("Cache-Control", "no-cache")
                 .build()
 
             val versionResponse = client.newCall(versionRequest).execute()
@@ -61,25 +65,10 @@ object AppUpdater {
                 gson.fromJson(body, VersionJson::class.java)
             } else null
 
-            // 2. Fetch the release to find the APK download URL
-            val releaseRequest = Request.Builder()
-                .url(RELEASE_API)
-                .header("Accept", "application/vnd.github.v3+json")
-                .build()
-
-            val releaseResponse = client.newCall(releaseRequest).execute()
-            if (!releaseResponse.isSuccessful) {
-                Log.e(TAG, "Failed to fetch release info: ${releaseResponse.code}")
-                return@withContext UpdateInfo(false, "", null)
-            }
-
-            val release = gson.fromJson(releaseResponse.body?.string() ?: "", GitHubRelease::class.java)
-            val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
-
-            // 3. Compare build numbers (most reliable for rolling releases)
+            // 2. Compare build numbers (most reliable for rolling releases)
             val remoteBuild = remoteVersion?.build ?: 0
             val localBuild  = BuildConfig.VERSION_CODE
-            val remoteVersionName = remoteVersion?.version ?: release.tag_name
+            val remoteVersionName = remoteVersion?.version ?: "Latest"
 
             val isUpdateAvailable = remoteBuild > localBuild
 
@@ -88,7 +77,7 @@ object AppUpdater {
             UpdateInfo(
                 isUpdateAvailable = isUpdateAvailable,
                 latestVersion = remoteVersionName,
-                downloadUrl = apkAsset?.browser_download_url
+                downloadUrl = if (isUpdateAvailable) APK_DOWNLOAD_URL else null
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error checking for updates", e)
