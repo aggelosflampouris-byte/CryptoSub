@@ -37,7 +37,7 @@ object AppUpdater {
 
     private const val TAG = "AppUpdater"
     private const val RELEASE_API  = "https://api.github.com/repos/aggelosflampouris-byte/CryptoSub/releases/latest"
-    private const val VERSION_JSON = "https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest/download/version.json"
+    private const val VERSION_JSON = "https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest/download/version-android.json"
     private val client = OkHttpClient()
     private val gson = Gson()
 

@@ -46,8 +46,8 @@ jobs:
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('desktop/package.json','utf8'));p.version='${VERSION}';fs.writeFileSync('desktop/package.json',JSON.stringify(p,null,2)+'\n');"
           # Patch tauri.conf.json
           node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('desktop/src-tauri/tauri.conf.json','utf8'));c.version='${VERSION}';fs.writeFileSync('desktop/src-tauri/tauri.conf.json',JSON.stringify(c,null,2)+'\n');"
-          # Write version.json
-          echo "{\"version\":\"${VERSION}\",\"build\":${BUILD}}" > version.json
+          # Write version-desktop.json
+          echo "{\"version\":\"${VERSION}\",\"build\":${BUILD}}" > version-desktop.json
 
       # ── 6. Frontend ────────────────────────────────────────────────
       - name: Install npm dependencies
@@ -55,6 +55,17 @@ jobs:
         run: npm install
 
       # ── 6. Tauri Build + Rolling Release ───────────────────────────
+      - name: Clean up old release assets
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch all assets from the 'latest' release and delete old EXEs, MSIs, and ZIPs
+          gh release view latest --repo ${{ github.repository }} --json assets -q ".assets[].name" | grep -E "^CryptoSub_.*\.(exe|msi|zip)$" | while read -r asset; do
+            echo "Deleting old asset: $asset"
+            gh release delete-asset latest "$asset" --repo ${{ github.repository }} -y || true
+          done || echo "No old assets found or release 'latest' doesn't exist yet."
+
       - name: Build Tauri Windows installer & publish to rolling "latest" release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -83,14 +94,14 @@ jobs:
           releasePrerelease: false
           prerelease: false
 
-      - name: Upload version.json to release
+      - name: Upload version-desktop.json to release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "version.json"
+          artifacts: "version-desktop.json"
           tag: "latest"
           makeLatest: true
           allowUpdates: true
-          replacesArtifacts: false
+          replacesArtifacts: true
           omitBodyDuringUpdate: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
