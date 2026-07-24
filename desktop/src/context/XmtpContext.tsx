@@ -63,6 +63,9 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   const buildMeta = useCallback(async (conv: any): Promise<ConversationMeta> => {
+    if (typeof conv.sync === 'function') {
+      try { await conv.sync() } catch (e) { console.error("Sync failed for buildMeta", e) }
+    }
     const msgs = await conv.messages({ limit: 1n })
     const last = msgs.length > 0 ? msgs[msgs.length - 1] : null
     const lastText = last && typeof last.content === 'string' && !isSystemMessage(last.content)
@@ -146,7 +149,12 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         
         if (isSystemMessage(contentStr)) continue
 
-        const convId = (msg as any).conversationId
+        const convId = (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic
+
+        if (!convId) {
+          console.warn("Message missing conversation identifier", msg)
+          continue
+        }
 
         if (!convMapRef.current.has(convId)) {
           // New conversation! Reload the list in the background
@@ -203,7 +211,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       }
 
       setActiveConversationId(activeId => {
-        if (activeId === (msg as any).conversationId) {
+        const msgConvId = (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic
+        if (activeId === msgConvId) {
           setMessages(prev => {
             if (prev.some(m => m.id === msg.id)) return prev
             return [...prev, msg]
