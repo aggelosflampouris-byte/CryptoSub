@@ -28,10 +28,16 @@ data class GitHubAsset(
     val browser_download_url: String
 )
 
+data class VersionJson(
+    val version: String,
+    val build: Int
+)
+
 object AppUpdater {
 
     private const val TAG = "AppUpdater"
-    private const val REPO_URL = "https://api.github.com/repos/aggelosflampouris-byte/CryptoSub/releases/latest"
+    private const val RELEASE_API  = "https://api.github.com/repos/aggelosflampouris-byte/CryptoSub/releases/latest"
+    private const val VERSION_JSON = "https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest/download/version.json"
     private val client = OkHttpClient()
     private val gson = Gson()
 
@@ -43,30 +49,45 @@ object AppUpdater {
 
     suspend fun checkForUpdate(): UpdateInfo = withContext(Dispatchers.IO) {
         try {
-            val request = Request.Builder()
-                .url(REPO_URL)
+            // 1. Fetch version.json published alongside the APK
+            val versionRequest = Request.Builder()
+                .url(VERSION_JSON)
+                .header("Accept", "application/octet-stream")
+                .build()
+
+            val versionResponse = client.newCall(versionRequest).execute()
+            val remoteVersion: VersionJson? = if (versionResponse.isSuccessful) {
+                val body = versionResponse.body?.string() ?: ""
+                gson.fromJson(body, VersionJson::class.java)
+            } else null
+
+            // 2. Fetch the release to find the APK download URL
+            val releaseRequest = Request.Builder()
+                .url(RELEASE_API)
                 .header("Accept", "application/vnd.github.v3+json")
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                Log.e(TAG, "Failed to fetch release info: ${response.code}")
+            val releaseResponse = client.newCall(releaseRequest).execute()
+            if (!releaseResponse.isSuccessful) {
+                Log.e(TAG, "Failed to fetch release info: ${releaseResponse.code}")
                 return@withContext UpdateInfo(false, "", null)
             }
 
-            val bodyString = response.body?.string() ?: ""
-            val release = gson.fromJson(bodyString, GitHubRelease::class.java)
-
-            val latestVersionString = release.tag_name.removePrefix("v").removePrefix("V")
-            val currentVersionString = BuildConfig.VERSION_NAME
-
-            val isUpdateAvailable = isVersionNewer(currentVersionString, latestVersionString)
-
+            val release = gson.fromJson(releaseResponse.body?.string() ?: "", GitHubRelease::class.java)
             val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
+
+            // 3. Compare build numbers (most reliable for rolling releases)
+            val remoteBuild = remoteVersion?.build ?: 0
+            val localBuild  = BuildConfig.VERSION_CODE
+            val remoteVersionName = remoteVersion?.version ?: release.tag_name
+
+            val isUpdateAvailable = remoteBuild > localBuild
+
+            Log.d(TAG, "Local build=$localBuild  Remote build=$remoteBuild  update=$isUpdateAvailable")
 
             UpdateInfo(
                 isUpdateAvailable = isUpdateAvailable,
-                latestVersion = latestVersionString,
+                latestVersion = remoteVersionName,
                 downloadUrl = apkAsset?.browser_download_url
             )
         } catch (e: Exception) {
@@ -76,14 +97,15 @@ object AppUpdater {
     }
 
     fun downloadAndInstallUpdate(context: Context, url: String, version: String) {
-        val destination = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "CryptoSub-v$version.apk")
-        if (destination.exists()) {
-            destination.delete()
-        }
+        val destination = File(
+            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+            "CryptoSub-v$version.apk"
+        )
+        if (destination.exists()) destination.delete()
 
         val request = DownloadManager.Request(Uri.parse(url))
             .setTitle("CryptoSub Update")
-            .setDescription("Downloading version $version")
+            .setDescription("Downloading v$version…")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationUri(Uri.fromFile(destination))
 
@@ -109,7 +131,6 @@ object AppUpdater {
 
     private fun installApk(context: Context, apkFile: File) {
         if (!apkFile.exists()) return
-
         try {
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
             val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -120,24 +141,6 @@ object AppUpdater {
             context.startActivity(intent)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start install intent", e)
-        }
-    }
-
-    private fun isVersionNewer(current: String, latest: String): Boolean {
-        try {
-            val currentParts = current.split(".").map { it.toIntOrNull() ?: 0 }
-            val latestParts = latest.split(".").map { it.toIntOrNull() ?: 0 }
-
-            val length = maxOf(currentParts.size, latestParts.size)
-            for (i in 0 until length) {
-                val c = currentParts.getOrElse(i) { 0 }
-                val l = latestParts.getOrElse(i) { 0 }
-                if (l > c) return true
-                if (l < c) return false
-            }
-            return false
-        } catch (e: Exception) {
-            return false
         }
     }
 }

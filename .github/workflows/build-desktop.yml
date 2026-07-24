@@ -36,7 +36,20 @@ jobs:
         with:
           workspaces: './desktop/src-tauri -> target'
 
-      # ── 4. Frontend ────────────────────────────────────────────────
+      # ── 5. Stamp version ────────────────────────────────────────────
+      - name: Stamp desktop version with run number
+        shell: bash
+        run: |
+          BUILD=${{ github.run_number }}
+          VERSION="0.1.${BUILD}"
+          # Patch package.json
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('desktop/package.json','utf8'));p.version='${VERSION}';fs.writeFileSync('desktop/package.json',JSON.stringify(p,null,2)+'\n');"
+          # Patch tauri.conf.json
+          node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('desktop/src-tauri/tauri.conf.json','utf8'));c.version='${VERSION}';fs.writeFileSync('desktop/src-tauri/tauri.conf.json',JSON.stringify(c,null,2)+'\n');"
+          # Write version.json
+          echo "{\"version\":\"${VERSION}\",\"build\":${BUILD}}" > version.json
+
+      # ── 6. Frontend ────────────────────────────────────────────────
       - name: Install npm dependencies
         working-directory: desktop
         run: npm install
@@ -48,11 +61,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: desktop
-          # Always publish to the same "latest" tag (overwritten on each push)
           tagName: latest
           releaseName: 'CryptoSub — Latest Build'
           releaseBody: |
-            ## 📥 CryptoSub — Latest Desktop Build (Windows)
+            ## 📥 CryptoSub — Latest Build
 
             This release is **automatically updated** on every push to `main`.
             Always download from here for the most recent version.
@@ -70,3 +82,15 @@ jobs:
           releaseDraft: false
           releasePrerelease: false
           prerelease: false
+
+      - name: Upload version.json to release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "version.json"
+          tag: "latest"
+          makeLatest: true
+          allowUpdates: true
+          replacesArtifacts: false
+          omitBodyDuringUpdate: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

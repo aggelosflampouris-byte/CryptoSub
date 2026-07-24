@@ -1,104 +1,102 @@
 import React, { useEffect, useState } from 'react'
-import { check } from '@tauri-apps/plugin-updater'
-import { relaunch } from '@tauri-apps/plugin-process'
+
+const RELEASES_PAGE = 'https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest'
+const VERSION_JSON  = 'https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest/download/version.json'
+
+// Injected by Vite at build time from tauri.conf.json → version
+declare const __APP_VERSION__: string
+const LOCAL_BUILD = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0'
+
+function parseBuild(v: string): number {
+  const parts = v.split('.')
+  return parseInt(parts[parts.length - 1] ?? '0', 10) || 0
+}
 
 export const UpdateModal: React.FC = () => {
-  const [updateAvailable, setUpdateAvailable] = useState<any>(null)
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [progress, setProgress] = useState(0)
+  const [remoteVersion, setRemoteVersion] = useState<string | null>(null)
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    // Check for updates on startup
-    const checkForUpdates = async () => {
+    const check = async () => {
       try {
-        const update = await check()
-        if (update?.available) {
-          setUpdateAvailable(update)
+        const res = await fetch(VERSION_JSON, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json() as { version: string; build: number }
+        const localBuild  = parseBuild(LOCAL_BUILD)
+        const remoteBuild = data.build ?? 0
+        if (remoteBuild > localBuild) {
+          setRemoteVersion(data.version)
         }
-      } catch (err) {
-        console.error("Failed to check for updates:", err)
+      } catch {
+        // silently ignore — update check is non-critical
       }
     }
-    
-    // Slight delay so it doesn't block initial render
-    setTimeout(checkForUpdates, 3000)
+    // Delay 4 s so it doesn't block the initial render
+    const t = setTimeout(check, 4000)
+    return () => clearTimeout(t)
   }, [])
 
-  const handleInstall = async () => {
-    if (!updateAvailable) return
-    setIsUpdating(true)
-    setError(null)
-    try {
-      let downloaded = 0
-      let contentLength = 0
-
-      await updateAvailable.downloadAndInstall((event: any) => {
-        switch (event.event) {
-          case 'Started':
-            contentLength = event.data.contentLength
-            break
-          case 'Progress':
-            downloaded += event.data.chunkLength
-            if (contentLength > 0) {
-              setProgress(Math.round((downloaded / contentLength) * 100))
-            }
-            break
-          case 'Finished':
-            setProgress(100)
-            break
-        }
-      })
-      await relaunch()
-    } catch (err: any) {
-      console.error(err)
-      setError(err.toString())
-      setIsUpdating(false)
-    }
-  }
-
-  if (!updateAvailable) return null
+  if (!remoteVersion || dismissed) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#1C1C1F] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-2">Update Available!</h2>
-        <p className="text-white/70 mb-4 text-sm">
-          Version {updateAvailable.version} is available. You are currently running an older version.
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', padding: '16px'
+    }}>
+      <div style={{
+        background: '#1C1C1F', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '20px', padding: '28px', maxWidth: '360px', width: '100%',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+          <span style={{ fontSize: '24px' }}>🚀</span>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: '20px', fontWeight: 700 }}>
+            Update Available
+          </h2>
+        </div>
+
+        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '14px', lineHeight: 1.6, margin: '0 0 20px' }}>
+          Version <strong style={{ color: '#fff' }}>{remoteVersion}</strong> is ready.
+          You are running <strong style={{ color: '#888' }}>{LOCAL_BUILD}</strong>.
+          Download the new installer and run it — your settings and keys are preserved.
         </p>
 
-        {error && (
-          <div className="p-3 mb-4 rounded-xl bg-red-500/10 text-red-400 text-sm border border-red-500/20">
-            {error}
-          </div>
-        )}
+        {/* Progress bar decoration */}
+        <div style={{
+          height: '3px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)',
+          marginBottom: '20px', overflow: 'hidden'
+        }}>
+          <div style={{
+            height: '100%', width: '60%', borderRadius: '2px',
+            background: 'linear-gradient(90deg, #6366f1, #8b5cf6)'
+          }} />
+        </div>
 
-        {isUpdating ? (
-          <div className="space-y-3">
-            <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden border border-white/10">
-              <div 
-                className="bg-indigo-500 h-full transition-all duration-300 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-center text-sm text-white/50">Downloading... {progress}%</p>
-          </div>
-        ) : (
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={() => setUpdateAvailable(null)}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
-            >
-              Skip
-            </button>
-            <button
-              onClick={handleInstall}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 transition-colors"
-            >
-              Install Update
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setDismissed(true)}
+            style={{
+              flex: 1, padding: '10px', borderRadius: '12px', border: 'none',
+              background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)',
+              cursor: 'pointer', fontSize: '14px', fontWeight: 500, transition: 'all 0.2s'
+            }}
+          >
+            Later
+          </button>
+          <button
+            onClick={() => { window.open(RELEASES_PAGE, '_blank'); setDismissed(true) }}
+            style={{
+              flex: 1, padding: '10px', borderRadius: '12px', border: 'none',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+              boxShadow: '0 4px 16px rgba(99,102,241,0.4)', transition: 'all 0.2s'
+            }}
+          >
+            Download Update ↗
+          </button>
+        </div>
       </div>
     </div>
   )
