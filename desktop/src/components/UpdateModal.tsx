@@ -32,9 +32,15 @@ export const UpdateModal: React.FC = () => {
         // silently ignore — update check is non-critical
       }
     }
-    // Delay 4 s so it doesn't block the initial render
+    // Check 4s after launch
     const t = setTimeout(check, 4000)
-    return () => clearTimeout(t)
+    // Then check every 5 minutes
+    const interval = setInterval(check, 5 * 60 * 1000)
+    
+    return () => {
+      clearTimeout(t)
+      clearInterval(interval)
+    }
   }, [])
 
   if (!remoteVersion || dismissed) return null
