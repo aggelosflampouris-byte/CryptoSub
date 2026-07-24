@@ -11,11 +11,11 @@
 
 | Platform | Download |
 |---|---|
-| 🪟 **Windows** | [⬇️ Download `.exe` installer](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) |
-| 🍎 **macOS** | [⬇️ Download `.dmg`](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) |
-| 🐧 **Linux** | [⬇️ Download `.AppImage` / `.deb`](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) |
+| 🪟 **Windows** | [⬇️ Open Release Page](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) *(Download `.exe` under Assets)* |
+| 🍎 **macOS** | [⬇️ Open Release Page](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) *(Download `.dmg` under Assets)* |
+| 🐧 **Linux** | [⬇️ Open Release Page](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) *(Download `.AppImage` under Assets)* |
 
-> 🔄 The desktop app is **automatically built and published** on every update — the link above always points to the latest version.
+> 🔄 The desktop app is **automatically built and published** on every update. Select the appropriate file from the **Assets** section of the latest release.
 
 **First-time install notes:**
 - **Windows:** If SmartScreen warns about an unknown publisher, click *"More info → Run anyway."*
@@ -28,7 +28,7 @@
 
 | Platform | Download |
 |---|---|
-| 🤖 **Android** | [⬇️ Download Latest APK](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) |
+| 🤖 **Android** | [⬇️ Open Release Page](https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest) *(Download `.apk` under Assets)* |
 
 > ⚠️ You may need to enable *"Install from Unknown Sources"* in Android Settings → Security before installing.
 
