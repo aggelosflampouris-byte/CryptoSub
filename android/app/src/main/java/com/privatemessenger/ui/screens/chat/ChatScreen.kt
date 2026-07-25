@@ -48,7 +48,7 @@ fun ChatScreen(
     onBack: () -> Unit
 ) {
     val allMessages by database.messageDao().getMessagesForConversation(conversationId).collectAsState(initial = emptyList())
-    val messages = remember(allMessages) { allMessages.filter { !it.content.matches(Regex("^(@[a-fA-F0-9]{40,}\\s*)+$")) } }
+    val messages = remember(allMessages) { allMessages.filter { !it.content.trim().startsWith("@") } }
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -111,9 +111,25 @@ fun ChatScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(messages, key = { it.id }) { message ->
+                items(messages.size, key = { messages[it].id }) { index ->
+                    val message = messages[index]
+                    val previousMessage = if (index > 0) messages[index - 1] else null
+                    val showTimeHeader = previousMessage == null || (message.timestamp - previousMessage.timestamp > 3600000L) // 1 hour
+                    
+                    if (showTimeHeader) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = formatTimestampHeader(message.timestamp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                    
                     MessageBubble(message = message, isCurrentUser = message.senderUserId == app.xmtpClient?.inboxId)
-                }
             }
 
             ChatInputArea(
@@ -219,27 +235,6 @@ fun MessageBubble(
                 }
             }
             
-            Spacer(modifier = Modifier.height(2.dp))
-            
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = formatTimestamp(message.timestamp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-                if (isCurrentUser) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = when (message.status) {
-                            MessageStatus.SENDING -> "â€¢"
-                            MessageStatus.SENT -> "âœ“"
-                            MessageStatus.DELIVERED -> "âœ“âœ“"
-                            MessageStatus.READ -> "âœ“âœ“" // You can color this tertiary
-                            MessageStatus.FAILED -> "!"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (message.status == MessageStatus.READ) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
                 }
             }
         }
@@ -318,8 +313,14 @@ fun ChatInputArea(
     }
 }
 
-private fun formatTimestamp(timestamp: Long): String {
+private fun formatTimestampHeader(timestamp: Long): String {
     if (timestamp == 0L) return ""
-    val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-    return formatter.format(Date(timestamp))
+    val date = Date(timestamp)
+    val now = Date()
+    val format = if (now.time - timestamp < 86400000L) {
+        SimpleDateFormat("HH:mm", Locale.getDefault())
+    } else {
+        SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+    }
+    return format.format(date)
 }
