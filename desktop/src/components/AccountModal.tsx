@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import { getPrivateKey } from '../services/keyVault'
+import { getVersion } from '@tauri-apps/api/app'
 
 interface Props {
   onClose: () => void
@@ -12,6 +13,11 @@ export default function AccountModal({ onClose }: Props) {
   const [showKey, setShowKey] = useState(false)
   const [copied, setCopied] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const [appVersion, setAppVersion] = useState<string>('')
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion('Web'))
+  }, [])
 
   const handleRevealKey = async () => {
     const key = await getPrivateKey()
@@ -98,6 +104,11 @@ export default function AccountModal({ onClose }: Props) {
               </div>
             </div>
           )}
+        </div>
+
+        {/* App Version */}
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>
+          App Version: {appVersion || 'Loading...'}
         </div>
       </div>
     </div>
