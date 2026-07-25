@@ -38,11 +38,6 @@ jobs:
         sed -i "s/versionCode = 1/versionCode = ${{ github.run_number }}/" android/app/build.gradle.kts
         sed -i 's/versionName = "0.1.0"/versionName = "0.1.${{ github.run_number }}"/g' android/app/build.gradle.kts
 
-    - name: Cache Debug Keystore
-      uses: actions/cache@v4
-      with:
-        path: ~/.android/debug.keystore
-        key: debug-keystore-${{ runner.os }}
 
     - name: Build Debug APK
       run: cd android && ./gradlew assembleDebug
