@@ -1,16 +1,16 @@
 package com.privatemessenger.ui.screens.scanner
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Color
+import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.Toast
-import android.content.ClipboardManager
-import android.content.ClipData
-import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -22,16 +22,27 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,7 +56,6 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.privatemessenger.PrivateMessengerApp
-import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,10 +66,10 @@ fun ScannerScreen(
     onBack: () -> Unit
 ) {
     var hasCameraPermission by remember { mutableStateOf(false) }
-    var isShowingMyCode by remember { mutableStateOf(false) }
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val tabs = listOf("Scan Code", "My Code")
 
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -77,26 +87,47 @@ fun ScannerScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Add Contact") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+            Column {
+                TopAppBar(
+                    title = { Text("Add Contact", fontWeight = FontWeight.SemiBold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
+                )
+                TabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.onBackground,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.Indicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                            color = MaterialTheme.colorScheme.primary,
+                            height = 3.dp
+                        )
                     }
-                }
-            )
-        },
-        bottomBar = {
-            BottomAppBar {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    TextButton(onClick = { isShowingMyCode = false }) {
-                        Text("Scan QR Code", fontWeight = if (!isShowingMyCode) FontWeight.Bold else FontWeight.Normal)
-                    }
-                    TextButton(onClick = { isShowingMyCode = true }) {
-                        Text("My QR Code", fontWeight = if (isShowingMyCode) FontWeight.Bold else FontWeight.Normal)
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { 
+                                Text(
+                                    title, 
+                                    fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Medium
+                                ) 
+                            },
+                            icon = {
+                                Icon(
+                                    if (index == 0) Icons.Default.QrCodeScanner else Icons.Default.QrCode,
+                                    contentDescription = null
+                                )
+                            }
+                        )
                     }
                 }
             }
@@ -105,10 +136,11 @@ fun ScannerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .background(if (selectedTabIndex == 0 && hasCameraPermission) Color.Black else MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            if (isShowingMyCode) {
+            if (selectedTabIndex == 1) {
                 MyQrCodeView(app)
             } else {
                 if (hasCameraPermission) {
@@ -117,30 +149,25 @@ fun ScannerScreen(
                             onBarcodeScanned = { barcodeValue, resetScanner ->
                                 try {
                                     val uri = Uri.parse(barcodeValue)
-                                    if (uri.scheme == "ethereum") {
-                                        val address = uri.path ?: uri.schemeSpecificPart
-                                        if (address.startsWith("0x")) {
-                                            onContactScanned(address)
-                                            return@CameraPreviewView
-                                        }
-                                    } else if (barcodeValue.startsWith("0x")) {
-                                        onContactScanned(barcodeValue)
-                                        return@CameraPreviewView
-                                    }
+                                    val address = if (uri.scheme == "ethereum") (uri.path ?: uri.schemeSpecificPart) else barcodeValue
                                     
-                                    // If we reach here, it's not a recognized address
-                                    Toast.makeText(context, "Unrecognized QR code format. Expected Ethereum address.", Toast.LENGTH_LONG).show()
-                                    resetScanner() // Reset scanner so user can try again
+                                    if (address.startsWith("0x")) {
+                                        onContactScanned(address)
+                                    } else {
+                                        Toast.makeText(context, "Unrecognized format.", Toast.LENGTH_SHORT).show()
+                                        resetScanner()
+                                    }
                                 } catch (e: Exception) {
-                                    Log.e("ScannerScreen", "Invalid QR code format: $barcodeValue")
-                                    Toast.makeText(context, "Failed to parse QR code", Toast.LENGTH_SHORT).show()
                                     resetScanner()
                                 }
                             }
                         )
                         
                         PasteAddressView(
-                            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(24.dp)
+                                .navigationBarsPadding(),
                             onAddressPasted = { address ->
                                 val trimmed = address.trim()
                                 if (trimmed.startsWith("0x") && trimmed.length == 42) {
@@ -152,7 +179,11 @@ fun ScannerScreen(
                         )
                     }
                 } else {
-                    Text("Camera permission is required to scan QR codes.")
+                    Text(
+                        "Camera access is needed to scan QR codes.",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
             }
         }
@@ -162,62 +193,72 @@ fun ScannerScreen(
 @Composable
 fun MyQrCodeView(app: PrivateMessengerApp) {
     val publicAddress = app.xmtpClient?.publicIdentity?.identifier ?: "Not registered"
-    
     val uri = "ethereum:$publicAddress"
-    
     val qrBitmap = remember(uri) { generateQrCodeBitmap(uri, 800) }
     val context = LocalContext.current
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(32.dp)
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp)
     ) {
-        if (qrBitmap != null) {
-            Image(
-                bitmap = qrBitmap.asImageBitmap(),
-                contentDescription = "My QR Code",
-                modifier = Modifier
-                    .size(250.dp)
-                    .background(androidx.compose.ui.graphics.Color.White)
-                    .padding(8.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = "Your Public Address:",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = publicAddress.take(12) + "..." + publicAddress.takeLast(12),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                ),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            IconButton(onClick = {
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Public Address", publicAddress)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(context, "Address copied to clipboard", Toast.LENGTH_SHORT).show()
-            }) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = "Copy Address",
-                    tint = MaterialTheme.colorScheme.primary
+            if (qrBitmap != null) {
+                Image(
+                    bitmap = qrBitmap.asImageBitmap(),
+                    contentDescription = "My QR Code",
+                    modifier = Modifier
+                        .size(240.dp)
+                        .padding(16.dp)
                 )
             }
         }
-
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            onClick = {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Public Address", publicAddress))
+                Toast.makeText(context, "Address copied", Toast.LENGTH_SHORT).show()
+            }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "${publicAddress.take(6)}...${publicAddress.takeLast(4)}",
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = "Copy",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
         Text(
-            text = "Have a friend scan this code to add you as a contact securely.",
+            text = "Have a friend scan this code to connect securely.",
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
         )
     }
 }
@@ -230,7 +271,7 @@ private fun generateQrCodeBitmap(text: String, size: Int): Bitmap? {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
         for (x in 0 until size) {
             for (y in 0 until size) {
-                bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
+                bitmap.setPixel(x, y, if (bitMatrix[x, y]) AndroidColor.BLACK else AndroidColor.WHITE)
             }
         }
         bitmap
@@ -241,9 +282,7 @@ private fun generateQrCodeBitmap(text: String, size: Int): Bitmap? {
 
 @Composable
 fun CameraPreviewView(onBarcodeScanned: (String, () -> Unit) -> Unit) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
     var isScanned by remember { mutableStateOf(false) }
 
     AndroidView(
@@ -265,9 +304,7 @@ fun CameraPreviewView(onBarcodeScanned: (String, () -> Unit) -> Unit) {
                 }
 
                 val barcodeScanner = BarcodeScanning.getClient(
-                    BarcodeScannerOptions.Builder()
-                        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                        .build()
+                    BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
                 )
 
                 val imageAnalysis = ImageAnalysis.Builder()
@@ -291,16 +328,12 @@ fun CameraPreviewView(onBarcodeScanned: (String, () -> Unit) -> Unit) {
                                     val rawValue = barcode.rawValue
                                     if (rawValue != null) {
                                         isScanned = true
-                                        onBarcodeScanned(rawValue) {
-                                            isScanned = false
-                                        }
+                                        onBarcodeScanned(rawValue) { isScanned = false }
                                         break
                                     }
                                 }
                             }
-                            .addOnCompleteListener {
-                                imageProxy.close()
-                            }
+                            .addOnCompleteListener { imageProxy.close() }
                     } else {
                         imageProxy.close()
                     }
@@ -325,7 +358,6 @@ fun CameraPreviewView(onBarcodeScanned: (String, () -> Unit) -> Unit) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PasteAddressView(
     modifier: Modifier = Modifier,
@@ -334,38 +366,56 @@ fun PasteAddressView(
     var text by remember { mutableStateOf("") }
 
     Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        tonalElevation = 4.dp,
-        modifier = modifier.fillMaxWidth()
+        color = Color(0xDD1C1C1E),
+        shape = CircleShape,
+        modifier = modifier
+            .fillMaxWidth(0.9f)
+            .height(56.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp)
         ) {
-            Text(
-                text = "Or add manually by Public Address",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
+            BasicTextField(
                 value = text,
                 onValueChange = { text = it },
-                label = { Text("Paste Ethereum Address (0x...)") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                trailingIcon = {
-                    if (text.isNotBlank()) {
-                        IconButton(onClick = {
-                            onAddressPasted(text)
-                            text = ""
-                        }) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Add Contact", modifier = Modifier.background(MaterialTheme.colorScheme.primary, shape = androidx.compose.foundation.shape.CircleShape).padding(4.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { innerTextField ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (text.isEmpty()) {
+                            Text("Paste public address (0x...)", color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
                         }
+                        innerTextField()
                     }
-                }
+                },
+                modifier = Modifier.weight(1f)
             )
+            
+            if (text.isNotBlank()) {
+                IconButton(
+                    onClick = {
+                        onAddressPasted(text)
+                        text = ""
+                    },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                ) {
+                    Icon(
+                        Icons.Filled.ArrowForward,
+                        contentDescription = "Add Contact",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
 }
