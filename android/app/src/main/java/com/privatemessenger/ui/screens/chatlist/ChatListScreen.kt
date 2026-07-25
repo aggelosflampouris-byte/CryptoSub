@@ -17,7 +17,7 @@ import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.foundation.Image
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -214,7 +214,7 @@ fun ChatListScreen(
                         coroutineScope.launch { drawerState.close() }
                         onSettingsClicked()
                     },
-                    icon = { Icon(Icons.Default.Palette, contentDescription = null) },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                     colors = NavigationDrawerItemDefaults.colors(
                         unselectedContainerColor = Color.Transparent,

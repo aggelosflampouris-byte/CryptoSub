@@ -173,7 +173,7 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        com.privatemessenger.BuildConfig.VERSION_NAME,
+                        "${com.privatemessenger.BuildConfig.VERSION_NAME} (In Development)",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

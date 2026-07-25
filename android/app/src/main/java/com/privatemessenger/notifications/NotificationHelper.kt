@@ -61,7 +61,6 @@ object NotificationHelper {
         return NotificationCompat.Builder(context, CHANNEL_SERVICE)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Privacy Messenger")
-            .setContentText("Listening for messages...")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setContentIntent(pi)

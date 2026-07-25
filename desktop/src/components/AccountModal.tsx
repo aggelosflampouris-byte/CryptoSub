@@ -13,6 +13,7 @@ export default function AccountModal({ onClose }: Props) {
   const [showKey, setShowKey] = useState(false)
   const [copied, setCopied] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const [understandRisks, setUnderstandRisks] = useState(false)
   const [appVersion, setAppVersion] = useState<string>('')
 
   useEffect(() => {
@@ -90,13 +91,18 @@ export default function AccountModal({ onClose }: Props) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <p style={{ fontSize: 13, color: 'var(--error)', fontWeight: 600 }}>
-                This will permanently remove your keys from this device. Make sure you have your private key backed up first!
+                WARNING: Logging out will permanently delete your keys from this device. If you haven't backed up your private key, you will lose access to all your encrypted messages forever. There is no way to recover them.
               </p>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', color: 'var(--text-primary)' }}>
+                <input type="checkbox" checked={understandRisks} onChange={e => setUnderstandRisks(e.target.checked)} />
+                I understand the risks
+              </label>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmLogout(false)}>Cancel</button>
+                <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setConfirmLogout(false); setUnderstandRisks(false); }}>Cancel</button>
                 <button
                   className="btn"
-                  style={{ flex: 1, background: 'var(--error)', color: '#fff' }}
+                  style={{ flex: 1, background: understandRisks ? 'var(--error)' : 'var(--surface-variant)', color: understandRisks ? '#fff' : 'var(--text-secondary)' }}
+                  disabled={!understandRisks}
                   onClick={async () => { await logout(); onClose() }}
                 >
                   Confirm Logout
@@ -108,7 +114,7 @@ export default function AccountModal({ onClose }: Props) {
 
         {/* App Version */}
         <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>
-          App Version: {appVersion || 'Loading...'}
+          App Version: {appVersion || 'Loading...'} (In Development)
         </div>
       </div>
     </div>
