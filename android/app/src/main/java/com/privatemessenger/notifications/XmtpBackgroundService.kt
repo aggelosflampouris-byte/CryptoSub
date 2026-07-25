@@ -50,8 +50,8 @@ class XmtpBackgroundService : Service() {
                 } catch (e: Exception) {
                     Log.e("XmtpBackgroundService", "Error checking for updates in background", e)
                 }
-                // Check every 12 hours
-                delay(12L * 60 * 60 * 1000)
+                // Check every 1 hour
+                delay(60L * 60 * 1000)
             }
         }
     }
