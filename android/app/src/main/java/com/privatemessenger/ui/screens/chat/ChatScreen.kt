@@ -130,6 +130,7 @@ fun ChatScreen(
                     }
                     
                     MessageBubble(message = message, isCurrentUser = message.senderUserId == app.xmtpClient?.inboxId)
+                }
             }
 
             ChatInputArea(
