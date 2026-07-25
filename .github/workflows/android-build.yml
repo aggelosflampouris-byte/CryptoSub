@@ -38,9 +38,15 @@ jobs:
         sed -i "s/versionCode = 1/versionCode = ${{ github.run_number }}/" android/app/build.gradle.kts
         sed -i 's/versionName = "0.1.0"/versionName = "0.1.${{ github.run_number }}"/g' android/app/build.gradle.kts
 
+    - name: Decode Keystore from GitHub Secrets
+      run: |
+        mkdir -p ~/.android
+        cat << 'EOF' | base64 -di > ~/.android/debug.keystore
+        ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        EOF
 
     - name: Build Debug APK
-      run: cd android && ./gradlew assembleDebug
+      run: cd android && ./gradlew assembleDebug --stacktrace
 
     - name: Write version-android.json and legacy version.json
       run: |
