@@ -50,6 +50,66 @@ fun AccountScreen(
         generateQrCode("ethereum:$publicAddress", 512)
     }
 
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var understandRisks by remember { mutableStateOf(false) }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showLogoutDialog = false 
+                understandRisks = false
+            },
+            title = { Text("Confirm Logout") },
+            text = {
+                Column {
+                    Text(
+                        "WARNING: Logging out will permanently delete your keys from this device. If you haven't backed up your private key, you will lose access to all your encrypted messages forever. There is no way to recover them.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Checkbox(
+                            checked = understandRisks,
+                            onCheckedChange = { understandRisks = it }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("I understand the risks", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        understandRisks = false
+                        app.logout()
+                        onLogoutComplete()
+                    },
+                    enabled = understandRisks,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Confirm Logout")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { 
+                        showLogoutDialog = false 
+                        understandRisks = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -145,10 +205,7 @@ fun AccountScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = {
-                    app.logout()
-                    onLogoutComplete()
-                },
+                onClick = { showLogoutDialog = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
