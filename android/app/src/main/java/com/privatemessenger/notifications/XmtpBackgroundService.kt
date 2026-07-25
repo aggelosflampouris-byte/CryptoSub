@@ -33,9 +33,27 @@ class XmtpBackgroundService : Service() {
         startForeground(1001, notification)
 
         startListeningLoop()
+        startUpdateCheckLoop()
 
         // If the system kills the service, recreate it
         return START_STICKY
+    }
+
+    private fun startUpdateCheckLoop() {
+        serviceScope.launch {
+            while (isActive) {
+                try {
+                    val info = com.privatemessenger.utils.AppUpdater.checkForUpdate()
+                    if (info.isUpdateAvailable && info.downloadUrl != null) {
+                        NotificationHelper.showUpdateNotification(this@XmtpBackgroundService, info.latestVersion)
+                    }
+                } catch (e: Exception) {
+                    Log.e("XmtpBackgroundService", "Error checking for updates in background", e)
+                }
+                // Check every 12 hours
+                delay(12L * 60 * 60 * 1000)
+            }
+        }
     }
 
     /**

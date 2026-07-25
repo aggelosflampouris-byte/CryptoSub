@@ -12,6 +12,7 @@ object NotificationHelper {
     private const val CHANNEL_CONTACTS = "new_contacts"
     private const val CHANNEL_MESSAGES = "new_messages"
     private const val CHANNEL_SERVICE = "background_service_v2"
+    private const val CHANNEL_UPDATES = "app_updates"
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -37,6 +38,14 @@ object NotificationHelper {
                 "Background Service",
                 NotificationManager.IMPORTANCE_MIN
             ).apply { description = "Keeps the app listening for new messages" }
+        )
+        
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_UPDATES,
+                "App Updates",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply { description = "Alerts when a new app version is available" }
         )
     }
 
@@ -102,5 +111,27 @@ object NotificationHelper {
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(conversationId.hashCode(), notification)
+    }
+
+    fun showUpdateNotification(context: Context, version: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_UPDATES)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("CryptoSub Update Available")
+            .setContentText("Version $version is available. Tap to update.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify("update_notification".hashCode(), notification)
     }
 }
