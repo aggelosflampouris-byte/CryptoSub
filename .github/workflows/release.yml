@@ -35,7 +35,7 @@ jobs:
           EOF
 
       - name: Build Debug APK
-        run: cd android && ./gradlew assembleDebug --stacktrace
+        run: cd android && gradle wrapper --gradle-version 8.4 && ./gradlew assembleDebug --stacktrace
 
       - name: Write version JSONs
         run: |
