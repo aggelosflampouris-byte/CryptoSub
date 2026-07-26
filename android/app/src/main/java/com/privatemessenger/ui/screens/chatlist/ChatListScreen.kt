@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.privatemessenger.PrivateMessengerApp
 import com.privatemessenger.data.local.AppDatabase
 import com.privatemessenger.data.local.entity.ConversationEntity
@@ -365,11 +367,20 @@ fun ChatListItem(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = conversation.displayName?.take(1)?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color.Black
-                )
+                if (conversation.profilePictureUri != null) {
+                    AsyncImage(
+                        model = conversation.profilePictureUri,
+                        contentDescription = "Profile Picture",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = conversation.displayName?.take(1)?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.Black
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
