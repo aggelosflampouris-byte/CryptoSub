@@ -44,12 +44,15 @@ jobs:
           echo "{\"version\":\"0.1.$BUILD_NUM\",\"build\":$BUILD_NUM}" > version-android.json
           echo '{"version":"0.1.99999","build":99999}' > version.json
 
+      - name: Move APK to root
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk .
+
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-artifacts
           path: |
-            android/app/build/outputs/apk/debug/app-debug.apk
+            app-debug.apk
             version-android.json
             version.json
 
@@ -90,13 +93,19 @@ jobs:
         with:
           projectPath: desktop
 
+      - name: Move Desktop Binaries to root
+        shell: bash
+        run: |
+          cp desktop/src-tauri/target/release/bundle/nsis/*.exe . || true
+          cp desktop/src-tauri/target/release/bundle/msi/*.msi . || true
+
       - name: Upload Desktop Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: desktop-artifacts
           path: |
-            desktop/src-tauri/target/release/bundle/nsis/*.exe
-            desktop/src-tauri/target/release/bundle/msi/*.msi
+            *.exe
+            *.msi
             version-desktop.json
 
   publish-release:
