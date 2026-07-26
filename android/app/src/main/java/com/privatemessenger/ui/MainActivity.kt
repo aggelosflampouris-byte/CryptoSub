@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -140,9 +141,15 @@ class MainActivity : FragmentActivity() {
                 }
             }
 
-            var isLocked by remember { mutableStateOf(false) }
-            var backgroundTime by remember { mutableStateOf(0L) }
+            var isLocked by rememberSaveable { mutableStateOf(false) }
+            var backgroundTime by rememberSaveable { mutableStateOf(0L) }
             val lifecycleOwner = LocalLifecycleOwner.current
+            
+            LaunchedEffect(isBiometricEnabled) {
+                if (isBiometricEnabled && System.currentTimeMillis() - backgroundTime > 60_000L) {
+                    isLocked = true
+                }
+            }
 
             DisposableEffect(lifecycleOwner, isBiometricEnabled) {
                 val observer = LifecycleEventObserver { _, event ->
