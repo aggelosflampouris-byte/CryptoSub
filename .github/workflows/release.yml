@@ -24,8 +24,9 @@ jobs:
 
       - name: Stamp versions
         run: |
-          sed -i "s/versionCode = 1/versionCode = ${{ github.run_number }}/" android/app/build.gradle.kts
-          sed -i 's/versionName = "0.1.0"/versionName = "0.1.${{ github.run_number }}"/g' android/app/build.gradle.kts
+          BUILD_NUM=$((${{ github.run_number }} + 200))
+          sed -i "s/versionCode = 1/versionCode = $BUILD_NUM/" android/app/build.gradle.kts
+          sed -i "s/versionName = \"0.1.0\"/versionName = \"0.1.$BUILD_NUM\"/g" android/app/build.gradle.kts
 
       - name: Decode Keystore from GitHub Secrets
         run: |
@@ -39,7 +40,8 @@ jobs:
 
       - name: Write version JSONs
         run: |
-          echo '{"version":"0.1.${{ github.run_number }}","build":${{ github.run_number }}}' > version-android.json
+          BUILD_NUM=$((${{ github.run_number }} + 200))
+          echo "{\"version\":\"0.1.$BUILD_NUM\",\"build\":$BUILD_NUM}" > version-android.json
           echo '{"version":"0.1.99999","build":99999}' > version.json
 
       - name: Upload Android Artifacts
@@ -73,7 +75,7 @@ jobs:
       - name: Stamp desktop version
         shell: bash
         run: |
-          BUILD=${{ github.run_number }}
+          BUILD=$((${{ github.run_number }} + 200))
           VERSION="0.1.${BUILD}"
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('desktop/package.json','utf8'));p.version='${VERSION}';fs.writeFileSync('desktop/package.json',JSON.stringify(p,null,2)+'\n');"
           node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('desktop/src-tauri/tauri.conf.json','utf8'));c.version='${VERSION}';fs.writeFileSync('desktop/src-tauri/tauri.conf.json',JSON.stringify(c,null,2)+'\n');"
