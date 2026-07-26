@@ -120,12 +120,12 @@ dependencies {
     // -------------------------------------------------------------------------
     // Firebase Cloud Messaging (Phase 4)
     // -------------------------------------------------------------------------
-    // implementation("com.google.firebase:firebase-messaging-ktx:23.4.0")
     // -------------------------------------------------------------------------
     // QR Code Scanning & Generation
     // -------------------------------------------------------------------------
     val cameraxVersion = "1.3.1"
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("com.google.guava:guava:31.1-android")
