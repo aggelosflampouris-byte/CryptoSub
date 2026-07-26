@@ -86,27 +86,37 @@ object AppUpdater {
     }
 
     fun downloadAndInstallUpdate(context: Context, url: String, version: String) {
-        val destination = File(
-            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-            "CryptoSub-v$version.apk"
-        )
-        if (destination.exists()) destination.delete()
-
+        val fileName = "CryptoSub-v$version.apk"
         val request = DownloadManager.Request(Uri.parse(url))
             .setTitle("CryptoSub Update")
             .setDescription("Downloading v$version…")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationUri(Uri.fromFile(destination))
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadId = downloadManager.enqueue(request)
 
         val onComplete = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
+            override fun onReceive(receiverContext: Context, intent: Intent) {
                 val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
                 if (id == downloadId) {
-                    installApk(context, destination)
-                    context.unregisterReceiver(this)
+                    val query = DownloadManager.Query().setFilterById(id)
+                    val cursor = downloadManager.query(query)
+                    if (cursor != null && cursor.moveToFirst()) {
+                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                        val uriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                        if (statusIndex >= 0 && uriIndex >= 0) {
+                            val status = cursor.getInt(statusIndex)
+                            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                                val uriString = cursor.getString(uriIndex)
+                                if (uriString != null) {
+                                    installApk(receiverContext, Uri.parse(uriString))
+                                }
+                            }
+                        }
+                    }
+                    cursor?.close()
+                    receiverContext.unregisterReceiver(this)
                 }
             }
         }
@@ -118,12 +128,10 @@ object AppUpdater {
         )
     }
 
-    private fun installApk(context: Context, apkFile: File) {
-        if (!apkFile.exists()) return
+    private fun installApk(context: Context, apkUri: Uri) {
         try {
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
