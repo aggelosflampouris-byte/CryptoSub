@@ -44,7 +44,7 @@ fun GroupDetailsScreen(
                     val xmtpGroups = client.conversations.listGroups()
                     val targetGroup = xmtpGroups.find { it.id == conversationId }
                     if (targetGroup != null) {
-                        members = targetGroup.members().map { it.address }
+                        members = targetGroup.members().map { it.inboxId }
                     }
                 }
             } catch (e: Exception) {
@@ -139,7 +139,7 @@ fun GroupDetailsScreen(
                         }
                         
                         items(members) { address ->
-                            val isMe = address.equals(app.xmtpClient?.address, ignoreCase = true)
+                            val isMe = address.equals(app.xmtpClient?.inboxId, ignoreCase = true)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
