@@ -170,7 +170,7 @@ class XmtpBackgroundService : Service() {
                                     deviceId = 1,
                                     displayName = label,
                                     isGroup = isGroup,
-                                    lastMessage = message.body,
+                                    lastMessage = finalContent,
                                     lastMessageTimestamp = message.sentAt.time,
                                     unreadCount = if (message.senderInboxId != client.inboxId) 1 else 0
                                 )
@@ -182,7 +182,7 @@ class XmtpBackgroundService : Service() {
                                 val conv = app.database.conversationDao().getConversation(convId)
                                 val senderLabel = conv?.displayName ?: "${message.senderInboxId.take(6)}..."
                                 if (message.senderInboxId != client.inboxId) {
-                                    NotificationHelper.showNewMessageNotification(app, senderLabel, message.body, convId)
+                                    NotificationHelper.showNewMessageNotification(app, senderLabel, finalContent, convId)
                                 }
                             }
 
