@@ -1,6 +1,10 @@
 package com.privatemessenger.ui.screens.groups
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -15,8 +20,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.privatemessenger.PrivateMessengerApp
 import com.privatemessenger.data.local.entity.ConversationEntity
 import kotlinx.coroutines.Dispatchers
@@ -30,9 +39,37 @@ fun GroupDetailsScreen(
     app: PrivateMessengerApp,
     onBack: () -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var groupConv by remember { mutableStateOf<ConversationEntity?>(null) }
     var members by remember { mutableStateOf<List<String>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var showEditProfileDialog by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+    
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    if (inputStream != null) {
+                        val file = java.io.File(context.filesDir, "avatar_${conversationId}.jpg")
+                        val outputStream = java.io.FileOutputStream(file)
+                        inputStream.copyTo(outputStream)
+                        inputStream.close()
+                        outputStream.close()
+                        
+                        app.database.conversationDao().updateProfilePicture(conversationId, Uri.fromFile(file).toString())
+                        groupConv = app.database.conversationDao().getConversation(conversationId)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GroupDetails", "Failed to save group avatar", e)
+                }
+            }
+        }
+    }
 
     LaunchedEffect(conversationId) {
         withContext(Dispatchers.IO) {
@@ -93,22 +130,43 @@ fun GroupDetailsScreen(
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Group,
-                            contentDescription = null,
-                            modifier = Modifier.size(56.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        if (groupConv?.profilePictureUri != null) {
+                            AsyncImage(
+                                model = groupConv?.profilePictureUri,
+                                contentDescription = "Group Picture",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Group,
+                                contentDescription = null,
+                                modifier = Modifier.size(56.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(
-                        text = groupConv?.displayName ?: "Unnamed Group",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = groupConv?.displayName ?: "Unnamed Group",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        IconButton(onClick = { 
+                            newName = groupConv?.displayName ?: ""
+                            showEditProfileDialog = true 
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Edit, 
+                                contentDescription = "Edit Profile",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     
                     Text(
                         text = "${members.size} Members",
@@ -177,5 +235,91 @@ fun GroupDetailsScreen(
                 }
             }
         }
+    }
+    
+    if (showEditProfileDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditProfileDialog = false },
+            title = { Text("Edit Group Profile") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { launcher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (groupConv?.profilePictureUri != null) {
+                            AsyncImage(
+                                model = groupConv?.profilePictureUri,
+                                contentDescription = "Group Picture",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Group,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Change Picture",
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    TextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Group Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        app.database.conversationDao().updateDisplayName(conversationId, newName)
+                        groupConv = app.database.conversationDao().getConversation(conversationId)
+                        showEditProfileDialog = false
+                    }
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditProfileDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

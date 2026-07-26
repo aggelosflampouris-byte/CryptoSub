@@ -117,13 +117,12 @@ fun ContactDetailsScreen(
             ) {
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Profile Picture with Edit overlay
+                // Profile Picture (view only, editable via the Edit dialog)
                 Box(
                     modifier = Modifier
                         .size(120.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable { launcher.launch("image/*") },
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     if (contact?.profilePictureUri != null) {
@@ -139,24 +138,6 @@ fun ContactDetailsScreen(
                             contentDescription = null,
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                    
-                    // Edit badge
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(4.dp)
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Picture",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }
@@ -319,21 +300,69 @@ fun ContactDetailsScreen(
     if (showEditNameDialog) {
         AlertDialog(
             onDismissRequest = { showEditNameDialog = false },
-            title = { Text("Edit Nickname") },
+            title = { Text("Edit Profile") },
             text = {
-                TextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text("Nickname") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { launcher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (contact?.profilePictureUri != null) {
+                            AsyncImage(
+                                model = contact?.profilePictureUri,
+                                contentDescription = "Profile Picture",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Change Picture",
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    TextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Nickname") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        )
                     )
-                )
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
