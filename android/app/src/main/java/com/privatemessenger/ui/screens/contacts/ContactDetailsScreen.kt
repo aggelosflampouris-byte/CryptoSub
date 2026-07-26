@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -61,13 +62,27 @@ fun ContactDetailsScreen(
         }
     }
 
+    val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             coroutineScope.launch(Dispatchers.IO) {
-                database.conversationDao().updateProfilePicture(conversationId, it.toString())
-                contact = database.conversationDao().getConversation(conversationId)
+                try {
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    if (inputStream != null) {
+                        val file = java.io.File(context.filesDir, "avatar_${conversationId}.jpg")
+                        val outputStream = java.io.FileOutputStream(file)
+                        inputStream.copyTo(outputStream)
+                        inputStream.close()
+                        outputStream.close()
+                        
+                        database.conversationDao().updateProfilePicture(conversationId, Uri.fromFile(file).toString())
+                        contact = database.conversationDao().getConversation(conversationId)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("ContactDetails", "Failed to save avatar", e)
+                }
             }
         }
     }
