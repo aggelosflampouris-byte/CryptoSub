@@ -33,6 +33,7 @@ fun AppNavGraph(
 ) {
     val navController = rememberNavController()
     val authRepository = AuthRepository(app)
+    val coroutineScope = rememberCoroutineScope()
 
 
     NavHost(
@@ -282,11 +283,15 @@ fun AppNavGraph(
                 app = app,
                 onBack = { navController.popBackStack() },
                 onHeaderClicked = {
-                    val isGroup = app.database.conversationDao().getConversation(conversationId)?.isGroup == true
-                    if (isGroup) {
-                        navController.navigate("group_details/$conversationId")
-                    } else {
-                        navController.navigate("contact_details/$conversationId")
+                    coroutineScope.launch(Dispatchers.IO) {
+                        val isGroup = app.database.conversationDao().getConversation(conversationId)?.isGroup == true
+                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            if (isGroup) {
+                                navController.navigate("group_details/$conversationId")
+                            } else {
+                                navController.navigate("contact_details/$conversationId")
+                            }
+                        }
                     }
                 }
             )

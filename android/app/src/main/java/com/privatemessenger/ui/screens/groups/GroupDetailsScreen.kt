@@ -44,7 +44,7 @@ fun GroupDetailsScreen(
                     val xmtpGroups = client.conversations.listGroups()
                     val targetGroup = xmtpGroups.find { it.id == conversationId }
                     if (targetGroup != null) {
-                        members = targetGroup.members().map { it.accountAddress }
+                        members = targetGroup.members().map { it.address }
                     }
                 }
             } catch (e: Exception) {
