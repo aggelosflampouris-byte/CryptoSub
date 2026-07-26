@@ -184,6 +184,18 @@ fun AppNavGraph(
             )
         }
 
+        composable(
+            route = "group_details/{conversationId}",
+            arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
+            com.privatemessenger.ui.screens.groups.GroupDetailsScreen(
+                conversationId = conversationId,
+                app = app,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable("create_group") {
             CreateGroupScreen(
                 app = app,
@@ -268,7 +280,15 @@ fun AppNavGraph(
                 conversationId = conversationId,
                 database = app.database,
                 app = app,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onHeaderClicked = {
+                    val isGroup = app.database.conversationDao().getConversation(conversationId)?.isGroup == true
+                    if (isGroup) {
+                        navController.navigate("group_details/$conversationId")
+                    } else {
+                        navController.navigate("contact_details/$conversationId")
+                    }
+                }
             )
         }
     }

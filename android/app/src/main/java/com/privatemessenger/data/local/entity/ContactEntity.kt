@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.local.entity
+package com.privatemessenger.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -32,6 +32,9 @@ data class ContactEntity(
 
     @ColumnInfo(name = "is_verified")
     val isVerified: Boolean = false,
+
+    @ColumnInfo(name = "description")
+    val description: String? = null,
 
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),

@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.local.dao
+package com.privatemessenger.data.local.dao
 
 import androidx.room.*
 import com.privatemessenger.data.local.entity.ContactEntity
@@ -24,6 +24,9 @@ interface ContactDao {
 
     @Query("UPDATE contacts SET is_verified = :verified WHERE user_id = :userId")
     suspend fun setVerified(userId: String, verified: Boolean)
+
+    @Query("UPDATE contacts SET description = :description WHERE user_id = :userId")
+    suspend fun updateDescription(userId: String, description: String?)
 
     @Query("DELETE FROM contacts WHERE user_id = :userId")
     suspend fun delete(userId: String)

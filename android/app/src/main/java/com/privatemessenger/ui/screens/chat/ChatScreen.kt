@@ -73,7 +73,8 @@ fun ChatScreen(
     conversationId: String,
     database: AppDatabase,
     app: com.privatemessenger.PrivateMessengerApp,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onHeaderClicked: () -> Unit
 ) {
     val allMessages by database.messageDao().getMessagesForConversation(conversationId).collectAsState(initial = emptyList())
     val messages = remember(allMessages) { allMessages.filter { !it.content.trim().startsWith("@") } }
@@ -125,7 +126,12 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clickable { onHeaderClicked() }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
                         Text(
                             conversation?.displayName ?: "Chat", 
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)

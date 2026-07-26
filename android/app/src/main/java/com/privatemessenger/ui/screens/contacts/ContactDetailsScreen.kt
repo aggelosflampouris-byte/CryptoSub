@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.privatemessenger.data.local.entity.ConversationEntity
+import com.privatemessenger.data.local.entity.ContactEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,13 +41,23 @@ fun ContactDetailsScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     var contact by remember { mutableStateOf<ConversationEntity?>(null) }
+    var contactEntity by remember { mutableStateOf<ContactEntity?>(null) }
     var showEditNameDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     
-    // Load contact details
+    // Description state
+    var description by remember { mutableStateOf("") }
+    var isEditingDescription by remember { mutableStateOf(false) }
+    
     LaunchedEffect(conversationId) {
         withContext(Dispatchers.IO) {
-            contact = database.conversationDao().getConversation(conversationId)
+            val conv = database.conversationDao().getConversation(conversationId)
+            contact = conv
+            if (conv?.recipientUserId != null) {
+                val ce = database.contactDao().getContact(conv.recipientUserId)
+                contactEntity = ce
+                description = ce?.description ?: ""
+            }
         }
     }
 
@@ -169,8 +180,89 @@ fun ContactDetailsScreen(
                     text = contact?.recipientUserId ?: "Unknown Identity",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 32.dp)
+                    modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
+
+                // Description
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Description",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (isEditingDescription) {
+                        Text(
+                            text = "${description.length}/300",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (description.length >= 300) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        IconButton(onClick = { isEditingDescription = true }, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit Description", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+                
+                if (isEditingDescription) {
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { if (it.length <= 300) description = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        maxLines = 4,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = {
+                            isEditingDescription = false
+                            description = contactEntity?.description ?: ""
+                        }) {
+                            Text("Cancel")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(onClick = {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                contact?.recipientUserId?.let { userId ->
+                                    database.contactDao().updateDescription(userId, description)
+                                    contactEntity = database.contactDao().getContact(userId)
+                                }
+                                withContext(Dispatchers.Main) {
+                                    isEditingDescription = false
+                                }
+                            }
+                        }) {
+                            Text("Save")
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 32.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .clickable { isEditingDescription = true }
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = if (description.isNotBlank()) description else "Add a description...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (description.isNotBlank()) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                }
 
                 // Actions
                 Button(
