@@ -38,7 +38,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ConversationEntity::class,
         ContactEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -69,6 +69,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE messages ADD COLUMN reactions_json TEXT DEFAULT NULL")
+                database.execSQL("ALTER TABLE messages ADD COLUMN reply_to_message_id TEXT DEFAULT NULL")
+            }
+        }
+
         fun getInstance(context: Context, passphrase: ByteArray): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: buildDatabase(context, passphrase).also { INSTANCE = it }
@@ -85,7 +92,7 @@ abstract class AppDatabase : RoomDatabase() {
                 DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 // Allow queries on non-main threads (required for libsignal's
                 // synchronous store calls â€” all crypto happens off the main thread)
                 .allowMainThreadQueries()  // TODO: restrict to signal DAO only

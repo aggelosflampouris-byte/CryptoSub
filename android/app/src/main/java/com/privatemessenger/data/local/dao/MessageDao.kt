@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.local.dao
+package com.privatemessenger.data.local.dao
 
 import androidx.room.*
 import com.privatemessenger.data.local.entity.MessageEntity
@@ -38,11 +38,20 @@ interface MessageDao {
     @Query("UPDATE messages SET status = :status WHERE id = :messageId")
     suspend fun updateStatus(messageId: String, status: MessageStatus)
 
+    @Query("UPDATE messages SET status = :status WHERE conversation_id = :conversationId AND sender_user_id = :senderUserId AND timestamp <= :timestamp AND status != :status")
+    suspend fun updateStatusForSenderBefore(conversationId: String, senderUserId: String, timestamp: Long, status: MessageStatus)
+
+    @Query("UPDATE messages SET reactions_json = :reactionsJson WHERE id = :messageId")
+    suspend fun updateReactions(messageId: String, reactionsJson: String?)
+
     @Query("UPDATE messages SET server_message_id = :serverMessageId WHERE id = :localMessageId")
     suspend fun setServerMessageId(localMessageId: String, serverMessageId: String)
 
     @Query("SELECT * FROM messages WHERE server_message_id = :serverMessageId LIMIT 1")
     suspend fun findByServerMessageId(serverMessageId: String): MessageEntity?
+
+    @Query("SELECT * FROM messages WHERE id = :messageId LIMIT 1")
+    suspend fun findById(messageId: String): MessageEntity?
 
     @Query("DELETE FROM messages WHERE id = :messageId")
     suspend fun delete(messageId: String)

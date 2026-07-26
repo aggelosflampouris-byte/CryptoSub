@@ -1,4 +1,4 @@
-﻿package com.privatemessenger.data.local.entity
+package com.privatemessenger.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -45,6 +45,14 @@ data class MessageEntity(
     /** Server-assigned message ID, used for ACK confirmation */
     @ColumnInfo(name = "server_message_id")
     val serverMessageId: String? = null,
+
+    /** Serialized JSON mapping user IDs to emoji reactions (e.g., {"user1":"❤️"}) */
+    @ColumnInfo(name = "reactions_json")
+    val reactionsJson: String? = null,
+
+    /** ID of the message this message is replying to, if any */
+    @ColumnInfo(name = "reply_to_message_id")
+    val replyToMessageId: String? = null,
 )
 
 enum class MessageStatus {

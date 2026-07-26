@@ -15,6 +15,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.google.gson.Gson
+import com.google.gson.JsonParser
+import com.google.gson.reflect.TypeToken
 
 class XmtpBackgroundService : Service() {
 
@@ -95,6 +98,54 @@ class XmtpBackgroundService : Service() {
                             }
 
                             val convId = message.conversationId
+                            var finalContent = message.body
+                            var finalReplyToId: String? = null
+                            var isStructuralPayload = false
+
+                            if (trimmedBody.startsWith("{") && trimmedBody.endsWith("}")) {
+                                try {
+                                    val json = JsonParser.parseString(trimmedBody).asJsonObject
+                                    val type = json.get("type")?.asString
+                                    
+                                    if (type == "reaction") {
+                                        val targetMessageId = json.get("messageId")?.asString
+                                        val emoji = json.get("emoji")?.asString
+                                        if (targetMessageId != null && emoji != null) {
+                                            val msg = app.database.messageDao().findById(targetMessageId)
+                                            if (msg != null) {
+                                                val reactionsType = object : TypeToken<MutableMap<String, String>>() {}.type
+                                                val reactionsMap: MutableMap<String, String> = if (msg.reactionsJson != null) {
+                                                    Gson().fromJson(msg.reactionsJson, reactionsType) ?: mutableMapOf()
+                                                } else {
+                                                    mutableMapOf()
+                                                }
+                                                if (emoji.isEmpty()) {
+                                                    reactionsMap.remove(message.senderInboxId)
+                                                } else {
+                                                    reactionsMap[message.senderInboxId] = emoji
+                                                }
+                                                val newJson = if (reactionsMap.isEmpty()) null else Gson().toJson(reactionsMap)
+                                                app.database.messageDao().updateReactions(targetMessageId, newJson)
+                                            }
+                                        }
+                                        isStructuralPayload = true
+                                    } else if (type == "read") {
+                                        val timestamp = json.get("timestamp")?.asLong ?: message.sentAt.time
+                                        app.database.messageDao().updateStatusForSenderBefore(convId, client.inboxId, timestamp, MessageStatus.READ)
+                                        isStructuralPayload = true
+                                    } else if (type == "reply") {
+                                        finalContent = json.get("content")?.asString ?: message.body
+                                        finalReplyToId = json.get("replyToId")?.asString
+                                    }
+                                } catch (e: Exception) {
+                                    // Not a valid structural JSON, treat as normal text
+                                }
+                            }
+
+                            if (isStructuralPayload) {
+                                return@collect
+                            }
+
                             val conversationExists = app.database.conversationDao().getConversation(convId) != null
 
                             if (!conversationExists) {
@@ -134,15 +185,16 @@ class XmtpBackgroundService : Service() {
                                 id = message.id,
                                 conversationId = convId,
                                 senderUserId = message.senderInboxId,
-                                content = message.body,
+                                content = finalContent,
+                                replyToMessageId = finalReplyToId,
                                 timestamp = message.sentAt.time,
                                 status = MessageStatus.DELIVERED
                             )
                             app.database.messageDao().insert(msgEntity)
                             if (message.senderInboxId != client.inboxId) {
-                                app.database.conversationDao().updateLastMessageAndIncrementUnread(convId, message.body, message.sentAt.time)
+                                app.database.conversationDao().updateLastMessageAndIncrementUnread(convId, finalContent, message.sentAt.time)
                             } else {
-                                app.database.conversationDao().updateLastMessage(convId, message.body, message.sentAt.time)
+                                app.database.conversationDao().updateLastMessage(convId, finalContent, message.sentAt.time)
                             }
                         } catch (e: Exception) {
                             Log.e("XmtpBackgroundService", "Failed to process incoming message", e)
