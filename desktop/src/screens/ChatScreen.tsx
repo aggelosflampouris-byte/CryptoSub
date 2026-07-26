@@ -16,11 +16,13 @@ function formatDay(date: Date) {
 }
 
 export default function ChatScreen() {
-  const { client, activeConversationId, conversations, messages, messagesLoading, sendMessage } = useXmtp()
+  const { client, activeConversationId, conversations, messages, messagesLoading, typingUsers, sendMessage } = useXmtp()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastTypingSentAtRef = useRef<number>(0)
 
   const activeMeta = conversations.find(c => c.id === activeConversationId)
 
@@ -32,6 +34,12 @@ export default function ChatScreen() {
   const handleSend = async () => {
     const trimmed = text.trim()
     if (!trimmed || sending) return
+    
+    // Clear typing status instantly
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    lastTypingSentAtRef.current = 0
+    sendMessage(JSON.stringify({ type: 'typing', isTyping: false })).catch(console.error)
+    
     setSending(true)
     setText('')
     try {
@@ -51,12 +59,31 @@ export default function ChatScreen() {
     }
   }
 
-  // Auto-resize textarea
+  // Auto-resize textarea and send typing state
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value)
+    const val = e.target.value
+    setText(val)
     const t = e.target
     t.style.height = 'auto'
     t.style.height = `${Math.min(t.scrollHeight, 140)}px`
+
+    const now = Date.now()
+    if (val.trim()) {
+      if (now - lastTypingSentAtRef.current > 2000) {
+        lastTypingSentAtRef.current = now
+        sendMessage(JSON.stringify({ type: 'typing', isTyping: true })).catch(console.error)
+      }
+      
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = setTimeout(() => {
+        lastTypingSentAtRef.current = 0
+        sendMessage(JSON.stringify({ type: 'typing', isTyping: false })).catch(console.error)
+      }, 3000)
+    } else {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      lastTypingSentAtRef.current = 0
+      sendMessage(JSON.stringify({ type: 'typing', isTyping: false })).catch(console.error)
+    }
   }
 
   if (!activeConversationId) {
@@ -81,6 +108,10 @@ export default function ChatScreen() {
       grouped[grouped.length - 1].messages.push(msg)
     }
   }
+
+  const activeTypingUsers = typingUsers[activeConversationId]
+  const myId = (client as any)?.inboxId || (client as any)?.address
+  const isPeerTyping = activeTypingUsers ? Array.from(activeTypingUsers).some(id => id.toLowerCase() !== myId?.toLowerCase()) : false
 
   return (
     <div className="chat-area">
@@ -119,6 +150,17 @@ export default function ChatScreen() {
                 })}
               </div>
             ))}
+            
+            {isPeerTyping && (
+              <div className="message-group incoming">
+                <div className="chat-bubble theirs typing-indicator">
+                  <span className="dot"></span>
+                  <span className="dot"></span>
+                  <span className="dot"></span>
+                </div>
+              </div>
+            )}
+            
             <div ref={bottomRef} />
           </>
         )}

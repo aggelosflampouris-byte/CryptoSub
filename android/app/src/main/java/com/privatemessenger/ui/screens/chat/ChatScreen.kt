@@ -1,6 +1,11 @@
 package com.privatemessenger.ui.screens.chat
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -59,6 +64,8 @@ import java.util.Date
 import java.util.Locale
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.privatemessenger.utils.TypingManager
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -77,6 +84,9 @@ fun ChatScreen(
     var replyingToMessage by remember { mutableStateOf<MessageEntity?>(null) }
     val clipboardManager = LocalClipboardManager.current
     
+    val typingStates by TypingManager.typingStates.collectAsState()
+    val isTyping = typingStates[conversationId]?.any { it != app.xmtpClient?.inboxId } == true
+
     LaunchedEffect(conversationId) {
         conversation = database.conversationDao().getConversation(conversationId)
     }
@@ -205,6 +215,12 @@ fun ChatScreen(
                             )
                         }
                     }
+
+                    if (isTyping) {
+                        item {
+                            TypingIndicatorBubble(modifier = Modifier.animateItemPlacement())
+                        }
+                    }
                 }
 
                 ChatInputArea(
@@ -214,13 +230,31 @@ fun ChatScreen(
                     onTextChange = { inputText = it },
                     onImageSelected = { uri ->
                     },
+                    onTypingStateChange = { isTypingPayload ->
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                val client = app.xmtpClient ?: return@launch
+                                val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
+                                val payload = Gson().toJson(mapOf(
+                                    "type" to "typing",
+                                    "isTyping" to isTypingPayload
+                                ))
+                                when (xmtpConversation) {
+                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
+                                    is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
+                                }
+                            } catch (e: Exception) {}
+                        }
+                    },
                     onSend = {
                         if (inputText.isNotBlank()) {
                             val textToSend = inputText
                             inputText = ""
                             val replyToId = replyingToMessage?.id
                             replyingToMessage = null
-                            
+
+                            // Instantly cancel typing status locally to trigger the false broadcast via LaunchedEffect
+                        
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     val conversation = database.conversationDao().getConversation(conversationId)
@@ -290,6 +324,46 @@ fun ChatScreen(
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to bottom", tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TypingIndicatorBubble(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "Typing")
+    
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (i in 0..2) {
+                    val yOffset by infiniteTransition.animateFloat(
+                        initialValue = 0f,
+                        targetValue = -6f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(300, delayMillis = i * 150),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "dot"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .offset(y = yOffset.dp)
+                            .size(6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                    )
                 }
             }
         }
@@ -511,12 +585,31 @@ fun ChatInputArea(
     onCancelReply: () -> Unit,
     onTextChange: (String) -> Unit,
     onImageSelected: (Uri) -> Unit,
+    onTypingStateChange: (Boolean) -> Unit,
     onSend: () -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let { onImageSelected(it) }
+    }
+
+    var lastTypingTime by remember { mutableStateOf(0L) }
+    
+    LaunchedEffect(text) {
+        if (text.isNotBlank()) {
+            val now = System.currentTimeMillis()
+            if (now - lastTypingTime > 2000) {
+                lastTypingTime = now
+                onTypingStateChange(true)
+            }
+            delay(3000)
+            onTypingStateChange(false)
+            lastTypingTime = 0L
+        } else if (lastTypingTime != 0L) {
+            onTypingStateChange(false)
+            lastTypingTime = 0L
+        }
     }
 
     Surface(

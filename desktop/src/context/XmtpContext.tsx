@@ -34,6 +34,7 @@ interface XmtpContextValue {
   activeConversationId: string | null
   messages: DecodedMessage[]
   messagesLoading: boolean
+  typingUsers: { [conversationId: string]: Set<string> }
   register: () => Promise<string | null>
   restore: (privateKeyHex: string) => Promise<void>
   logout: () => Promise<void>
@@ -55,6 +56,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
+  const [typingUsers, setTypingUsers] = useState<{ [convId: string]: Set<string> }>({})
 
   const activeConvRef = useRef<string | null>(null)
   const convMapRef = useRef<Map<string, Conversation>>(new Map())
@@ -148,6 +150,36 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         else continue
         
         if (isSystemMessage(contentStr)) continue
+
+        let isStructural = false
+        if (contentStr.startsWith('{') && contentStr.endsWith('}')) {
+          try {
+            const json = JSON.parse(contentStr)
+            if (json.type === 'typing') {
+              isStructural = true
+              const convIdStr = (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic
+              const senderIdStr = (msg as any).senderInboxId || (msg as any).senderAddress
+              if (convIdStr && senderIdStr) {
+                setTypingUsers(prev => {
+                  const currentSet = new Set(prev[convIdStr] || [])
+                  if (json.isTyping) currentSet.add(senderIdStr)
+                  else currentSet.delete(senderIdStr)
+                  
+                  const next = { ...prev }
+                  if (currentSet.size === 0) delete next[convIdStr]
+                  else next[convIdStr] = currentSet
+                  return next
+                })
+              }
+            } else if (json.type === 'reaction' || json.type === 'read') {
+              isStructural = true
+            } else if (json.type === 'reply') {
+              contentStr = json.content || contentStr
+            }
+          } catch(e) {}
+        }
+        
+        if (isStructural) continue
 
         const convId = (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic
 
@@ -432,6 +464,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       activeConversationId,
       messages,
       messagesLoading,
+      typingUsers,
       register,
       restore,
       logout,

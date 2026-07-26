@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import com.google.gson.Gson
 import com.google.gson.JsonParser
 import com.google.gson.reflect.TypeToken
+import com.privatemessenger.utils.TypingManager
 
 class XmtpBackgroundService : Service() {
 
@@ -132,6 +133,10 @@ class XmtpBackgroundService : Service() {
                                     } else if (type == "read") {
                                         val timestamp = json.get("timestamp")?.asLong ?: message.sentAt.time
                                         app.database.messageDao().updateStatusForSenderBefore(convId, client.inboxId, timestamp, MessageStatus.READ)
+                                        isStructuralPayload = true
+                                    } else if (type == "typing") {
+                                        val isTyping = json.get("isTyping")?.asBoolean ?: false
+                                        TypingManager.setTyping(convId, message.senderInboxId, isTyping)
                                         isStructuralPayload = true
                                     } else if (type == "reply") {
                                         finalContent = json.get("content")?.asString ?: message.body
