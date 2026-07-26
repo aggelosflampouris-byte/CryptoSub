@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
@@ -168,7 +169,7 @@ fun ChatScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Lock,
+                            imageVector = Icons.Default.Lock,
                             contentDescription = "End-to-End Encrypted",
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.tertiary
