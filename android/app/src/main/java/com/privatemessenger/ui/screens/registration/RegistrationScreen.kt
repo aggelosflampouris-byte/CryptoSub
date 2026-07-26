@@ -138,15 +138,21 @@ fun RegistrationScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
+                    TextField(
                         value = importKeyText,
                         onValueChange = { importKeyText = it },
-                        label = { Text("Private Key (hex)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Private Key (Hex)") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp)),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                        ),
                         textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
-                        enabled = !isLoading,
-                        shape = RoundedCornerShape(12.dp)
+                        enabled = !isLoading
                     )
                     if (errorMessage != null) {
                         Spacer(Modifier.height(8.dp))

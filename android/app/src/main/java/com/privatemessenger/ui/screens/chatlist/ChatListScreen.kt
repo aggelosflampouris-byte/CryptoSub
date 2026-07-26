@@ -105,13 +105,18 @@ fun ChatListScreen(
             onDismissRequest = { renamingConversation = null },
             title = { Text("Edit Contact Name", fontWeight = FontWeight.Bold) },
             text = {
-                OutlinedTextField(
+                TextField(
                     value = renameText,
                     onValueChange = { renameText = it },
                     label = { Text("Name") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
                 )
             },
             confirmButton = {

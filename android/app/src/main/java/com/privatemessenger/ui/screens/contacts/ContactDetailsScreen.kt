@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -213,11 +214,18 @@ fun ContactDetailsScreen(
             onDismissRequest = { showEditNameDialog = false },
             title = { Text("Edit Nickname") },
             text = {
-                OutlinedTextField(
+                TextField(
                     value = newName,
                     onValueChange = { newName = it },
                     label = { Text("Nickname") },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
                 )
             },
             confirmButton = {
