@@ -1,0 +1,89 @@
+name: Cleanup Repository
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  deployments: write
+  pages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete old deployments
+        run: |
+          echo "Deleting deployments..."
+          deployments=$(gh api repos/${{ github.repository }}/deployments --jq '.[].id')
+          for id in $deployments; do
+            gh api -X POST repos/${{ github.repository }}/deployments/$id/statuses -f state=inactive || true
+            gh api -X DELETE repos/${{ github.repository }}/deployments/$id || true
+          done
+          echo "Deleting github-pages environment..."
+          gh api -X DELETE repos/${{ github.repository }}/environments/github-pages || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Delete old releases
+        run: |
+          TWO_WEEKS_AGO=$(date -d "14 days ago" +%s)
+          
+          gh api repos/${{ github.repository }}/releases > releases.json
+          
+          for row in $(jq -r '.[] | @base64' releases.json); do
+            _jq() {
+              echo ${row} | base64 --decode | jq -r ${1}
+            }
+            
+            ID=$(_jq '.id')
+            TAG=$(_jq '.tag_name')
+            PUBLISHED_AT=$(_jq '.published_at')
+            
+            if [ "$TAG" == "latest" ]; then
+              continue
+            fi
+            
+            # If PUBLISHED_AT is null or empty, skip
+            if [ "$PUBLISHED_AT" == "null" ] || [ -z "$PUBLISHED_AT" ]; then
+              continue
+            fi
+            
+            PUBLISHED_TIMESTAMP=$(date -d "$PUBLISHED_AT" +%s)
+            
+            if [ "$PUBLISHED_TIMESTAMP" -lt "$TWO_WEEKS_AGO" ]; then
+              echo "Deleting release $TAG (ID: $ID)"
+              gh api -X DELETE repos/${{ github.repository }}/releases/$ID || true
+              git push --delete origin $TAG || true
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup Current Release Assets
+        run: |
+          # Fetch assets of the 'latest' release
+          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/latest --jq '.id' || echo "")
+          if [ -n "$RELEASE_ID" ]; then
+            gh api repos/${{ github.repository }}/releases/$RELEASE_ID/assets > assets.json
+            for row in $(jq -r '.[] | @base64' assets.json); do
+              _jq() {
+                echo ${row} | base64 --decode | jq -r ${1}
+              }
+              ASSET_ID=$(_jq '.id')
+              ASSET_NAME=$(_jq '.name')
+              
+              # If asset is NOT an apk, exe, or our specific json version files, delete it
+              if [[ ! "$ASSET_NAME" =~ \.apk$ ]] && [[ ! "$ASSET_NAME" =~ \.exe$ ]] && [[ ! "$ASSET_NAME" == "version-android.json" ]] && [[ ! "$ASSET_NAME" == "version-desktop.json" ]]; then
+                echo "Deleting unwanted asset $ASSET_NAME from latest release"
+                gh api -X DELETE repos/${{ github.repository }}/releases/assets/$ASSET_ID || true
+              fi
+            done
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
