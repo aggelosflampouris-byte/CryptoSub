@@ -1,7 +1,11 @@
 package com.privatemessenger.ui.screens.chat
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -9,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -18,6 +23,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,9 +33,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import coil.compose.AsyncImage
@@ -47,7 +60,7 @@ import java.util.Locale
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
     conversationId: String,
@@ -62,6 +75,7 @@ fun ChatScreen(
     val coroutineScope = rememberCoroutineScope()
     var conversation by remember { mutableStateOf<ConversationEntity?>(null) }
     var replyingToMessage by remember { mutableStateOf<MessageEntity?>(null) }
+    val clipboardManager = LocalClipboardManager.current
     
     LaunchedEffect(conversationId) {
         conversation = database.conversationDao().getConversation(conversationId)
@@ -128,122 +142,156 @@ fun ChatScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(messages.size, key = { messages[it].id }) { index ->
-                    val message = messages[index]
-                    val previousMessage = if (index > 0) messages[index - 1] else null
-                    val showTimeHeader = previousMessage == null || (message.timestamp - previousMessage.timestamp > 3600000L) // 1 hour
-                    
-                    if (showTimeHeader) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = formatTimestampHeader(message.timestamp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            Column(modifier = Modifier.fillMaxSize()) {
+                val groupedMessages = messages.groupBy { 
+                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(it.timestamp))
+                }
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    groupedMessages.forEach { (_, msgs) ->
+                        stickyHeader {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = getDateLabel(msgs.first().timestamp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        
+                        items(msgs, key = { it.id }) { message ->
+                            MessageBubble(
+                                message = message, 
+                                isCurrentUser = message.senderUserId == app.xmtpClient?.inboxId,
+                                onReply = { replyingToMessage = it },
+                                onReact = { emoji ->
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        try {
+                                            val client = app.xmtpClient ?: return@launch
+                                            val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
+                                            val payload = Gson().toJson(mapOf(
+                                                "type" to "reaction",
+                                                "messageId" to message.id,
+                                                "emoji" to emoji
+                                            ))
+                                            when (xmtpConversation) {
+                                                is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
+                                                is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
+                                            }
+                                        } catch (e: Exception) { }
+                                    }
+                                },
+                                onCopy = { clipboardManager.setText(AnnotatedString(it)) },
+                                allMessages = allMessages,
+                                modifier = Modifier.animateItemPlacement()
                             )
                         }
                     }
-                    
-                    MessageBubble(
-                        message = message, 
-                        isCurrentUser = message.senderUserId == app.xmtpClient?.inboxId,
-                        onReply = { replyingToMessage = it },
-                        onReact = { emoji ->
+                }
+
+                ChatInputArea(
+                    text = inputText,
+                    replyingToMessage = replyingToMessage,
+                    onCancelReply = { replyingToMessage = null },
+                    onTextChange = { inputText = it },
+                    onImageSelected = { uri ->
+                    },
+                    onSend = {
+                        if (inputText.isNotBlank()) {
+                            val textToSend = inputText
+                            inputText = ""
+                            val replyToId = replyingToMessage?.id
+                            replyingToMessage = null
+                            
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
-                                    val client = app.xmtpClient ?: return@launch
-                                    val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
-                                    val payload = Gson().toJson(mapOf(
-                                        "type" to "reaction",
-                                        "messageId" to message.id,
-                                        "emoji" to emoji
-                                    ))
-                                    when (xmtpConversation) {
-                                        is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
-                                        is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
-                                    }
-                                } catch (e: Exception) { }
-                            }
-                        },
-                        allMessages = allMessages
-                    )
-                }
-            }
-
-            ChatInputArea(
-                text = inputText,
-                replyingToMessage = replyingToMessage,
-                onCancelReply = { replyingToMessage = null },
-                onTextChange = { inputText = it },
-                onImageSelected = { uri ->
-                },
-                onSend = {
-                    if (inputText.isNotBlank()) {
-                        val textToSend = inputText
-                        inputText = ""
-                        val replyToId = replyingToMessage?.id
-                        replyingToMessage = null
-                        
-                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                            try {
-                                val conversation = database.conversationDao().getConversation(conversationId)
-                                if (conversation != null) {
-                                    val client = app.xmtpClient ?: return@launch
-                                    val xmtpConversation = client.conversations.findConversation(conversationId)
-                                        ?: run {
-                                            android.util.Log.e("ChatScreen", "Conversation not found: $conversationId")
-                                            return@launch
+                                    val conversation = database.conversationDao().getConversation(conversationId)
+                                    if (conversation != null) {
+                                        val client = app.xmtpClient ?: return@launch
+                                        val xmtpConversation = client.conversations.findConversation(conversationId)
+                                            ?: run {
+                                                android.util.Log.e("ChatScreen", "Conversation not found: $conversationId")
+                                                return@launch
+                                            }
+                                            
+                                        val payload = if (replyToId != null) {
+                                            Gson().toJson(mapOf(
+                                                "type" to "reply",
+                                                "replyToId" to replyToId,
+                                                "content" to textToSend
+                                            ))
+                                        } else {
+                                            textToSend
                                         }
                                         
-                                    val payload = if (replyToId != null) {
-                                        Gson().toJson(mapOf(
-                                            "type" to "reply",
-                                            "replyToId" to replyToId,
-                                            "content" to textToSend
-                                        ))
-                                    } else {
-                                        textToSend
+                                        val sentMessageId = when (xmtpConversation) {
+                                            is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
+                                            is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
+                                        }
+                                        
+                                        val msgEntity = MessageEntity(
+                                            id = sentMessageId,
+                                            conversationId = conversation.id,
+                                            senderUserId = client.inboxId,
+                                            content = textToSend,
+                                            replyToMessageId = replyToId,
+                                            timestamp = System.currentTimeMillis(),
+                                            status = MessageStatus.SENT
+                                        )
+                                        database.messageDao().insert(msgEntity)
+                                        database.conversationDao().updateLastMessage(conversation.id, textToSend, System.currentTimeMillis())
                                     }
-                                    
-                                    val sentMessageId = when (xmtpConversation) {
-                                        is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
-                                        is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
-                                    }
-                                    
-                                    val msgEntity = MessageEntity(
-                                        id = sentMessageId,
-                                        conversationId = conversation.id,
-                                        senderUserId = client.inboxId,
-                                        content = textToSend,
-                                        replyToMessageId = replyToId,
-                                        timestamp = System.currentTimeMillis(),
-                                        status = MessageStatus.SENT
-                                    )
-                                    database.messageDao().insert(msgEntity)
-                                    database.conversationDao().updateLastMessage(conversation.id, textToSend, System.currentTimeMillis())
+                                } catch (e: Exception) {
+                                    android.util.Log.e("ChatScreen", "Failed to send message", e)
                                 }
-                            } catch (e: Exception) {
-                                android.util.Log.e("ChatScreen", "Failed to send message", e)
                             }
                         }
                     }
+                )
+            }
+
+            val showFab by remember {
+                derivedStateOf { listState.canScrollForward }
+            }
+
+            AnimatedVisibility(
+                visible = showFab,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 80.dp, end = 16.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(messages.size - 1)
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to bottom", tint = MaterialTheme.colorScheme.onPrimary)
                 }
-            )
+            }
         }
     }
 }
@@ -254,7 +302,9 @@ fun MessageBubble(
     isCurrentUser: Boolean,
     onReply: (MessageEntity) -> Unit,
     onReact: (String) -> Unit,
-    allMessages: List<MessageEntity>
+    onCopy: (String) -> Unit,
+    allMessages: List<MessageEntity>,
+    modifier: Modifier = Modifier
 ) {
     val alignment = if (isCurrentUser) Alignment.CenterEnd else Alignment.CenterStart
     val backgroundColor = if (isCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
@@ -268,7 +318,7 @@ fun MessageBubble(
     var showReactionsMenu by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         contentAlignment = alignment
     ) {
         Column(horizontalAlignment = if (isCurrentUser) Alignment.End else Alignment.Start) {
@@ -324,12 +374,7 @@ fun MessageBubble(
                         }
                     }
                     if (message.content.isNotBlank()) {
-                        Text(
-                            text = message.content,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = textColor,
-                            modifier = if (message.attachmentUri != null) Modifier.padding(start = 8.dp, end = 8.dp, bottom = 4.dp) else Modifier
-                        )
+                        MessageText(text = message.content, textColor = textColor)
                     }
                     
                     // Time and Read Status
@@ -375,6 +420,15 @@ fun MessageBubble(
                                 Text(emoji, fontSize = 24.sp)
                             }
                         }
+                        IconButton(
+                            onClick = {
+                                onCopy(message.content)
+                                showReactionsMenu = false
+                            },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy")
+                        }
                     }
                 }
             }
@@ -403,6 +457,50 @@ fun MessageBubble(
             }
         }
     }
+}
+
+@Composable
+fun MessageText(text: String, textColor: Color) {
+    val urlPattern = Regex("(?i)\\bhttps?://[^\\s]+")
+    val matches = urlPattern.findAll(text).toList()
+    
+    if (matches.isEmpty()) {
+        Text(
+            text = text, 
+            style = MaterialTheme.typography.bodyLarge, 
+            color = textColor,
+            modifier = Modifier.padding(if (text.contains("\n")) 4.dp else 0.dp)
+        )
+        return
+    }
+
+    val annotatedString = buildAnnotatedString {
+        var lastIndex = 0
+        for (match in matches) {
+            append(text.substring(lastIndex, match.range.first))
+            pushStringAnnotation(tag = "URL", annotation = match.value)
+            withStyle(style = SpanStyle(color = Color(0xFF34B7F1), textDecoration = TextDecoration.Underline)) {
+                append(match.value)
+            }
+            pop()
+            lastIndex = match.range.last + 1
+        }
+        append(text.substring(lastIndex, text.length))
+    }
+    
+    val uriHandler = LocalUriHandler.current
+    
+    ClickableText(
+        text = annotatedString,
+        style = MaterialTheme.typography.bodyLarge.copy(color = textColor),
+        onClick = { offset ->
+            annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                .firstOrNull()?.let { annotation ->
+                    try { uriHandler.openUri(annotation.item) } catch (e: Exception) {}
+                }
+        },
+        modifier = Modifier.padding(if (text.contains("\n")) 4.dp else 0.dp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -508,14 +606,16 @@ fun ChatInputArea(
     }
 }
 
-private fun formatTimestampHeader(timestamp: Long): String {
-    if (timestamp == 0L) return ""
+fun getDateLabel(timestamp: Long): String {
     val date = Date(timestamp)
     val now = Date()
-    val format = if (now.time - timestamp < 86400000L) {
-        SimpleDateFormat("HH:mm", Locale.getDefault())
-    } else {
-        SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+    val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val dateStr = format.format(date)
+    val nowStr = format.format(now)
+    val yesterdayStr = format.format(Date(now.time - 86400000L))
+    return when (dateStr) {
+        nowStr -> "Today"
+        yesterdayStr -> "Yesterday"
+        else -> SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(date)
     }
-    return format.format(date)
 }
