@@ -32,6 +32,7 @@ import java.io.File
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.privatemessenger.data.local.AppDatabase
+import com.privatemessenger.data.local.entity.ConversationEntity
 import com.privatemessenger.data.local.entity.MessageEntity
 import com.privatemessenger.data.local.entity.MessageStatus
 import kotlinx.coroutines.launch
@@ -52,6 +53,11 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    var conversation by remember { mutableStateOf<ConversationEntity?>(null) }
+    
+    LaunchedEffect(conversationId) {
+        conversation = database.conversationDao().getConversation(conversationId)
+    }
 
     // Mark as read when entering or receiving new messages while in the chat
     LaunchedEffect(allMessages.size) {
@@ -73,7 +79,7 @@ fun ChatScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "Chat", 
+                            conversation?.displayName ?: "Chat", 
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
