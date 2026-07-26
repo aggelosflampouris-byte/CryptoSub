@@ -166,46 +166,7 @@ class MainActivity : FragmentActivity() {
                 }
             }
 
-            if (isLocked) {
-                Dialog(
-                    onDismissRequest = { /* Prevent dismiss */ },
-                    properties = DialogProperties(
-                        dismissOnBackPress = false,
-                        dismissOnClickOutside = false,
-                        usePlatformDefaultWidth = false
-                    )
-                ) {
-                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(androidx.compose.material.icons.Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("App Locked", style = MaterialTheme.typography.headlineMedium)
-                                Spacer(modifier = Modifier.height(32.dp))
-                                Button(onClick = {
-                                    val executor = ContextCompat.getMainExecutor(this@MainActivity)
-                                    val biometricPrompt = BiometricPrompt(this@MainActivity, executor,
-                                        object : BiometricPrompt.AuthenticationCallback() {
-                                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                                                super.onAuthenticationSucceeded(result)
-                                                isLocked = false
-                                                backgroundTime = System.currentTimeMillis()
-                                            }
-                                        })
-                                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                                        .setTitle("Unlock CryptoSub")
-                                        .setSubtitle("Authenticate to access your private messages")
-                                        .setNegativeButtonText("Cancel")
-                                        .build()
-                                    biometricPrompt.authenticate(promptInfo)
-                                }) {
-                                    Text("Unlock")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // Moved isLocked Dialog down into PrivateMessengerTheme
 
             val initialTheme = ThemePreference.load(this@MainActivity)
             var currentTheme by remember { mutableStateOf(initialTheme) }
@@ -226,6 +187,47 @@ class MainActivity : FragmentActivity() {
                         currentTheme = currentTheme,
                         onThemeChanged = { currentTheme = it }
                     )
+
+                    if (isLocked) {
+                        Dialog(
+                            onDismissRequest = { /* Prevent dismiss */ },
+                            properties = DialogProperties(
+                                dismissOnBackPress = false,
+                                dismissOnClickOutside = false,
+                                usePlatformDefaultWidth = false
+                            )
+                        ) {
+                            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(androidx.compose.material.icons.Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text("App Locked", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+                                        Spacer(modifier = Modifier.height(32.dp))
+                                        Button(onClick = {
+                                            val executor = ContextCompat.getMainExecutor(this@MainActivity)
+                                            val biometricPrompt = BiometricPrompt(this@MainActivity, executor,
+                                                object : BiometricPrompt.AuthenticationCallback() {
+                                                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                                        super.onAuthenticationSucceeded(result)
+                                                        isLocked = false
+                                                        backgroundTime = System.currentTimeMillis()
+                                                    }
+                                                })
+                                            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                                                .setTitle("Unlock CryptoSub")
+                                                .setSubtitle("Authenticate to access your private messages")
+                                                .setNegativeButtonText("Cancel")
+                                                .build()
+                                            biometricPrompt.authenticate(promptInfo)
+                                        }) {
+                                            Text("Unlock", color = MaterialTheme.colorScheme.onPrimary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
