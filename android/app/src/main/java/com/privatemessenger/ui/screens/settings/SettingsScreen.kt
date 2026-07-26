@@ -21,6 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.privatemessenger.utils.SettingsManager
+import com.privatemessenger.utils.AppUpdater
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // Theme options stored as a simple string in SharedPreferences
 enum class AppTheme(val label: String, val icon: ImageVector) {
@@ -56,6 +59,17 @@ fun SettingsScreen(
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val isBiometricEnabled by settingsManager.isBiometricLockEnabled.collectAsState()
     val isScreenshotProtectionEnabled by settingsManager.isScreenshotProtectionEnabled.collectAsState()
+
+    var updateInfo by remember { mutableStateOf<AppUpdater.UpdateInfo?>(null) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isCheckingUpdate = true
+        withContext(Dispatchers.IO) {
+            updateInfo = AppUpdater.checkForUpdate()
+        }
+        isCheckingUpdate = false
+    }
 
     Scaffold(
         topBar = {
@@ -270,6 +284,39 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                
+                if (updateInfo?.isUpdateAvailable == true && updateInfo?.downloadUrl != null) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "New Version Available (${updateInfo!!.latestVersion})",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Button(
+                            onClick = {
+                                AppUpdater.downloadAndInstallUpdate(
+                                    context, 
+                                    updateInfo!!.downloadUrl!!, 
+                                    updateInfo!!.latestVersion
+                                )
+                            },
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Update Now")
+                        }
+                    }
                 }
             }
         }
