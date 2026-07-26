@@ -143,14 +143,29 @@ fun AppNavGraph(
             com.privatemessenger.ui.screens.contacts.ContactsScreen(
                 database = app.database,
                 onChatClicked = { conversationId ->
-                    navController.navigate("chat/$conversationId") {
-                        popUpTo("chat_list")
-                    }
+                    navController.navigate("contact_details/$conversationId")
                 },
                 onAddContactClicked = {
                     navController.navigate("scanner")
                 },
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "contact_details/{conversationId}",
+            arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
+            com.privatemessenger.ui.screens.contacts.ContactDetailsScreen(
+                conversationId = conversationId,
+                database = app.database,
+                onBack = { navController.popBackStack() },
+                onNavigateToChat = { convId ->
+                    navController.navigate("chat/$convId") {
+                        popUpTo("chat_list")
+                    }
+                }
             )
         }
 
@@ -213,6 +228,7 @@ fun AppNavGraph(
                             if (existing == null) {
                                 val contact = com.privatemessenger.data.local.entity.ConversationEntity(
                                     id = xmtpConvId,
+                                    recipientUserId = address,
                                     deviceId = 1,
                                     displayName = "${address.take(6)}...${address.takeLast(4)}",
                                     lastMessage = "Connected via XMTP",

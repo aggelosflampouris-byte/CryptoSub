@@ -42,4 +42,7 @@ data class ConversationEntity(
 
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "profile_picture_uri")
+    val profilePictureUri: String? = null,
 )

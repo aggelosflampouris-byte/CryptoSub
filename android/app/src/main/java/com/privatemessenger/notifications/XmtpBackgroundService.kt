@@ -110,6 +110,7 @@ class XmtpBackgroundService : Service() {
 
                                 val contact = ConversationEntity(
                                     id = convId,
+                                    recipientUserId = (xmtpConv as? org.xmtp.android.library.Conversation.Dm)?.dm?.peerInboxId ?: message.senderInboxId,
                                     deviceId = 1,
                                     displayName = label,
                                     isGroup = isGroup,

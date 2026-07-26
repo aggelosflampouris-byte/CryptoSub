@@ -55,6 +55,9 @@ interface ConversationDao {
     @Query("UPDATE conversations SET display_name = :displayName WHERE id = :conversationId")
     suspend fun updateDisplayName(conversationId: String, displayName: String)
 
+    @Query("UPDATE conversations SET profile_picture_uri = :uri WHERE id = :conversationId")
+    suspend fun updateProfilePicture(conversationId: String, uri: String?)
+
     @Query("DELETE FROM conversations WHERE id = :conversationId")
     suspend fun delete(conversationId: String)
 
