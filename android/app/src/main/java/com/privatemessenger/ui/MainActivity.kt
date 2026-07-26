@@ -3,7 +3,7 @@ package com.privatemessenger.ui
 import android.content.Context
 import android.os.Bundle
 import android.os.Build
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import android.app.AlertDialog
@@ -18,8 +18,31 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.privatemessenger.utils.SettingsManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import android.view.WindowManager
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.privatemessenger.PrivateMessengerApp
 import com.privatemessenger.ui.navigation.AppNavGraph
 import com.privatemessenger.ui.screens.settings.AppTheme
@@ -31,7 +54,7 @@ import org.xmtp.android.library.Client
 import org.xmtp.android.library.ClientOptions
 import org.xmtp.android.library.XMTPEnvironment
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -106,6 +129,85 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            val settingsManager = remember { SettingsManager.getInstance(this@MainActivity) }
+            val isScreenshotProtectionEnabled by settingsManager.isScreenshotProtectionEnabled.collectAsState(initial = false)
+            val isBiometricEnabled by settingsManager.isBiometricLockEnabled.collectAsState(initial = false)
+            
+            LaunchedEffect(isScreenshotProtectionEnabled) {
+                if (isScreenshotProtectionEnabled) {
+                    window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
+
+            var isLocked by remember { mutableStateOf(false) }
+            var backgroundTime by remember { mutableStateOf(0L) }
+            val lifecycleOwner = LocalLifecycleOwner.current
+
+            DisposableEffect(lifecycleOwner, isBiometricEnabled) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (isBiometricEnabled) {
+                        when (event) {
+                            Lifecycle.Event.ON_STOP -> {
+                                backgroundTime = System.currentTimeMillis()
+                            }
+                            Lifecycle.Event.ON_START -> {
+                                if (System.currentTimeMillis() - backgroundTime > 60_000L) {
+                                    isLocked = true
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+
+            if (isLocked) {
+                Dialog(
+                    onDismissRequest = { /* Prevent dismiss */ },
+                    properties = DialogProperties(
+                        dismissOnBackPress = false,
+                        dismissOnClickOutside = false,
+                        usePlatformDefaultWidth = false
+                    )
+                ) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(androidx.compose.material.icons.Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("App Locked", style = MaterialTheme.typography.headlineMedium)
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Button(onClick = {
+                                    val executor = ContextCompat.getMainExecutor(this@MainActivity)
+                                    val biometricPrompt = BiometricPrompt(this@MainActivity, executor,
+                                        object : BiometricPrompt.AuthenticationCallback() {
+                                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                                super.onAuthenticationSucceeded(result)
+                                                isLocked = false
+                                                backgroundTime = System.currentTimeMillis()
+                                            }
+                                        })
+                                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                                        .setTitle("Unlock CryptoSub")
+                                        .setSubtitle("Authenticate to access your private messages")
+                                        .setNegativeButtonText("Cancel")
+                                        .build()
+                                    biometricPrompt.authenticate(promptInfo)
+                                }) {
+                                    Text("Unlock")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             val initialTheme = ThemePreference.load(this@MainActivity)
             var currentTheme by remember { mutableStateOf(initialTheme) }
             val isSystemDark = isSystemInDarkTheme()
