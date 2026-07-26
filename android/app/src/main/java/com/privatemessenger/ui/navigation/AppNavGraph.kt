@@ -207,10 +207,8 @@ fun AppNavGraph(
                             val dm = client.conversations.findOrCreateDmWithIdentity(peerIdentity)
                             val xmtpConvId = dm.id   // This is the canonical shared ID
 
-                            // 3. Sync so the other device's welcome message is received
-                            client.conversations.sync()
-
-                            // 4. Persist the contact using xmtpConvId as the local key
+                            // 3. Persist the contact using xmtpConvId as the local key FIRST
+                            // to prevent race conditions with the background sync service
                             val existing = app.database.conversationDao().getConversation(xmtpConvId)
                             if (existing == null) {
                                 val contact = com.privatemessenger.data.local.entity.ConversationEntity(
@@ -223,6 +221,9 @@ fun AppNavGraph(
                                 )
                                 app.database.conversationDao().upsert(contact)
                             }
+
+                            // 4. Sync so the other device's welcome message is received
+                            client.conversations.sync()
 
                             // 5. Navigate using the XMTP conversation ID, not the raw address
                             kotlinx.coroutines.withContext(Dispatchers.Main) {

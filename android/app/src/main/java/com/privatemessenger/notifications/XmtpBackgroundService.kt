@@ -87,7 +87,9 @@ class XmtpBackgroundService : Service() {
                     client.conversations.streamAllMessages().collect { message ->
                         try {
                             // Ignore XMTP system messages (group updates / member additions)
-                            if (message.body.matches(Regex("^(@[a-fA-F0-9]{40,}\\s*)+$"))) {
+                            // These typically start with '@' and contain long hex strings (Inbox IDs).
+                            val trimmedBody = message.body.trim()
+                            if (trimmedBody.startsWith("@") && trimmedBody.replace(Regex("[\\s@]"), "").length >= 60) {
                                 Log.d("XmtpBackgroundService", "Ignoring system message: ${message.body}")
                                 return@collect
                             }
@@ -98,7 +100,13 @@ class XmtpBackgroundService : Service() {
                             if (!conversationExists) {
                                 val xmtpConv = client.conversations.findConversation(convId)
                                 val isGroup = xmtpConv is org.xmtp.android.library.Conversation.Group
-                                val label = if (isGroup) "Group Chat" else "${message.senderInboxId.take(6)}...${message.senderInboxId.takeLast(4)}"
+                                val label = if (isGroup) {
+                                    "Group Chat"
+                                } else {
+                                    val dm = (xmtpConv as? org.xmtp.android.library.Conversation.Dm)?.dm
+                                    val peerId = dm?.peerInboxId ?: message.senderInboxId
+                                    if (peerId == client.inboxId) "Me" else "${peerId.take(6)}...${peerId.takeLast(4)}"
+                                }
 
                                 val contact = ConversationEntity(
                                     id = convId,
