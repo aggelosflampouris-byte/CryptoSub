@@ -1,10 +1,8 @@
 package com.privatemessenger.utils
 
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
+import android.widget.Toast
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
@@ -86,58 +84,15 @@ object AppUpdater {
     }
 
     fun downloadAndInstallUpdate(context: Context, url: String, version: String) {
-        val fileName = "CryptoSub-v$version.apk"
-        val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("CryptoSub Update")
-            .setDescription("Downloading v$version…")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val downloadId = downloadManager.enqueue(request)
-
-        val onComplete = object : BroadcastReceiver() {
-            override fun onReceive(receiverContext: Context, intent: Intent) {
-                val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                if (id == downloadId) {
-                    val query = DownloadManager.Query().setFilterById(id)
-                    val cursor = downloadManager.query(query)
-                    if (cursor != null && cursor.moveToFirst()) {
-                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                        val uriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                        if (statusIndex >= 0 && uriIndex >= 0) {
-                            val status = cursor.getInt(statusIndex)
-                            if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                                val uriString = cursor.getString(uriIndex)
-                                if (uriString != null) {
-                                    installApk(receiverContext, Uri.parse(uriString))
-                                }
-                            }
-                        }
-                    }
-                    cursor?.close()
-                    receiverContext.unregisterReceiver(this)
-                }
-            }
-        }
-        ContextCompat.registerReceiver(
-            context,
-            onComplete,
-            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            ContextCompat.RECEIVER_EXPORTED
-        )
-    }
-
-    private fun installApk(context: Context, apkUri: Uri) {
         try {
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(apkUri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            Toast.makeText(context, "Opening browser to download v$version...", Toast.LENGTH_SHORT).show()
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start install intent", e)
+            Log.e(TAG, "Failed to open browser for update", e)
+            Toast.makeText(context, "Failed to start download", Toast.LENGTH_SHORT).show()
         }
     }
 }
