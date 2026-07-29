@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { fetch } from '@tauri-apps/plugin-http'
 
 declare const __APP_REPO__: string
 const RELEASES_PAGE = `${__APP_REPO__}/releases/latest`
@@ -20,7 +21,7 @@ export const UpdateModal: React.FC = () => {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch(VERSION_JSON, { cache: 'no-store' })
+        const res = await fetch(VERSION_JSON, { method: 'GET' })
         if (!res.ok) return
         const data = await res.json() as { version: string; build: number }
         const localBuild  = parseBuild(LOCAL_BUILD)

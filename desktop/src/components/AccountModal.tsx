@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import { getPrivateKey } from '../services/keyVault'
 import { getVersion } from '@tauri-apps/api/app'
+import { fetch } from '@tauri-apps/plugin-http'
 
 declare const __APP_REPO__: string
 const RELEASES_PAGE = typeof __APP_REPO__ !== 'undefined' ? `${__APP_REPO__}/releases/latest` : 'https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest'
@@ -35,7 +36,7 @@ export default function AccountModal({ onClose }: Props) {
     getVersion().then(setAppVersion).catch(() => setAppVersion(LOCAL_BUILD))
     
     // Check for update silently
-    fetch(VERSION_JSON, { cache: 'no-store' })
+    fetch(VERSION_JSON, { method: 'GET' })
       .then(res => res.json())
       .then((data: any) => {
         const localBuild = parseBuild(LOCAL_BUILD)
@@ -150,14 +151,15 @@ export default function AccountModal({ onClose }: Props) {
               onClick={async () => {
                 setCheckingUpdate(true)
                 try {
-                  const res = await fetch(VERSION_JSON, { cache: 'no-store' })
+                  const res = await fetch(VERSION_JSON, { method: 'GET' })
                   const data = await res.json()
                   if ((data.build ?? 0) > parseBuild(LOCAL_BUILD)) {
                     setUpdateAvailable(true)
                   } else {
                     alert('You are on the latest version.')
                   }
-                } catch {
+                } catch (e: any) {
+                  console.error(e)
                   alert('Failed to check for updates.')
                 } finally {
                   setCheckingUpdate(false)

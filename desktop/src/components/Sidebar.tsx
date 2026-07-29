@@ -47,8 +47,8 @@ export default function Sidebar({ onOpenAccount }: Props) {
               position: 'absolute',
               top: '48px',
               right: '16px',
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
               borderRadius: '8px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
               zIndex: 100,
@@ -62,21 +62,21 @@ export default function Sidebar({ onOpenAccount }: Props) {
               className="burger-menu-item"
               onClick={() => { setShowMenu(false); handleRefresh(); }}
               disabled={refreshing}
-              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
+              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
             >
               {refreshing ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '↻'} Refresh
             </button>
             <button
               className="burger-menu-item"
               onClick={() => { setShowMenu(false); setShowCreateGroup(true); }}
-              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
+              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
             >
               👥 Create Group
             </button>
             <button
               className="burger-menu-item"
               onClick={() => { setShowMenu(false); setShowAddContact(true); }}
-              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
+              style={{ padding: '12px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}
             >
               ✚ Add Contact
             </button>
@@ -100,7 +100,7 @@ export default function Sidebar({ onOpenAccount }: Props) {
         />
       </div>
 
-      <div className="sidebar-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
+      <div className="sidebar-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '8px' }}>
         <button 
           className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`} 
           onClick={() => setActiveTab('all')}

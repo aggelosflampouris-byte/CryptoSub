@@ -746,3 +746,4 @@ body {
   0%, 80%, 100% { transform: scale(0); }
   40% { transform: scale(1); }
 }
+.burger-menu-item:hover { background: var(--surface-variant) !important; color: var(--primary) !important; }
