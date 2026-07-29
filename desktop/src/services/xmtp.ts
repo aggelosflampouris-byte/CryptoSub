@@ -107,7 +107,16 @@ export async function loadMessages(conversation: any): Promise<any[]> {
     else if (m.content?.text) contentStr = m.content.text
     else return false
 
-    if (/^(@?[a-fA-F0-9]{40,}\s*)+$/.test(contentStr.trim())) return false
+    if (isSystemMessage(contentStr)) return false
+
+    // Filter out structural messages (typing, read, reaction, etc)
+    if (contentStr.trim().startsWith('{') && contentStr.trim().endsWith('}')) {
+      try {
+        const json = JSON.parse(contentStr)
+        if (['typing', 'reaction', 'read', 'reply'].includes(json.type)) return false
+      } catch (e) { }
+    }
+
     return true
   }).sort((a: any, b: any) => {
     const timeA = a.sentAt || a.sent || a.createdAt
