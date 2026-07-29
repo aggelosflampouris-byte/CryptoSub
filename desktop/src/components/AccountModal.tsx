@@ -290,6 +290,10 @@ export default function AccountModal({ onClose }: Props) {
                 setCheckingUpdate(true)
                 try {
                   const res = await fetch(VERSION_JSON, { method: 'GET' })
+                  if (!res.ok) {
+                    alert('You are on the latest version.')
+                    return
+                  }
                   const data = await res.json()
                   if ((data.build ?? 0) > parseBuild(LOCAL_BUILD)) setUpdateAvailable(true)
                   else alert('You are on the latest version.')
