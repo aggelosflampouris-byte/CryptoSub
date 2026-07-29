@@ -66,6 +66,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.net.URL
+import okio.ByteString.Companion.toByteString
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -289,10 +291,10 @@ fun ChatScreen(
                                 val attachment = Attachment(
                                     filename = filename,
                                     mimeType = mimeType,
-                                    data = bytes
+                                    data = bytes.toByteString()
                                 )
                                 
-                                val encryptedAttachment = RemoteAttachmentCodec.encodeEncrypted(attachment, AttachmentCodec())
+                                val encryptedAttachment = RemoteAttachment.encodeEncrypted(attachment, AttachmentCodec())
                                 
                                 val okHttpClient = OkHttpClient()
                                 val requestBody = encryptedAttachment.payload.toRequestBody("application/octet-stream".toMediaTypeOrNull())
@@ -308,7 +310,7 @@ fun ChatScreen(
                                 val finalUrl = url.replace("localhost", "10.0.2.2")
                                 
                                 val remoteAttachment = RemoteAttachment(
-                                    url = finalUrl,
+                                    url = URL(finalUrl),
                                     contentDigest = encryptedAttachment.digest,
                                     salt = encryptedAttachment.salt,
                                     nonce = encryptedAttachment.nonce,
