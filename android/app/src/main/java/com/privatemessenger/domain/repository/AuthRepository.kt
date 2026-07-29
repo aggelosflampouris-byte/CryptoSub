@@ -7,6 +7,8 @@ import kotlinx.coroutines.withContext
 import org.xmtp.android.library.Client
 import org.xmtp.android.library.ClientOptions
 import org.xmtp.android.library.XMTPEnvironment
+import org.xmtp.android.library.codecs.AttachmentCodec
+import org.xmtp.android.library.codecs.RemoteAttachmentCodec
 import org.xmtp.android.library.messages.PrivateKeyBuilder
 
 class AuthRepository(
@@ -46,6 +48,8 @@ class AuthRepository(
             trace("3. Storing Private Key Securely")
             val privateKeyHex = account.getPrivateKey().secp256K1.bytes.toByteArray().joinToString("") { "%02x".format(it) }
             application.keyStoreManager.storeEthereumPrivateKey(privateKeyHex)
+            Client.register(codec = AttachmentCodec())
+            Client.register(codec = RemoteAttachmentCodec())
 
             trace("4. Initializing App Client")
             withContext(Dispatchers.Main) {
@@ -95,6 +99,8 @@ class AuthRepository(
                     dbEncryptionKey = dbEncryptionKey
                 )
             )
+            Client.register(codec = AttachmentCodec())
+            Client.register(codec = RemoteAttachmentCodec())
 
             // Store the key securely in Keystore
             application.keyStoreManager.storeEthereumPrivateKey(cleanHex)

@@ -1,5 +1,6 @@
 import { Client, DecodedMessage } from '@xmtp/browser-sdk'
 import { ethers } from 'ethers'
+import { AttachmentCodec, RemoteAttachmentCodec, ContentTypeRemoteAttachment, RemoteAttachment } from '@xmtp/content-type-remote-attachment'
 
 /**
  * Generates a random Ethereum wallet and returns the private key hex.
@@ -36,6 +37,8 @@ export async function createXmtpClient(privateKeyHex: string): Promise<Client> {
   }
 
   const client = await Client.create(signer, { env: 'production', dbEncryptionKey })
+  client.registerCodec(new AttachmentCodec())
+  client.registerCodec(new RemoteAttachmentCodec())
   return client
 }
 
@@ -116,6 +119,45 @@ export async function loadMessages(conversation: any): Promise<any[]> {
  */
 export async function sendMessage(conversation: any, text: string): Promise<string> {
   const sent = await conversation.send(text)
+  return typeof sent === 'string' ? sent : sent.id
+}
+
+/**
+ * Sends an encrypted attachment to a conversation.
+ */
+export async function sendAttachment(conversation: any, file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  const attachment = {
+    filename: file.name,
+    mimeType: file.type,
+    data: new Uint8Array(buffer),
+  }
+
+  const encryptedAttachment = await RemoteAttachmentCodec.encodeEncrypted(
+    attachment,
+    new AttachmentCodec()
+  )
+
+  const res = await fetch('http://localhost:8080/v1/attachments/upload', {
+    method: 'POST',
+    body: encryptedAttachment.payload
+  })
+  
+  if (!res.ok) throw new Error('Upload failed')
+  const { url } = await res.json()
+
+  const remoteAttachment: RemoteAttachment = {
+    url,
+    contentDigest: encryptedAttachment.digest,
+    salt: encryptedAttachment.salt,
+    nonce: encryptedAttachment.nonce,
+    secret: encryptedAttachment.secret,
+    scheme: 'https://',
+    contentLength: encryptedAttachment.payload.length,
+    filename: attachment.filename,
+  }
+
+  const sent = await conversation.send(remoteAttachment, { contentType: ContentTypeRemoteAttachment })
   return typeof sent === 'string' ? sent : sent.id
 }
 

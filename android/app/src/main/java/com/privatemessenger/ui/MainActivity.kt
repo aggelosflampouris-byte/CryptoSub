@@ -52,6 +52,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.xmtp.android.library.Client
 import org.xmtp.android.library.ClientOptions
+import org.xmtp.android.library.codecs.AttachmentCodec
+import org.xmtp.android.library.codecs.RemoteAttachmentCodec
 import org.xmtp.android.library.XMTPEnvironment
 
 class MainActivity : FragmentActivity() {
@@ -116,6 +118,8 @@ class MainActivity : FragmentActivity() {
                                 dbEncryptionKey = dbEncryptionKey
                             )
                         )
+                        Client.register(codec = AttachmentCodec())
+                        Client.register(codec = RemoteAttachmentCodec())
                         app.initXmtpClient(client)
                         
                         // Start the background listening service

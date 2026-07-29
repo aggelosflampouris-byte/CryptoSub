@@ -266,6 +266,73 @@ fun ChatScreen(
                     onCancelReply = { replyingToMessage = null },
                     onTextChange = { inputText = it },
                     onImageSelected = { uri ->
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                val client = app.xmtpClient ?: return@launch
+                                val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
+                                
+                                val inputStream = app.contentResolver.openInputStream(uri)
+                                val bytes = inputStream?.readBytes() ?: return@launch
+                                val mimeType = app.contentResolver.getType(uri) ?: "image/jpeg"
+                                val filename = "attachment_${System.currentTimeMillis()}"
+
+                                val attachment = Attachment(
+                                    filename = filename,
+                                    mimeType = mimeType,
+                                    data = bytes
+                                )
+                                
+                                val encryptedAttachment = RemoteAttachmentCodec.encodeEncrypted(attachment, AttachmentCodec())
+                                
+                                val okHttpClient = OkHttpClient()
+                                val requestBody = encryptedAttachment.payload.toRequestBody("application/octet-stream".toMediaTypeOrNull())
+                                val request = Request.Builder()
+                                    .url("http://10.0.2.2:8080/v1/attachments/upload")
+                                    .post(requestBody)
+                                    .build()
+                                    
+                                val response = okHttpClient.newCall(request).execute()
+                                if (!response.isSuccessful) throw Exception("Upload failed: ${response.code}")
+                                val responseBody = response.body?.string() ?: throw Exception("Empty response")
+                                val url = org.json.JSONObject(responseBody).getString("url")
+                                val finalUrl = url.replace("localhost", "10.0.2.2")
+                                
+                                val remoteAttachment = RemoteAttachment(
+                                    url = finalUrl,
+                                    contentDigest = encryptedAttachment.digest,
+                                    salt = encryptedAttachment.salt,
+                                    nonce = encryptedAttachment.nonce,
+                                    secret = encryptedAttachment.secret,
+                                    scheme = "https://",
+                                    contentLength = encryptedAttachment.payload.size,
+                                    filename = attachment.filename
+                                )
+                                
+                                val sentMessageId = when (xmtpConversation) {
+                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
+                                    is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
+                                    else -> return@launch
+                                }
+                                
+                                // Need to cache the file locally so the sender can see it
+                                val localFile = File(app.filesDir, filename)
+                                localFile.writeBytes(bytes)
+                                
+                                val msgEntity = MessageEntity(
+                                    id = sentMessageId,
+                                    conversationId = conversationId,
+                                    senderUserId = client.inboxId,
+                                    content = "📎 Attachment",
+                                    attachmentUri = localFile.absolutePath,
+                                    timestamp = System.currentTimeMillis(),
+                                    status = MessageStatus.SENT
+                                )
+                                database.messageDao().insert(msgEntity)
+                                database.conversationDao().updateLastMessage(conversationId, "📎 Attachment", System.currentTimeMillis())
+                            } catch (e: Exception) {
+                                android.util.Log.e("ChatScreen", "Failed to send attachment", e)
+                            }
+                        }
                     },
                     onTypingStateChange = { isTypingPayload ->
                         coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {

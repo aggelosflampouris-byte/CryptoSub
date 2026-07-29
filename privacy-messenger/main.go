@@ -110,23 +110,32 @@ func run(logger *slog.Logger) error {
 	fcmService := push.NewFCMService(userRepo, logger)
 	router = relay.NewRouter(gatewayServer.Registry(), offlineQueue, fcmService)
 
-	// --- S3 Attachment Store ---
-	var s3Store *attachments.S3Store
-	if cfg.MediaBucket != "" && cfg.MediaAccessKey != "" {
-		var s3Err error
-		s3Store, s3Err = attachments.NewS3Store(ctx, cfg.MediaRegion, cfg.MediaBucket, cfg.MediaAccessKey, cfg.MediaSecretKey)
-		if s3Err != nil {
-			logger.Warn("Failed to initialize S3Store, media uploads will fail", "error", s3Err)
-		}
+	// --- Local Attachment Store ---
+	localStore, err := attachments.NewLocalStore("./uploads", "http://localhost:8080")
+	if err != nil {
+		logger.Warn("Failed to initialize LocalStore, media uploads will fail", "error", err)
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/ws", gatewayServer)
-	registerHTTPRoutes(mux, registrationService, sessionService, userRepo, s3Store)
+	registerHTTPRoutes(mux, registrationService, sessionService, userRepo, localStore)
+
+	corsHandler := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			h.ServeHTTP(w, r)
+		})
+	}
 
 	httpServer := &http.Server{
 		Addr:         cfg.ListenAddr,
-		Handler:      mux,
+		Handler:      corsHandler(mux),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}

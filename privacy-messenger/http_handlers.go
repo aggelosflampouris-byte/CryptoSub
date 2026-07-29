@@ -11,7 +11,7 @@ import (
 	"privacy-messenger/db/postgres"
 )
 
-func registerHTTPRoutes(mux *http.ServeMux, reg *auth.RegistrationService, sessions *auth.SessionService, users *postgres.UserRepository, s3Store *attachments.S3Store) {
+func registerHTTPRoutes(mux *http.ServeMux, reg *auth.RegistrationService, sessions *auth.SessionService, users *postgres.UserRepository, localStore *attachments.LocalStore) {
 	// --- Registration & auth ---
 	mux.HandleFunc("POST /v1/register", handleRegister(reg))
 	mux.HandleFunc("POST /v1/logout", handleLogout(sessions))
@@ -27,8 +27,9 @@ func registerHTTPRoutes(mux *http.ServeMux, reg *auth.RegistrationService, sessi
 	// --- FCM ---
 	mux.HandleFunc("POST /v1/devices/fcm", handleUpdateFCMToken(users, sessions))
 
-	// --- Media Attachments (AWS S3) ---
-	mux.HandleFunc("GET /v1/attachments/upload-url", handleGenerateUploadURL(s3Store, sessions))
+	// --- Media Attachments (Local Storage) ---
+	mux.HandleFunc("POST /v1/attachments/upload", handleUploadAttachment(localStore, sessions))
+	mux.HandleFunc("GET /v1/attachments/download/{id}", handleDownloadAttachment(localStore))
 }
 
 // ---------------------------------------------------------------------------
@@ -265,36 +266,42 @@ func handleUpdateFCMToken(users *postgres.UserRepository, sessions *auth.Session
 }
 
 // ---------------------------------------------------------------------------
-// Media Attachments handler
+// Media Attachments handler (Local Storage)
 // ---------------------------------------------------------------------------
 
-type uploadURLResponse struct {
-	UploadURL   string `json:"upload_url"`
-	DownloadURL string `json:"download_url"`
+type uploadAttachmentResponse struct {
+	URL string `json:"url"`
 }
 
-func handleGenerateUploadURL(s3Store *attachments.S3Store, sessions *auth.SessionService) http.HandlerFunc {
+func handleUploadAttachment(localStore *attachments.LocalStore, sessions *auth.SessionService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := authenticateRequest(r, sessions); err != nil {
-			writeError(w, http.StatusUnauthorized, "invalid session")
-			return
-		}
-
-		if s3Store == nil {
+		if localStore == nil {
 			writeError(w, http.StatusNotImplemented, "media attachments are not configured on this server")
 			return
 		}
 
-		uploadURL, downloadURL, err := s3Store.GenerateUploadURL(r.Context())
+		url, err := localStore.SaveFile(r.Body)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to generate upload url")
+			writeError(w, http.StatusInternalServerError, "failed to save attachment")
 			return
 		}
 
-		writeJSON(w, http.StatusOK, uploadURLResponse{
-			UploadURL:   uploadURL,
-			DownloadURL: downloadURL,
+		writeJSON(w, http.StatusOK, uploadAttachmentResponse{
+			URL: url,
 		})
+	}
+}
+
+func handleDownloadAttachment(localStore *attachments.LocalStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "id is required")
+			return
+		}
+
+		path := localStore.GetFilePath(id)
+		http.ServeFile(w, r, path)
 	}
 }
 

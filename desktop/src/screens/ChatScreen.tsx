@@ -17,11 +17,12 @@ function formatDay(date: Date) {
 }
 
 export default function ChatScreen() {
-  const { client, activeConversationId, conversations, messages, messagesLoading, typingUsers, sendMessage, refreshConversations } = useXmtp()
+  const { client, activeConversationId, conversations, messages, messagesLoading, typingUsers, sendMessage, sendAttachment, refreshConversations } = useXmtp()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastTypingSentAtRef = useRef<number>(0)
   const [showProfile, setShowProfile] = useState(false)
@@ -51,6 +52,21 @@ export default function ChatScreen() {
     } finally {
       setSending(false)
       textareaRef.current?.focus()
+    }
+  }
+
+  const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || sending) return
+    setSending(true)
+    try {
+      await sendAttachment(file)
+    } catch (err) {
+      console.error('Failed to send attachment', err)
+      alert('Failed to send attachment')
+    } finally {
+      setSending(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -159,7 +175,22 @@ export default function ChatScreen() {
                   return (
                     <div key={msg.id ?? i} className={`message-group ${isMine ? 'outgoing' : 'incoming'}`}>
                       <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
-                        <div className="chat-text">{msg.content as string}</div>
+                        {(() => {
+                          const content = msg.content as any
+                          if (content && content.mimeType && content.data instanceof Uint8Array) {
+                            const blob = new Blob([content.data], { type: content.mimeType })
+                            const url = URL.createObjectURL(blob)
+                            if (content.mimeType.startsWith('image/')) {
+                              return <img src={url} alt={content.filename} style={{ maxWidth: '100%', borderRadius: 8, marginTop: 4, marginBottom: 4 }} />
+                            }
+                            return (
+                              <a href={url} download={content.filename} style={{ color: 'inherit', textDecoration: 'underline', display: 'block', padding: '8px 0' }}>
+                                📎 {content.filename}
+                              </a>
+                            )
+                          }
+                          return <div className="chat-text">{typeof content === 'string' ? content : JSON.stringify(content)}</div>
+                        })()}
                         <div className="chat-time">{formatTime(new Date(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date())))}</div>
                       </div>
                     </div>
@@ -185,6 +216,20 @@ export default function ChatScreen() {
 
       {/* Input */}
       <div className="message-input-area">
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          onChange={handleAttach} 
+        />
+        <button 
+          className="attach-btn" 
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+          style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '0 12px', color: 'var(--text)' }}
+        >
+          📎
+        </button>
         <textarea
           ref={textareaRef}
           className="message-input"

@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 import org.xmtp.android.library.Client
 import org.xmtp.android.library.ClientOptions
 import org.xmtp.android.library.XMTPEnvironment
+import org.xmtp.android.library.codecs.AttachmentCodec
+import org.xmtp.android.library.codecs.RemoteAttachmentCodec
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -44,6 +46,8 @@ class BootReceiver : BroadcastReceiver() {
                                         dbEncryptionKey = dbEncryptionKey
                                     )
                                 )
+                                Client.register(codec = AttachmentCodec())
+                                Client.register(codec = RemoteAttachmentCodec())
                                 app.initXmtpClient(client)
                                 
                                 // Now that it's initialized, start the service

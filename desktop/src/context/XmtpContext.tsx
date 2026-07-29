@@ -44,6 +44,7 @@ interface XmtpContextValue {
   selectConversation: (id: string) => void
   startNewConversation: (address: string) => Promise<void>
   sendMessage: (text: string) => Promise<void>
+  sendAttachment: (file: File) => Promise<void>
   refreshConversations: () => Promise<void>
 }
 
@@ -459,6 +460,14 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     await xmtpSendMessage(conv, text)
   }, [client, activeConversationId])
 
+  const sendAttachment = useCallback(async (file: File) => {
+    if (!client || !activeConversationId) return
+    const conv = convMapRef.current.get(activeConversationId)
+    if (!conv) return
+    const { sendAttachment: xmtpSendAttachment } = await import('../services/xmtp')
+    await xmtpSendAttachment(conv, file)
+  }, [client, activeConversationId])
+
   const refreshConversations = useCallback(async () => {
     if (!client) return
     await loadConversations(client)
@@ -481,6 +490,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       selectConversation,
       startNewConversation,
       sendMessage,
+      sendAttachment,
       refreshConversations,
     }}>
       {children}
