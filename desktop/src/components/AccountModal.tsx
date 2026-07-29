@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import { getPrivateKey } from '../services/keyVault'
 import { getVersion } from '@tauri-apps/api/app'
-import { open } from '@tauri-apps/api/shell'
 
 declare const __APP_REPO__: string
 const RELEASES_PAGE = typeof __APP_REPO__ !== 'undefined' ? `${__APP_REPO__}/releases/latest` : 'https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest'
@@ -141,7 +140,7 @@ export default function AccountModal({ onClose }: Props) {
           <span>App Version: {appVersion || 'Loading...'} (In Development)</span>
           {updateAvailable ? (
             <button 
-              onClick={() => open(RELEASES_PAGE)}
+              onClick={() => window.open(RELEASES_PAGE, '_blank')}
               style={{ background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
             >
               Update Available
