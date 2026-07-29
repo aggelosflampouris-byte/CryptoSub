@@ -67,7 +67,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.net.URL
-import okio.ByteString.Companion.toByteString
+import com.google.protobuf.ByteString
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -291,13 +291,13 @@ fun ChatScreen(
                                 val attachment = Attachment(
                                     filename = filename,
                                     mimeType = mimeType,
-                                    data = bytes.toByteString()
+                                    data = ByteString.copyFrom(bytes)
                                 )
                                 
                                 val encryptedAttachment = RemoteAttachment.encodeEncrypted(attachment, AttachmentCodec())
                                 
                                 val okHttpClient = OkHttpClient()
-                                val requestBody = encryptedAttachment.payload.toRequestBody("application/octet-stream".toMediaTypeOrNull())
+                                val requestBody = encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull())
                                 val request = Request.Builder()
                                     .url("http://10.0.2.2:8080/v1/attachments/upload")
                                     .post(requestBody)
@@ -311,12 +311,12 @@ fun ChatScreen(
                                 
                                 val remoteAttachment = RemoteAttachment(
                                     url = URL(finalUrl),
-                                    contentDigest = encryptedAttachment.digest,
+                                    contentDigest = encryptedAttachment.contentDigest,
                                     salt = encryptedAttachment.salt,
                                     nonce = encryptedAttachment.nonce,
                                     secret = encryptedAttachment.secret,
                                     scheme = "https://",
-                                    contentLength = encryptedAttachment.payload.size,
+                                    contentLength = encryptedAttachment.payload.size(),
                                     filename = attachment.filename
                                 )
                                 
