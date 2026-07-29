@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import { DecodedMessage } from '@xmtp/browser-sdk'
+import ProfileDetailsModal from '../components/ProfileDetailsModal'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -16,13 +17,14 @@ function formatDay(date: Date) {
 }
 
 export default function ChatScreen() {
-  const { client, activeConversationId, conversations, messages, messagesLoading, typingUsers, sendMessage } = useXmtp()
+  const { client, activeConversationId, conversations, messages, messagesLoading, typingUsers, sendMessage, refreshConversations } = useXmtp()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastTypingSentAtRef = useRef<number>(0)
+  const [showProfile, setShowProfile] = useState(false)
 
   const activeMeta = conversations.find(c => c.id === activeConversationId)
 
@@ -116,15 +118,30 @@ export default function ChatScreen() {
   return (
     <div className="chat-area">
       {/* Header */}
-      <div className="chat-header">
-        <div className="avatar" style={{ width: 36, height: 36, fontSize: 14 }}>
-          {activeMeta?.displayName[0]?.toUpperCase() ?? '?'}
-        </div>
+      <div className="chat-header" onClick={() => setShowProfile(true)} style={{ cursor: 'pointer' }}>
+        {activeMeta?.profilePicture ? (
+          <img src={activeMeta.profilePicture} alt="Avatar" className="avatar" style={{ width: 36, height: 36, objectFit: 'cover' }} />
+        ) : (
+          <div className="avatar" style={{ width: 36, height: 36, fontSize: 14 }}>
+            {activeMeta?.displayName[0]?.toUpperCase() ?? '?'}
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="chat-header-name">{activeMeta?.displayName ?? '…'}</div>
           <div className="chat-header-address">{activeMeta?.peerAddress}</div>
         </div>
       </div>
+
+      {showProfile && activeMeta && (
+        <ProfileDetailsModal 
+          conversation={activeMeta} 
+          onClose={() => setShowProfile(false)} 
+          onProfileUpdated={() => {
+            setShowProfile(false)
+            refreshConversations()
+          }}
+        />
+      )}
 
       {/* Messages */}
       <div className="messages-container">

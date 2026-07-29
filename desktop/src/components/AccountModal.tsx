@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import { getPrivateKey } from '../services/keyVault'
 import { getVersion } from '@tauri-apps/api/app'
+import { open } from '@tauri-apps/api/shell'
+
+declare const __APP_REPO__: string
+const RELEASES_PAGE = typeof __APP_REPO__ !== 'undefined' ? `${__APP_REPO__}/releases/latest` : 'https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest'
+const VERSION_JSON  = typeof __APP_REPO__ !== 'undefined' ? `${__APP_REPO__}/releases/latest/download/version-desktop.json` : 'https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest/download/version-desktop.json'
+
+// Injected by Vite at build time
+declare const __APP_VERSION__: string
+const LOCAL_BUILD = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0'
+
+function parseBuild(v: string): number {
+  const parts = v.split('.')
+  return parseInt(parts[parts.length - 1] ?? '0', 10) || 0
+}
 
 interface Props {
   onClose: () => void
@@ -15,9 +29,19 @@ export default function AccountModal({ onClose }: Props) {
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [understandRisks, setUnderstandRisks] = useState(false)
   const [appVersion, setAppVersion] = useState<string>('')
+  const [updateAvailable, setUpdateAvailable] = useState<boolean>(false)
+  const [checkingUpdate, setCheckingUpdate] = useState<boolean>(false)
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion('Web'))
+    getVersion().then(setAppVersion).catch(() => setAppVersion(LOCAL_BUILD))
+    
+    // Check for update silently
+    fetch(VERSION_JSON, { cache: 'no-store' })
+      .then(res => res.json())
+      .then((data: any) => {
+        const localBuild = parseBuild(LOCAL_BUILD)
+        if ((data.build ?? 0) > localBuild) setUpdateAvailable(true)
+      }).catch(() => {})
   }, [])
 
   const handleRevealKey = async () => {
@@ -113,8 +137,39 @@ export default function AccountModal({ onClose }: Props) {
         </div>
 
         {/* App Version */}
-        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>
-          App Version: {appVersion || 'Loading...'} (In Development)
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <span>App Version: {appVersion || 'Loading...'} (In Development)</span>
+          {updateAvailable ? (
+            <button 
+              onClick={() => open(RELEASES_PAGE)}
+              style={{ background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Update Available
+            </button>
+          ) : (
+            <button 
+              onClick={async () => {
+                setCheckingUpdate(true)
+                try {
+                  const res = await fetch(VERSION_JSON, { cache: 'no-store' })
+                  const data = await res.json()
+                  if ((data.build ?? 0) > parseBuild(LOCAL_BUILD)) {
+                    setUpdateAvailable(true)
+                  } else {
+                    alert('You are on the latest version.')
+                  }
+                } catch {
+                  alert('Failed to check for updates.')
+                } finally {
+                  setCheckingUpdate(false)
+                }
+              }}
+              style={{ background: 'var(--surface-variant)', color: 'var(--text-secondary)', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer' }}
+              disabled={checkingUpdate}
+            >
+              {checkingUpdate ? 'Checking...' : 'Check for Updates'}
+            </button>
+          )}
         </div>
       </div>
     </div>

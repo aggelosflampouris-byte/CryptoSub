@@ -132,7 +132,11 @@ export default function Sidebar({ onOpenAccount }: Props) {
             className={`conversation-item ${activeConversationId === conv.id ? 'active' : ''}`}
             onClick={() => selectConversation(conv.id)}
           >
-            <div className="avatar">{conv.displayName[0]?.toUpperCase() ?? '?'}</div>
+            {conv.profilePicture ? (
+              <img src={conv.profilePicture} alt="Avatar" className="avatar" style={{ objectFit: 'cover' }} />
+            ) : (
+              <div className="avatar">{conv.displayName[0]?.toUpperCase() ?? '?'}</div>
+            )}
             <div className="conversation-info">
               <div className="conversation-name">{conv.displayName}</div>
               <div className="conversation-preview">{conv.lastMessage || 'No messages yet'}</div>

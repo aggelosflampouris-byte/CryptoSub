@@ -11,6 +11,7 @@ import {
   loadMessages,
   sendMessage as xmtpSendMessage,
 } from '../services/xmtp'
+import { getMetadata } from '../services/metadataStore'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,8 @@ export interface ConversationMeta {
   lastMessageTs: number
   unreadCount: number
   isGroup: boolean
+  profilePicture?: string
+  description?: string
 }
 
 interface XmtpContextValue {
@@ -98,6 +101,11 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       display = peerId === 'unknown' ? 'Unknown' : `${peerId.slice(0, 6)}…${peerId.slice(-4)}`
     }
 
+    const metadata = getMetadata(conv.id)
+    if (metadata.displayName) {
+      display = metadata.displayName
+    }
+
     return {
       id: conv.id,
       topic: conv.id,
@@ -106,7 +114,9 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       lastMessage: lastText,
       lastMessageTs: last ? ((last as any).sentAt || (last as any).sent || (last as any).createdAt || new Date()).getTime() : 0,
       unreadCount: 0,
-      isGroup
+      isGroup,
+      profilePicture: metadata.profilePicture,
+      description: metadata.description
     }
   }, [])
 
