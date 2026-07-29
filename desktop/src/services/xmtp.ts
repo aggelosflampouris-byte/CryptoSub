@@ -36,9 +36,11 @@ export async function createXmtpClient(privateKeyHex: string): Promise<Client> {
     signMessage: async (message: string | Uint8Array) => ethers.utils.arrayify(await wallet.signMessage(message))
   }
 
-  const client = await Client.create(signer, { env: 'production', dbEncryptionKey })
-  client.registerCodec(new AttachmentCodec())
-  client.registerCodec(new RemoteAttachmentCodec())
+  const client = await Client.create(signer, { 
+    env: 'production', 
+    dbEncryptionKey,
+    codecs: [new AttachmentCodec(), new RemoteAttachmentCodec()]
+  } as any)
   return client
 }
 
@@ -140,7 +142,7 @@ export async function sendAttachment(conversation: any, file: File): Promise<str
 
   const res = await fetch('http://localhost:8080/v1/attachments/upload', {
     method: 'POST',
-    body: encryptedAttachment.payload
+    body: new Blob([encryptedAttachment.payload.buffer as ArrayBuffer])
   })
   
   if (!res.ok) throw new Error('Upload failed')
