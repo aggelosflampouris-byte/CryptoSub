@@ -66,6 +66,16 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.xmtp.android.library.SendOptions
+import org.xmtp.android.library.codecs.Attachment
+import org.xmtp.android.library.codecs.AttachmentCodec
+import org.xmtp.android.library.codecs.ContentTypeRemoteAttachment
+import org.xmtp.android.library.codecs.RemoteAttachment
+import org.xmtp.android.library.codecs.RemoteAttachmentCodec
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.privatemessenger.utils.TypingManager
