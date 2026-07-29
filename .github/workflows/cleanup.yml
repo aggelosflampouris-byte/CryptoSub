@@ -59,6 +59,10 @@ jobs:
           RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/latest --jq '.id' || echo "")
           if [ -n "$RELEASE_ID" ]; then
             gh api repos/${{ github.repository }}/releases/$RELEASE_ID/assets > assets.json
+            
+            # Find the most recently created .exe asset
+            LATEST_EXE_ID=$(jq -r '[.[] | select(.name | endswith(".exe"))] | sort_by(.created_at) | reverse | .[0].id // empty' assets.json)
+            
             for row in $(jq -r '.[] | @base64' assets.json); do
               _jq() {
                 echo ${row} | base64 --decode | jq -r ${1}
@@ -66,9 +70,15 @@ jobs:
               ASSET_ID=$(_jq '.id')
               ASSET_NAME=$(_jq '.name')
               
-              # If asset is NOT an apk, exe, or our specific json version files, delete it
+              # Delete unwanted files (not apk, exe, or specific json)
               if [[ ! "$ASSET_NAME" =~ \.apk$ ]] && [[ ! "$ASSET_NAME" =~ \.exe$ ]] && [[ ! "$ASSET_NAME" == "version-android.json" ]] && [[ ! "$ASSET_NAME" == "version-desktop.json" ]]; then
                 echo "Deleting unwanted asset $ASSET_NAME from latest release"
+                gh api -X DELETE repos/${{ github.repository }}/releases/assets/$ASSET_ID || true
+              fi
+              
+              # Delete all old .exe files except the latest one
+              if [[ "$ASSET_NAME" =~ \.exe$ ]] && [ -n "$LATEST_EXE_ID" ] && [ "$ASSET_ID" != "$LATEST_EXE_ID" ]; then
+                echo "Deleting old exe asset $ASSET_NAME"
                 gh api -X DELETE repos/${{ github.repository }}/releases/assets/$ASSET_ID || true
               fi
             done

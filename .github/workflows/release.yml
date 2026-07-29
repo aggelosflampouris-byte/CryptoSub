@@ -89,7 +89,7 @@ jobs:
       - name: Move Desktop Binaries to root
         shell: bash
         run: |
-          cp desktop/src-tauri/target/release/bundle/nsis/*.exe . || true
+          cp desktop/src-tauri/target/release/bundle/nsis/*.exe ./CryptoSub-Windows-setup.exe || true
 
       - name: Upload Desktop Artifacts
         uses: actions/upload-artifact@v4
@@ -129,7 +129,7 @@ jobs:
             3. *Updates automatically in the background.*
 
             ### 🪟 Windows
-            1. Download **`CryptoSub_x.x.x_x64-setup.exe`** below.
+            1. Download **`CryptoSub-Windows-setup.exe`** below.
             2. Run the installer — it will install CryptoSub and create a Start Menu shortcut.
             3. *Updates automatically in the background.*
             > On first launch, Windows SmartScreen may warn about an unknown publisher. Click **"More info → Run anyway"**.
