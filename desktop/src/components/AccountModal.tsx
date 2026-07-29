@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useXmtp } from '../context/XmtpContext'
+import { fetch } from '@tauri-apps/plugin-http'
 import { getPrivateKey } from '../services/keyVault'
 import { getVersion } from '@tauri-apps/api/app'
 import { QRCodeSVG } from 'qrcode.react'

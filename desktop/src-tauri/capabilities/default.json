@@ -9,6 +9,7 @@
     "notification:default",
     "notification:allow-notify",
     "os:default",
-    "window-state:default"
+    "window-state:default",
+    "http:default"
   ]
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { fetch } from '@tauri-apps/plugin-http'
 
 declare const __APP_REPO__: string
 const RELEASES_PAGE = `${__APP_REPO__}/releases/latest`
