@@ -32,8 +32,6 @@ jobs:
           
       - name: Delete old releases
         run: |
-          TWO_WEEKS_AGO=$(date -d "14 days ago" +%s)
-          
           gh api repos/${{ github.repository }}/releases > releases.json
           
           for row in $(jq -r '.[] | @base64' releases.json); do
@@ -43,24 +41,14 @@ jobs:
             
             ID=$(_jq '.id')
             TAG=$(_jq '.tag_name')
-            PUBLISHED_AT=$(_jq '.published_at')
             
             if [ "$TAG" == "latest" ]; then
               continue
             fi
             
-            # If PUBLISHED_AT is null or empty, skip
-            if [ "$PUBLISHED_AT" == "null" ] || [ -z "$PUBLISHED_AT" ]; then
-              continue
-            fi
-            
-            PUBLISHED_TIMESTAMP=$(date -d "$PUBLISHED_AT" +%s)
-            
-            if [ "$PUBLISHED_TIMESTAMP" -lt "$TWO_WEEKS_AGO" ]; then
-              echo "Deleting release $TAG (ID: $ID)"
-              gh api -X DELETE repos/${{ github.repository }}/releases/$ID || true
-              git push --delete origin $TAG || true
-            fi
+            echo "Deleting release $TAG (ID: $ID)"
+            gh api -X DELETE repos/${{ github.repository }}/releases/$ID || true
+            git push --delete origin $TAG || true
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
