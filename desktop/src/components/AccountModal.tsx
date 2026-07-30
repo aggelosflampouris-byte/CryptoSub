@@ -67,7 +67,34 @@ export default function AccountModal({ onClose }: Props) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const publicAddress = ((client as any)?.address || (client as any)?.inboxId) ?? ''
+  const [publicAddress, setPublicAddress] = useState('')
+
+  useEffect(() => {
+    // Determine Ethereum address
+    if (client) {
+      // Try to use client properties
+      const addr = (client as any).accountAddress || (client as any).address || (client as any).accountIdentifier
+      if (typeof addr === 'string' && addr.startsWith('0x')) {
+        setPublicAddress(addr)
+        return
+      }
+    }
+    // Fallback to deriving from private key
+    getPrivateKey().then(pk => {
+      if (pk) {
+        import('ethers').then(({ ethers }) => {
+          const normalized = pk.startsWith('0x') ? pk : `0x${pk}`
+          try {
+            setPublicAddress(new ethers.Wallet(normalized).address)
+          } catch (e) {
+            setPublicAddress((client as any)?.inboxId ?? '')
+          }
+        })
+      } else {
+        setPublicAddress((client as any)?.inboxId ?? '')
+      }
+    })
+  }, [client])
 
   const handleUpdateSetting = async (updates: Partial<AppSettings>) => {
     const next = updateSettings(updates)
