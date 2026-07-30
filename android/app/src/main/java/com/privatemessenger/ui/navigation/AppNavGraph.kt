@@ -1,7 +1,7 @@
 package com.privatemessenger.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavType
@@ -42,25 +42,25 @@ fun AppNavGraph(
         enterTransition = {
             slideIntoContainer(
                 towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                animationSpec = tween(300)
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f)
             )
         },
         exitTransition = {
             slideOutOfContainer(
                 towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                animationSpec = tween(300)
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f)
             )
         },
         popEnterTransition = {
             slideIntoContainer(
                 towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                animationSpec = tween(300)
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f)
             )
         },
         popExitTransition = {
             slideOutOfContainer(
                 towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                animationSpec = tween(300)
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f)
             )
         }
     ) {

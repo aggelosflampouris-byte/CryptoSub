@@ -58,4 +58,7 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE conversation_id = :conversationId")
     suspend fun deleteAllInConversation(conversationId: String)
+
+    @Query("DELETE FROM messages WHERE conversation_id = :conversationId AND timestamp <= :timestamp")
+    suspend fun deleteAllInConversationBefore(conversationId: String, timestamp: Long)
 }

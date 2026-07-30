@@ -67,6 +67,9 @@ interface ConversationDao {
     @Query("UPDATE conversations SET is_hidden = 1 WHERE id = :conversationId")
     suspend fun hideConversation(conversationId: String)
 
+    @Query("UPDATE conversations SET cleared_up_to = :timestamp WHERE id = :conversationId")
+    suspend fun updateClearedUpTo(conversationId: String, timestamp: Long)
+
     @Query("DELETE FROM conversations")
     suspend fun clearAll()
 }

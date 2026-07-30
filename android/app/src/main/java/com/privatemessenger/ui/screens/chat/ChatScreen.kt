@@ -127,7 +127,8 @@ fun ChatScreen(
                 var lastMsgTime = 0L
 
                 xmtpMessages.forEach { msg ->
-                    if (database.messageDao().findById(msg.id) == null) {
+                    val isCleared = (msg.sentAt.time <= (conversation?.clearedUpTo ?: 0L))
+                    if (!isCleared && database.messageDao().findById(msg.id) == null) {
                         var finalContent = msg.body
                         var finalReplyToId: String? = null
                         var isStructuralPayload = false
@@ -138,7 +139,7 @@ fun ChatScreen(
                                 val json = com.google.gson.JsonParser.parseString(trimmedBody).asJsonObject
                                 val type = json.get("type")?.asString
                                 
-                                if (type == "reaction" || type == "read" || type == "typing") {
+                                if (type == "reaction" || type == "read" || type == "typing" || type == "clear_history_request" || type == "clear_history_accept" || type == "clear_history_decline") {
                                     isStructuralPayload = true
                                 } else if (type == "reply") {
                                     finalContent = json.get("content")?.asString ?: msg.body
@@ -211,6 +212,7 @@ fun ChatScreen(
     }
 
     Scaffold(
+        modifier = Modifier.imePadding(),
         topBar = {
             TopAppBar(
                 title = {
@@ -263,6 +265,61 @@ fun ChatScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    var showClearHistoryDialog by remember { mutableStateOf(false) }
+                    IconButton(onClick = { showClearHistoryDialog = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Clear Chat History")
+                    }
+
+                    if (showClearHistoryDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showClearHistoryDialog = false },
+                            title = { Text("Clear Chat History") },
+                            text = { Text("How would you like to clear this chat history?\n\n'Local Clear' will instantly delete all messages from this device.\n\n'Clear for Both' will send a request to the other user to consensually delete the history for both of you.") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    showClearHistoryDialog = false
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        val now = System.currentTimeMillis()
+                                        database.conversationDao().updateClearedUpTo(conversationId, now)
+                                        database.messageDao().deleteAllInConversationBefore(conversationId, now)
+                                    }
+                                }) {
+                                    Text("Local Clear")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = {
+                                    showClearHistoryDialog = false
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        try {
+                                            val client = app.xmtpClient ?: return@launch
+                                            val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
+                                            val payload = """{"type":"clear_history_request","timestamp":${System.currentTimeMillis()}}"""
+                                            when (xmtpConversation) {
+                                                is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
+                                                is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
+                                            }
+                                            val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
+                                                id = java.util.UUID.randomUUID().toString(),
+                                                conversationId = conversationId,
+                                                senderUserId = client.inboxId,
+                                                content = "SYSTEM_UI:clear_history_request_sent",
+                                                timestamp = System.currentTimeMillis(),
+                                                status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
+                                            )
+                                            database.messageDao().insert(msgEntity)
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("ChatScreen", "Failed to send clear request", e)
+                                        }
+                                    }
+                                }) {
+                                    Text("Clear for Both")
+                                }
+                            }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -332,7 +389,58 @@ fun ChatScreen(
                                 },
                                 onCopy = { clipboardManager.setText(AnnotatedString(it)) },
                                 allMessages = allMessages,
-                                modifier = Modifier.animateItemPlacement()
+                                modifier = Modifier.animateItemPlacement(),
+                                onSystemAction = { action ->
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        try {
+                                            val client = app.xmtpClient ?: return@launch
+                                            val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
+                                            if (action.startsWith("accept_clear:")) {
+                                                val tsStr = action.substringAfter(":")
+                                                val ts = tsStr.toLongOrNull() ?: System.currentTimeMillis()
+                                                val payload = """{"type":"clear_history_accept","timestamp":$ts}"""
+                                                when (xmtpConversation) {
+                                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
+                                                    is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
+                                                }
+                                                database.conversationDao().updateClearedUpTo(conversationId, ts)
+                                                database.messageDao().deleteAllInConversationBefore(conversationId, ts)
+                                                // Remove the request message
+                                                database.messageDao().delete(message.id)
+                                                // Add accept message
+                                                val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
+                                                    id = java.util.UUID.randomUUID().toString(),
+                                                    conversationId = conversationId,
+                                                    senderUserId = client.inboxId,
+                                                    content = "SYSTEM_UI:clear_history_accept",
+                                                    timestamp = System.currentTimeMillis(),
+                                                    status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
+                                                )
+                                                database.messageDao().insert(msgEntity)
+                                            } else if (action == "decline_clear") {
+                                                val payload = """{"type":"clear_history_decline"}"""
+                                                when (xmtpConversation) {
+                                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
+                                                    is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
+                                                }
+                                                // Remove the request message
+                                                database.messageDao().delete(message.id)
+                                                // Add decline message
+                                                val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
+                                                    id = java.util.UUID.randomUUID().toString(),
+                                                    conversationId = conversationId,
+                                                    senderUserId = client.inboxId,
+                                                    content = "SYSTEM_UI:clear_history_decline",
+                                                    timestamp = System.currentTimeMillis(),
+                                                    status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
+                                                )
+                                                database.messageDao().insert(msgEntity)
+                                            }
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("ChatScreen", "Failed to send system action", e)
+                                        }
+                                    }
+                                }
                             )
                         }
                     }
@@ -626,7 +734,8 @@ fun MessageBubble(
     onReact: (String) -> Unit,
     onCopy: (String) -> Unit,
     allMessages: List<MessageEntity>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSystemAction: ((String) -> Unit)? = null
 ) {
     val alignment = if (isCurrentUser) Alignment.CenterEnd else Alignment.CenterStart
     val backgroundColor = if (isCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
@@ -681,7 +790,66 @@ fun MessageBubble(
                         }
                     }
 
-                    if (message.attachmentUri != null) {
+                    if (message.content.startsWith("SYSTEM_UI:")) {
+                        val parts = message.content.split(":")
+                        val type = parts.getOrNull(1)
+                        val timestampStr = parts.getOrNull(2)
+                        
+                        when (type) {
+                            "clear_history_request_sent" -> {
+                                Text(
+                                    text = "You requested to clear history for both users. Waiting for consent...",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                                    color = textColor.copy(alpha = 0.8f)
+                                )
+                            }
+                            "clear_history_request" -> {
+                                Column {
+                                    Text(
+                                        text = "Contact requested to clear the chat history for both users.",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = textColor
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { onSystemAction?.invoke("accept_clear:$timestampStr") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                                        ) {
+                                            Text("Accept")
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onSystemAction?.invoke("decline_clear") },
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor)
+                                        ) {
+                                            Text("Decline")
+                                        }
+                                    }
+                                }
+                            }
+                            "clear_history_accept" -> {
+                                Text(
+                                    text = "History cleared by consent.",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                                    color = textColor.copy(alpha = 0.8f)
+                                )
+                            }
+                            "clear_history_decline" -> {
+                                Text(
+                                    text = "Contact declined the clear history request.",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                                    color = textColor.copy(alpha = 0.8f)
+                                )
+                            }
+                            else -> {
+                                Text(
+                                    text = "System Message",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = textColor
+                                )
+                            }
+                        }
+                    } else if (message.attachmentUri != null) {
                         // Detect content type from file extension
                         val path = message.attachmentUri
                         val ext = path.substringAfterLast('.', "").lowercase()

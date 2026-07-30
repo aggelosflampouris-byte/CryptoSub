@@ -132,6 +132,8 @@ class MainActivity : FragmentActivity() {
             }
         }
 
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        
         setContent {
             val settingsManager = remember { SettingsManager.getInstance(this@MainActivity) }
             val isScreenshotProtectionEnabled by settingsManager.isScreenshotProtectionEnabled.collectAsState(initial = false)

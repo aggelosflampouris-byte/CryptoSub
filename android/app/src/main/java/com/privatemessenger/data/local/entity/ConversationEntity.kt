@@ -43,9 +43,9 @@ data class ConversationEntity(
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
 
-    @ColumnInfo(name = "profile_picture_uri")
-    val profilePictureUri: String? = null,
+    @ColumnInfo(name = "profile_picture_uri") val profilePictureUri: String? = null,
     
-    @ColumnInfo(name = "is_hidden")
-    val isHidden: Boolean = false
+    @ColumnInfo(name = "is_hidden") val isHidden: Boolean = false,
+    
+    @ColumnInfo(name = "cleared_up_to") val clearedUpTo: Long = 0
 )

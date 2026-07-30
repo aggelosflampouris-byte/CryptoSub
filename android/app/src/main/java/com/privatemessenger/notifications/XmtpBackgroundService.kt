@@ -141,6 +141,43 @@ class XmtpBackgroundService : Service() {
                                     } else if (type == "reply") {
                                         finalContent = json.get("content")?.asString ?: message.body
                                         finalReplyToId = json.get("replyToId")?.asString
+                                    } else if (type == "clear_history_request") {
+                                        val timestamp = json.get("timestamp")?.asLong ?: message.sentAt.time
+                                        val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
+                                            id = message.id,
+                                            conversationId = convId,
+                                            senderUserId = message.senderInboxId,
+                                            content = "SYSTEM_UI:clear_history_request:$timestamp",
+                                            timestamp = message.sentAt.time,
+                                            status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
+                                        )
+                                        app.database.messageDao().insert(msgEntity)
+                                        isStructuralPayload = true
+                                    } else if (type == "clear_history_accept") {
+                                        val timestamp = json.get("timestamp")?.asLong ?: message.sentAt.time
+                                        app.database.conversationDao().updateClearedUpTo(convId, timestamp)
+                                        app.database.messageDao().deleteAllInConversationBefore(convId, timestamp)
+                                        val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
+                                            id = message.id,
+                                            conversationId = convId,
+                                            senderUserId = message.senderInboxId,
+                                            content = "SYSTEM_UI:clear_history_accept",
+                                            timestamp = message.sentAt.time,
+                                            status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
+                                        )
+                                        app.database.messageDao().insert(msgEntity)
+                                        isStructuralPayload = true
+                                    } else if (type == "clear_history_decline") {
+                                        val msgEntity = com.privatemessenger.data.local.entity.MessageEntity(
+                                            id = message.id,
+                                            conversationId = convId,
+                                            senderUserId = message.senderInboxId,
+                                            content = "SYSTEM_UI:clear_history_decline",
+                                            timestamp = message.sentAt.time,
+                                            status = com.privatemessenger.data.local.entity.MessageStatus.DELIVERED
+                                        )
+                                        app.database.messageDao().insert(msgEntity)
+                                        isStructuralPayload = true
                                     }
                                 } catch (e: Exception) {
                                     // Not a valid structural JSON, treat as normal text
