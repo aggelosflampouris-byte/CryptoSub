@@ -78,6 +78,64 @@ fun ChatListScreen(
         }
     }
 
+    // Reconcile XMTP network state → Room DB on every startup.
+    // If the local DB was wiped (e.g. after a schema migration failure or
+    // fresh install), this re-seeds conversations from the XMTP network so
+    // contacts are never permanently lost.
+    LaunchedEffect(app.xmtpClient) {
+        val client = app.xmtpClient ?: return@LaunchedEffect
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                client.conversations.sync()
+                val xmtpConvs = client.conversations.list()
+                for (xmtpConv in xmtpConvs) {
+                    try {
+                        val isGroup = xmtpConv is org.xmtp.android.library.Conversation.Group
+                        val convId = when (xmtpConv) {
+                            is org.xmtp.android.library.Conversation.Dm    -> xmtpConv.dm.id
+                            is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.id
+                        }
+                        val displayName = when {
+                            isGroup -> {
+                                val g = (xmtpConv as org.xmtp.android.library.Conversation.Group).group
+                                g.name.takeIf { it.isNotBlank() } ?: "Group Chat"
+                            }
+                            else -> {
+                                val dm = (xmtpConv as org.xmtp.android.library.Conversation.Dm).dm
+                                val peerId = dm.peerInboxId
+                                "${peerId.take(6)}...${peerId.takeLast(4)}"
+                            }
+                        }
+                        val recipientId = if (!isGroup) {
+                            (xmtpConv as org.xmtp.android.library.Conversation.Dm).dm.peerInboxId
+                        } else null
+
+                        val existing = database.conversationDao().getConversation(convId)
+                        if (existing == null) {
+                            // Conversation is on the XMTP network but missing from local DB — restore it
+                            database.conversationDao().upsert(
+                                ConversationEntity(
+                                    id = convId,
+                                    recipientUserId = recipientId,
+                                    displayName = displayName,
+                                    isGroup = isGroup,
+                                    lastMessage = "",
+                                    lastMessageTimestamp = System.currentTimeMillis(),
+                                    unreadCount = 0
+                                )
+                            )
+                            android.util.Log.i("ChatListScreen", "Restored conversation from XMTP: $convId ($displayName)")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("ChatListScreen", "Failed to restore conversation", e)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChatListScreen", "XMTP reconciliation failed", e)
+            }
+        }
+    }
+
     if (showUpdateDialog && updateInfo != null) {
         AlertDialog(
             onDismissRequest = { showUpdateDialog = false },
