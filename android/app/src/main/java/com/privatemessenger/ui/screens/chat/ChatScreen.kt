@@ -58,6 +58,10 @@ import coil.compose.AsyncImage
 import android.net.Uri
 import android.media.MediaRecorder
 import android.os.Build
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import android.widget.Toast
 import java.io.File
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -839,6 +843,14 @@ fun ChatInputArea(
     val mediaRecorderRef = remember { mutableStateOf<MediaRecorder?>(null) }
     val voiceFileRef = remember { mutableStateOf<File?>(null) }
 
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            Toast.makeText(context, "Microphone permission is required for voice memos", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     LaunchedEffect(isRecording) {
         if (isRecording) {
             while (isRecording) {
@@ -937,6 +949,11 @@ fun ChatInputArea(
                                     val event = awaitPointerEvent()
                                     val change = event.changes.firstOrNull() ?: continue
                                     if (change.pressed && !isRecording) {
+                                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                            change.consume()
+                                            continue
+                                        }
                                         // Start recording
                                         val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.ogg")
                                         voiceFileRef.value = outputFile
