@@ -1171,57 +1171,52 @@ fun ChatInputArea(
                 val micBg = if (isRecording) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
                 val micTint = if (isRecording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary
                 IconButton(
-                    onClick = {},
+                    onClick = {
+                        if (!isRecording) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                return@IconButton
+                            }
+                            // Start recording
+                            val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.ogg")
+                            voiceFileRef.value = outputFile
+                            val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                MediaRecorder(context)
+                            } else {
+                                @Suppress("DEPRECATION")
+                                MediaRecorder()
+                            }
+                            mr.setAudioSource(MediaRecorder.AudioSource.MIC)
+                            mr.setOutputFormat(MediaRecorder.OutputFormat.OGG)
+                            mr.setAudioEncoder(MediaRecorder.AudioEncoder.OPUS)
+                            mr.setOutputFile(outputFile.absolutePath)
+                            try {
+                                mr.prepare()
+                                mr.start()
+                                mediaRecorderRef.value = mr
+                                isRecording = true
+                            } catch (e: Exception) {
+                                android.util.Log.e("ChatScreen", "Failed to start recording", e)
+                                android.widget.Toast.makeText(context, "Failed to start recording", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            // Stop recording and send
+                            try {
+                                mediaRecorderRef.value?.stop()
+                            } catch (e: Exception) { }
+                            mediaRecorderRef.value?.release()
+                            mediaRecorderRef.value = null
+                            isRecording = false
+                            val file = voiceFileRef.value
+                            if (file != null && file.exists() && file.length() > 500) {
+                                onVoiceMemoRecorded(file)
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(micBg)
-                        .pointerInput(isRecording) {
-                            awaitPointerEventScope {
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull() ?: continue
-                                    if (change.pressed && !isRecording) {
-                                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                            change.consume()
-                                            continue
-                                        }
-                                        // Start recording
-                                        val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.ogg")
-                                        voiceFileRef.value = outputFile
-                                        val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                            MediaRecorder(context)
-                                        } else {
-                                            @Suppress("DEPRECATION")
-                                            MediaRecorder()
-                                        }
-                                        mr.setAudioSource(MediaRecorder.AudioSource.MIC)
-                                        mr.setOutputFormat(MediaRecorder.OutputFormat.OGG)
-                                        mr.setAudioEncoder(MediaRecorder.AudioEncoder.OPUS)
-                                        mr.setOutputFile(outputFile.absolutePath)
-                                        mr.prepare()
-                                        mr.start()
-                                        mediaRecorderRef.value = mr
-                                        isRecording = true
-                                        change.consume()
-                                    } else if (!change.pressed && isRecording) {
-                                        // Stop recording
-                                        try {
-                                            mediaRecorderRef.value?.stop()
-                                        } catch (e: Exception) { }
-                                        mediaRecorderRef.value?.release()
-                                        mediaRecorderRef.value = null
-                                        isRecording = false
-                                        val file = voiceFileRef.value
-                                        if (file != null && file.exists() && file.length() > 1000) {
-                                            onVoiceMemoRecorded(file)
-                                        }
-                                        change.consume()
-                                    }
-                                }
-                            }
-                        }
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
