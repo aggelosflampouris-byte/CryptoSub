@@ -5,6 +5,7 @@ import ProfileDetailsModal from '../components/ProfileDetailsModal'
 import { startRecording, RecordingHandle } from '../services/AudioRecorder'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import React from 'react'
+import { getClearedUpTo } from '../services/metadataStore'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -401,7 +402,7 @@ export default function ChatScreen() {
     )
   }
 
-  const clearedUpTo = activeMeta ? (JSON.parse(localStorage.getItem('cryptosub_meta_' + activeMeta.id) || '{}').clearedUpTo || 0) : 0
+  const clearedUpTo = activeMeta ? getClearedUpTo(activeMeta.id) : 0
 
   const grouped: { day: string; messages: DecodedMessage[] }[] = []
   for (const msg of messages) {

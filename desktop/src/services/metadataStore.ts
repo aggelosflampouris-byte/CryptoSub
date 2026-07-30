@@ -29,3 +29,11 @@ export function setMetadata(conversationId: string, data: Partial<ConversationMe
     console.error("Failed to save metadata", e)
   }
 }
+
+/**
+ * Returns the timestamp below which messages in a conversation have been cleared.
+ * 0 means no messages have been cleared.
+ */
+export function getClearedUpTo(conversationId: string): number {
+  return getMetadata(conversationId).clearedUpTo ?? 0
+}

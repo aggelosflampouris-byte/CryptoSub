@@ -117,9 +117,6 @@ abstract class AppDatabase : RoomDatabase() {
             )
                 .openHelperFactory(factory)
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
-                // Allow queries on non-main threads (required for libsignal's
-                // synchronous store calls â€” all crypto happens off the main thread)
-                .allowMainThreadQueries()  // TODO: restrict to signal DAO only
                 .build()
         }
     }

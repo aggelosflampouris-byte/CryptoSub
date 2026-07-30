@@ -463,58 +463,21 @@ fun ChatScreen(
                     onImageSelected = { uri ->
                         coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                             try {
-                                val client = app.xmtpClient ?: return@launch
-                                val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
-                                
                                 val inputStream = app.contentResolver.openInputStream(uri)
                                 val bytes = inputStream?.readBytes() ?: return@launch
                                 val mimeType = app.contentResolver.getType(uri) ?: "application/octet-stream"
                                 val ext = mimeType.substringAfterLast('/')
                                 val filename = "attachment_${System.currentTimeMillis()}.$ext"
 
-                                val attachment = Attachment(
-                                    filename = filename,
-                                    mimeType = mimeType,
-                                    data = ByteString.copyFrom(bytes)
-                                )
-                                
-                                val encryptedAttachment = RemoteAttachment.encodeEncrypted(attachment, AttachmentCodec())
-                                
-                                val okHttpClient = OkHttpClient()
-                                val requestBody = okhttp3.MultipartBody.Builder()
-                                    .setType(okhttp3.MultipartBody.FORM)
-                                    .addFormDataPart("reqtype", "fileupload")
-                                    .addFormDataPart("fileToUpload", attachment.filename, encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull()))
-                                    .build()
-                                val request = Request.Builder()
-                                    .url("https://catbox.moe/user/api.php")
-                                    .post(requestBody)
-                                    .build()
-                                    
-                                val response = okHttpClient.newCall(request).execute()
-                                if (!response.isSuccessful) throw Exception("Upload failed: ${response.code}")
-                                val finalUrl = response.body?.string()?.trim() ?: throw Exception("Empty response")
-                                
-                                val remoteAttachment = RemoteAttachment(
-                                    url = URL(finalUrl),
-                                    contentDigest = encryptedAttachment.contentDigest,
-                                    salt = encryptedAttachment.salt,
-                                    nonce = encryptedAttachment.nonce,
-                                    secret = encryptedAttachment.secret,
-                                    scheme = "https://",
-                                    contentLength = encryptedAttachment.payload.size(),
-                                    filename = attachment.filename
-                                )
-                                
-                                val sentMessageId = when (xmtpConversation) {
-                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
-                                    is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
-                                    else -> return@launch
-                                }
-                                
+                                val result = com.privatemessenger.utils.sendEncryptedAttachment(
+                                    app, conversationId, bytes, mimeType, filename
+                                ) ?: return@launch
+                                val (_, sentMessageId) = result
+
                                 val localFile = File(app.filesDir, filename)
                                 localFile.writeBytes(bytes)
-                                
+
+                                val client = app.xmtpClient ?: return@launch
                                 val msgEntity = MessageEntity(
                                     id = sentMessageId,
                                     conversationId = conversationId,
@@ -534,48 +497,17 @@ fun ChatScreen(
                     onVoiceMemoRecorded = { audioFile ->
                         coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                             try {
-                                val client = app.xmtpClient ?: return@launch
-                                val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
                                 val bytes = audioFile.readBytes()
-                                val mimeType = "audio/ogg"
                                 val filename = audioFile.name
 
-                                val attachment = Attachment(
-                                    filename = filename,
-                                    mimeType = mimeType,
-                                    data = ByteString.copyFrom(bytes)
-                                )
-                                val encryptedAttachment = RemoteAttachment.encodeEncrypted(attachment, AttachmentCodec())
-                                val okHttpClient = OkHttpClient()
-                                val requestBody = okhttp3.MultipartBody.Builder()
-                                    .setType(okhttp3.MultipartBody.FORM)
-                                    .addFormDataPart("reqtype", "fileupload")
-                                    .addFormDataPart("fileToUpload", filename, encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull()))
-                                    .build()
-                                val request = Request.Builder()
-                                    .url("https://catbox.moe/user/api.php")
-                                    .post(requestBody)
-                                    .build()
-                                val response = okHttpClient.newCall(request).execute()
-                                if (!response.isSuccessful) throw Exception("Upload failed: ${response.code}")
-                                val finalUrl = response.body?.string()?.trim() ?: throw Exception("Empty response")
-                                val remoteAttachment = RemoteAttachment(
-                                    url = URL(finalUrl),
-                                    contentDigest = encryptedAttachment.contentDigest,
-                                    salt = encryptedAttachment.salt,
-                                    nonce = encryptedAttachment.nonce,
-                                    secret = encryptedAttachment.secret,
-                                    scheme = "https://",
-                                    contentLength = encryptedAttachment.payload.size(),
-                                    filename = filename
-                                )
-                                val sentMessageId = when (xmtpConversation) {
-                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
-                                    is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
-                                    else -> return@launch
-                                }
+                                val result = com.privatemessenger.utils.sendEncryptedAttachment(
+                                    app, conversationId, bytes, "audio/ogg", filename
+                                ) ?: return@launch
+                                val (_, sentMessageId) = result
+
                                 val localCopy = File(app.filesDir, filename)
                                 localCopy.writeBytes(bytes)
+                                val client = app.xmtpClient ?: return@launch
                                 val msgEntity = MessageEntity(
                                     id = sentMessageId,
                                     conversationId = conversationId,

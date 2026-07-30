@@ -3,7 +3,12 @@ package com.privatemessenger
 import android.app.Application
 import com.privatemessenger.data.local.AppDatabase
 import com.privatemessenger.keystore.KeyStoreManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
+import okhttp3.OkHttpClient
 import org.xmtp.android.library.Client
 
 /**
@@ -21,6 +26,12 @@ import org.xmtp.android.library.Client
  * Application class to keep the initial implementation simple.
  */
 class PrivateMessengerApp : Application() {
+
+    /** Application-scoped coroutine scope — cancelled on process death. */
+    val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /** Shared OkHttpClient — connection pool is reused across all upload calls. */
+    val httpClient: OkHttpClient by lazy { OkHttpClient() }
 
     lateinit var keyStoreManager: KeyStoreManager
         private set
@@ -84,8 +95,13 @@ class PrivateMessengerApp : Application() {
     fun logout() {
         keyStoreManager.clearAll()
         xmtpClient = null
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        applicationScope.launch(Dispatchers.IO) {
             database.clearAllTables()
         }
+    }
+
+    override fun onTerminate() {
+        super.onTerminate()
+        applicationScope.cancel()
     }
 }

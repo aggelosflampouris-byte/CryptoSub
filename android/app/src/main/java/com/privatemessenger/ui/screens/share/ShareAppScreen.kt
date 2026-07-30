@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.privatemessenger.BuildConfig
 import com.privatemessenger.utils.QRCodeHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,7 +31,7 @@ fun ShareAppScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val githubLink = "https://github.com/aggelosflampouris-byte/CryptoSub/releases/latest"
+    val githubLink = "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest"
     val qrBitmap = remember { QRCodeHelper.generateQRCode(githubLink, 600)?.asImageBitmap() }
 
     Scaffold(

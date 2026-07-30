@@ -1,6 +1,7 @@
 import { Client, DecodedMessage } from '@xmtp/browser-sdk'
 import { ethers } from 'ethers'
 import { AttachmentCodec, RemoteAttachmentCodec, ContentTypeRemoteAttachment, RemoteAttachment } from '@xmtp/content-type-remote-attachment'
+import { ATTACHMENT_UPLOAD_URL } from './constants'
 
 /**
  * Generates a random Ethereum wallet and returns the private key hex.
@@ -21,9 +22,24 @@ export async function createXmtpClient(privateKeyHex: string): Promise<Client> {
   const normalized = privateKeyHex.startsWith('0x') ? privateKeyHex : `0x${privateKeyHex}`
   const wallet = new ethers.Wallet(normalized)
   
-  // Deterministically generate the local DB encryption key from the private key
-  const hash = ethers.utils.sha256(wallet.privateKey)
-  const dbEncryptionKey = ethers.utils.arrayify(hash)
+  // Derive a 32-byte DB encryption key using PBKDF2-SHA256.
+  // Using a stable, deterministic salt derived from the public address
+  // so the key can be re-derived on every login without storing it.
+  // PBKDF2 is used here (vs raw SHA-256) to add computational cost against brute-force.
+  const saltHex = ethers.utils.id('cryptosub-xmtp-db-v1:' + wallet.address.toLowerCase())
+  const saltBytes = ethers.utils.arrayify(saltHex)
+  const keyBytes = ethers.utils.arrayify(wallet.privateKey)
+  // Copy into a plain ArrayBuffer to satisfy WebCrypto's strict BufferSource type
+  const saltBuf = new Uint8Array(saltBytes).buffer as ArrayBuffer
+  const keyBuf = new Uint8Array(keyBytes).buffer as ArrayBuffer
+  const subtle = (typeof window !== 'undefined' ? window : globalThis).crypto.subtle
+  const baseKey = await subtle.importKey('raw', keyBuf, 'PBKDF2', false, ['deriveBits'])
+  const derived = await subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: saltBuf, iterations: 100_000 },
+    baseKey,
+    256
+  )
+  const dbEncryptionKey = new Uint8Array(derived)
 
   // V3 Signer Interface wrapping the ethers Wallet
   const signer = {
@@ -169,7 +185,7 @@ export async function sendAttachment(conversation: any, file: File): Promise<str
   formData.append('reqtype', 'fileupload');
   formData.append('fileToUpload', new Blob([encryptedAttachment.payload.buffer as ArrayBuffer]), attachment.filename);
 
-  const res = await fetch('https://catbox.moe/user/api.php', {
+  const res = await fetch(ATTACHMENT_UPLOAD_URL, {
     method: 'POST',
     body: formData
   });
@@ -214,7 +230,7 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
   formData.append('reqtype', 'fileupload');
   formData.append('fileToUpload', new Blob([encryptedAttachment.payload.buffer as ArrayBuffer]), filename);
 
-  const res = await fetch('https://catbox.moe/user/api.php', {
+  const res = await fetch(ATTACHMENT_UPLOAD_URL, {
     method: 'POST',
     body: formData
   });

@@ -368,13 +368,14 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     })()
   }, [initClient])
 
-  // Background Sync polling (fallback for when Waku stream drops)
+  // Background Sync polling — fallback for when the Waku stream drops.
+  // Interval is 30 s (not 5 s) to avoid scanning all conversations on every tick.
   useEffect(() => {
     if (!client) return
     const interval = setInterval(async () => {
       try {
         await client.conversations.sync()
-        // We also want to manually pull the UI data just in case the stream missed it
+        // Reload the conversation list in case the stream missed a new contact
         await loadConversations(client)
         if (activeConversationId) {
           const conv = convMapRef.current.get(activeConversationId)
@@ -386,7 +387,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         console.error('Poll failed:', e)
       }
-    }, 5000)
+    }, 30_000)
     return () => clearInterval(interval)
   }, [client, activeConversationId, loadConversations])
 

@@ -90,8 +90,6 @@ dependencies {
     // Networking (Phase 4 — included now so Gradle resolves cleanly)
     // -------------------------------------------------------------------------
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.google.code.gson:gson:2.10.1")
 
     // -------------------------------------------------------------------------
