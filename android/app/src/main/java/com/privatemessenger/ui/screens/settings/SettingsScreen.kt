@@ -24,6 +24,15 @@ import com.privatemessenger.utils.SettingsManager
 import com.privatemessenger.utils.AppUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.privatemessenger.data.local.AppDatabase
+import com.privatemessenger.utils.BackupManager
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Restore
 
 // Theme options stored as a simple string in SharedPreferences
 enum class AppTheme(val label: String, val icon: ImageVector) {
@@ -52,6 +61,7 @@ object ThemePreference {
 @Composable
 fun SettingsScreen(
     currentTheme: AppTheme,
+    database: AppDatabase,
     onThemeChanged: (AppTheme) -> Unit,
     onBack: () -> Unit
 ) {
@@ -62,6 +72,32 @@ fun SettingsScreen(
 
     var updateInfo by remember { mutableStateOf<AppUpdater.UpdateInfo?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
+
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var backupPassword by remember { mutableStateOf("") }
+    var isExporting by remember { mutableStateOf(false) }
+    var pendingUri by remember { mutableStateOf<Uri?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            pendingUri = uri
+            isExporting = true
+            showPasswordDialog = true
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            pendingUri = uri
+            isExporting = false
+            showPasswordDialog = true
+        }
+    }
 
     LaunchedEffect(Unit) {
         isCheckingUpdate = true
@@ -253,6 +289,87 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
+                "Backup & Restore",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.8.sp
+                ),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+            )
+
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { exportLauncher.launch("cryptosub_backup.json") }
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Backup,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Export Contacts Backup",
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Save a password-protected file with your custom names",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { importLauncher.launch(arrayOf("application/json")) }
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Restore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Import Contacts Backup",
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Restore custom names from a backup file",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
                 "About",
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.SemiBold,
@@ -320,5 +437,91 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showPasswordDialog = false 
+                backupPassword = ""
+            },
+            title = { Text(if (isExporting) "Protect Backup" else "Unlock Backup") },
+            text = {
+                Column {
+                    Text(if (isExporting) "Enter a password to encrypt your backup file." else "Enter the password to decrypt your backup file.")
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = backupPassword,
+                        onValueChange = { backupPassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val pw = backupPassword
+                        val uri = pendingUri
+                        showPasswordDialog = false
+                        backupPassword = ""
+                        
+                        if (uri != null && pw.isNotEmpty()) {
+                            coroutineScope.launch {
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        if (isExporting) {
+                                            val conversations = database.conversationDao().getAllConversationsSync()
+                                            val json = BackupManager.createBackupPayload(conversations)
+                                            val encrypted = BackupManager.encryptBackup(json, pw)
+                                            
+                                            context.contentResolver.openOutputStream(uri)?.use { 
+                                                it.write(encrypted.toByteArray()) 
+                                            }
+                                        } else {
+                                            val encrypted = context.contentResolver.openInputStream(uri)?.use { 
+                                                String(it.readBytes()) 
+                                            } ?: throw Exception("Could not read file")
+                                            
+                                            val json = BackupManager.decryptBackup(encrypted, pw)
+                                            val metadata = BackupManager.parseBackupPayload(json)
+                                            
+                                            metadata.conversations.forEach { backup ->
+                                                database.conversationDao().updateCustomizations(
+                                                    backup.id, 
+                                                    backup.displayName, 
+                                                    backup.profilePictureUri
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Toast.makeText(
+                                        context, 
+                                        if (isExporting) "Backup exported successfully" else "Backup restored successfully", 
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        } else {
+                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showPasswordDialog = false 
+                    backupPassword = ""
+                }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

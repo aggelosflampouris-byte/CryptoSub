@@ -117,6 +117,7 @@ fun AppNavGraph(
         composable("settings") {
             SettingsScreen(
                 currentTheme = currentTheme,
+                database = database,
                 onThemeChanged = onThemeChanged,
                 onBack = { navController.popBackStack() }
             )
