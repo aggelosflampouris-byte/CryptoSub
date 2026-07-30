@@ -127,7 +127,7 @@ fun ChatScreen(
                 var lastMsgTime = 0L
 
                 xmtpMessages.forEach { msg ->
-                    if (database.messageDao().getMessage(msg.id) == null) {
+                    if (database.messageDao().findById(msg.id) == null) {
                         var finalContent = msg.body
                         var finalReplyToId: String? = null
                         var isStructuralPayload = false
