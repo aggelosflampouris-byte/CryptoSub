@@ -586,6 +586,9 @@ fun ChatScreen(
                                 database.conversationDao().updateLastMessage(conversationId, "🎙️ Voice memo", System.currentTimeMillis())
                             } catch (e: Exception) {
                                 android.util.Log.e("ChatScreen", "Failed to send voice memo", e)
+                                kotlinx.coroutines.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                    android.widget.Toast.makeText(app, "Voice memo failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                                }
                             }
                         }
                     },
@@ -1237,7 +1240,7 @@ fun ChatInputArea(
                             mediaRecorderRef.value = null
                             isRecording = false
                             val file = voiceFileRef.value
-                            if (file != null && file.exists() && file.length() > 0) {
+                            if (file != null && file.exists()) {
                                 onVoiceMemoRecorded(file)
                             }
                         },
