@@ -483,7 +483,7 @@ fun ChatScreen(
                                 val okHttpClient = OkHttpClient()
                                 val requestBody = encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull())
                                 val request = Request.Builder()
-                                    .url("http://10.0.2.2:8080/v1/attachments/upload")
+                                    .url("http://10.0.2.2:8443/v1/attachments/upload")
                                     .post(requestBody)
                                     .build()
                                     
@@ -547,7 +547,7 @@ fun ChatScreen(
                                 val okHttpClient = OkHttpClient()
                                 val requestBody = encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull())
                                 val request = Request.Builder()
-                                    .url("http://10.0.2.2:8080/v1/attachments/upload")
+                                    .url("http://10.0.2.2:8443/v1/attachments/upload")
                                     .post(requestBody)
                                     .build()
                                 val response = okHttpClient.newCall(request).execute()
