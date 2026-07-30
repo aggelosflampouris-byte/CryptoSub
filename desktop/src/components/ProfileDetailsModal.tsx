@@ -67,7 +67,7 @@ export default function ProfileDetailsModal({ conversation, onClose, onProfileUp
               <button className="primary-btn" onClick={() => setEditing(true)}>Edit Profile</button>
               <button className="secondary-btn" style={{ color: 'var(--error)' }} onClick={() => {
                 setMetadata(conversation.id, { isHidden: true })
-                selectConversation(null)
+                selectConversation('')
                 onClose()
               }}>Delete Contact</button>
             </div>

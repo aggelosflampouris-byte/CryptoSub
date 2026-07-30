@@ -451,6 +451,7 @@ export default function ChatScreen() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
               <button className="secondary-btn" onClick={() => {
+                if (!activeMeta) return;
                 const ts = Date.now()
                 import('../services/metadataStore').then(m => {
                   m.setMetadata(activeMeta.id, { clearedUpTo: ts })
@@ -459,6 +460,7 @@ export default function ChatScreen() {
                 setShowClearDialog(false)
               }}>Local Clear</button>
               <button className="primary-btn" onClick={() => {
+                if (!activeMeta) return;
                 const ts = Date.now()
                 const payload = JSON.stringify({ type: 'clear_history_request', timestamp: ts })
                 sendMessage(payload).catch(console.error)
@@ -515,19 +517,19 @@ export default function ChatScreen() {
                       reactionCounts={reactionCounts}
                       onReact={(emoji) => sendReaction(msgId, emoji)}
                       onSystemAction={async (action) => {
-                        if (!activeConversation) return
+                        if (!activeMeta) return
                         if (action.startsWith('accept_clear:')) {
                           const tsStr = action.split(':')[1]
                           const ts = parseInt(tsStr) || Date.now()
                           const payload = JSON.stringify({ type: 'clear_history_accept', timestamp: ts })
-                          await activeConversation.send(payload).catch(console.error)
+                          await sendMessage(payload).catch(console.error)
                           import('../services/metadataStore').then(m => {
                             m.setMetadata(activeMeta.id, { clearedUpTo: ts })
                             refreshConversations()
                           })
                         } else if (action === 'decline_clear') {
                           const payload = JSON.stringify({ type: 'clear_history_decline' })
-                          await activeConversation.send(payload).catch(console.error)
+                          await sendMessage(payload).catch(console.error)
                         }
                       }}
                     />
