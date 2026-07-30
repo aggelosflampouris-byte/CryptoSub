@@ -33,6 +33,10 @@ data class MessageEntity(
     @ColumnInfo(name = "attachment_uri")
     val attachmentUri: String? = null,
 
+    /** Local path to a cached voice memo audio file */
+    @ColumnInfo(name = "audio_uri")
+    val audioUri: String? = null,
+
     @ColumnInfo(name = "timestamp")
     val timestamp: Long,
 

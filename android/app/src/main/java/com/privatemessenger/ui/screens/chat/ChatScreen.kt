@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Check
@@ -55,6 +56,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import coil.compose.AsyncImage
 import android.net.Uri
+import android.media.MediaRecorder
+import android.os.Build
 import java.io.File
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +65,7 @@ import com.privatemessenger.data.local.AppDatabase
 import com.privatemessenger.data.local.entity.ConversationEntity
 import com.privatemessenger.data.local.entity.MessageEntity
 import com.privatemessenger.data.local.entity.MessageStatus
+import com.privatemessenger.data.local.entity.MessageType
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -285,8 +289,9 @@ fun ChatScreen(
                                 
                                 val inputStream = app.contentResolver.openInputStream(uri)
                                 val bytes = inputStream?.readBytes() ?: return@launch
-                                val mimeType = app.contentResolver.getType(uri) ?: "image/jpeg"
-                                val filename = "attachment_${System.currentTimeMillis()}"
+                                val mimeType = app.contentResolver.getType(uri) ?: "application/octet-stream"
+                                val ext = mimeType.substringAfterLast('/')
+                                val filename = "attachment_${System.currentTimeMillis()}.$ext"
 
                                 val attachment = Attachment(
                                     filename = filename,
@@ -326,7 +331,6 @@ fun ChatScreen(
                                     else -> return@launch
                                 }
                                 
-                                // Need to cache the file locally so the sender can see it
                                 val localFile = File(app.filesDir, filename)
                                 localFile.writeBytes(bytes)
                                 
@@ -343,6 +347,66 @@ fun ChatScreen(
                                 database.conversationDao().updateLastMessage(conversationId, "📎 Attachment", System.currentTimeMillis())
                             } catch (e: Exception) {
                                 android.util.Log.e("ChatScreen", "Failed to send attachment", e)
+                            }
+                        }
+                    },
+                    onVoiceMemoRecorded = { audioFile ->
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                val client = app.xmtpClient ?: return@launch
+                                val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
+                                val bytes = audioFile.readBytes()
+                                val mimeType = "audio/ogg"
+                                val filename = audioFile.name
+
+                                val attachment = Attachment(
+                                    filename = filename,
+                                    mimeType = mimeType,
+                                    data = ByteString.copyFrom(bytes)
+                                )
+                                val encryptedAttachment = RemoteAttachment.encodeEncrypted(attachment, AttachmentCodec())
+                                val okHttpClient = OkHttpClient()
+                                val requestBody = encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull())
+                                val request = Request.Builder()
+                                    .url("http://10.0.2.2:8080/v1/attachments/upload")
+                                    .post(requestBody)
+                                    .build()
+                                val response = okHttpClient.newCall(request).execute()
+                                if (!response.isSuccessful) throw Exception("Upload failed: ${response.code}")
+                                val responseBody = response.body?.string() ?: throw Exception("Empty response")
+                                val url = org.json.JSONObject(responseBody).getString("url")
+                                val finalUrl = url.replace("localhost", "10.0.2.2")
+                                val remoteAttachment = RemoteAttachment(
+                                    url = URL(finalUrl),
+                                    contentDigest = encryptedAttachment.contentDigest,
+                                    salt = encryptedAttachment.salt,
+                                    nonce = encryptedAttachment.nonce,
+                                    secret = encryptedAttachment.secret,
+                                    scheme = "https://",
+                                    contentLength = encryptedAttachment.payload.size(),
+                                    filename = filename
+                                )
+                                val sentMessageId = when (xmtpConversation) {
+                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
+                                    is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
+                                    else -> return@launch
+                                }
+                                val localCopy = File(app.filesDir, filename)
+                                localCopy.writeBytes(bytes)
+                                val msgEntity = MessageEntity(
+                                    id = sentMessageId,
+                                    conversationId = conversationId,
+                                    senderUserId = client.inboxId,
+                                    content = "🎙️ Voice memo",
+                                    audioUri = localCopy.absolutePath,
+                                    type = MessageType.VOICE,
+                                    timestamp = System.currentTimeMillis(),
+                                    status = MessageStatus.SENT
+                                )
+                                database.messageDao().insert(msgEntity)
+                                database.conversationDao().updateLastMessage(conversationId, "🎙️ Voice memo", System.currentTimeMillis())
+                            } catch (e: Exception) {
+                                android.util.Log.e("ChatScreen", "Failed to send voice memo", e)
                             }
                         }
                     },
@@ -550,18 +614,75 @@ fun MessageBubble(
                     }
 
                     if (message.attachmentUri != null) {
-                        AsyncImage(
-                            model = File(message.attachmentUri),
-                            contentDescription = "Attachment",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 300.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                        )
+                        // Detect content type from file extension
+                        val path = message.attachmentUri
+                        val ext = path.substringAfterLast('.', "").lowercase()
+                        val isVideo = ext in listOf("mp4", "mkv", "webm", "mov", "avi")
+                        val isPdf = ext == "pdf"
+
+                        if (isVideo) {
+                            // Video thumbnail via AsyncImage + play overlay
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 220.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            ) {
+                                AsyncImage(
+                                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                        .data(android.net.Uri.fromFile(File(path)))
+                                        .decoderFactory(coil.decode.VideoFrameDecoder.Factory())
+                                        .build(),
+                                    contentDescription = "Video",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Box(
+                                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("▶", fontSize = 40.sp, color = Color.White)
+                                }
+                            }
+                        } else if (isPdf) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(4.dp)
+                            ) {
+                                Text("📄", fontSize = 28.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = File(path).name,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = textColor
+                                    )
+                                    Text("PDF Document", style = MaterialTheme.typography.labelSmall, color = textColor.copy(alpha = 0.7f))
+                                }
+                            }
+                        } else {
+                            AsyncImage(
+                                model = File(message.attachmentUri),
+                                contentDescription = "Attachment",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 300.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+                        }
                         if (message.content.isNotBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
                         }
+                    }
+
+                    // Voice memo
+                    if (message.audioUri != null) {
+                        AudioPlayerBubble(
+                            audioPath = message.audioUri,
+                            textColor = textColor,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     }
                     if (message.content.isNotBlank()) {
                         MessageText(text = message.content, textColor = textColor)
@@ -701,6 +822,7 @@ fun ChatInputArea(
     onCancelReply: () -> Unit,
     onTextChange: (String) -> Unit,
     onImageSelected: (Uri) -> Unit,
+    onVoiceMemoRecorded: (File) -> Unit,
     onTypingStateChange: (Boolean) -> Unit,
     onSend: () -> Unit
 ) {
@@ -711,6 +833,22 @@ fun ChatInputArea(
     }
 
     var lastTypingTime by remember { mutableStateOf(0L) }
+    var isRecording by remember { mutableStateOf(false) }
+    var recordingSeconds by remember { mutableStateOf(0) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val mediaRecorderRef = remember { mutableStateOf<MediaRecorder?>(null) }
+    val voiceFileRef = remember { mutableStateOf<File?>(null) }
+
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            while (isRecording) {
+                delay(1000)
+                recordingSeconds++
+            }
+        } else {
+            recordingSeconds = 0
+        }
+    }
     
     LaunchedEffect(text) {
         if (text.isNotBlank()) {
@@ -725,6 +863,14 @@ fun ChatInputArea(
         } else if (lastTypingTime != 0L) {
             onTypingStateChange(false)
             lastTypingTime = 0L
+        }
+    }
+
+    // Cleanup recorder on dispose
+    DisposableEffect(Unit) {
+        onDispose {
+            mediaRecorderRef.value?.release()
+            mediaRecorderRef.value = null
         }
     }
 
@@ -767,11 +913,71 @@ fun ChatInputArea(
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { launcher.launch("image/*") }) {
+                // Attach image / file button
+                IconButton(onClick = { launcher.launch("*/*") }) {
                     Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Add,
-                        contentDescription = "Attach image",
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Attach file",
                         tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // Mic / voice memo button
+                val micBg = if (isRecording) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
+                val micTint = if (isRecording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary
+                IconButton(
+                    onClick = {},
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(micBg)
+                        .pointerInput(isRecording) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: continue
+                                    if (change.pressed && !isRecording) {
+                                        // Start recording
+                                        val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.ogg")
+                                        voiceFileRef.value = outputFile
+                                        val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                            MediaRecorder(context)
+                                        } else {
+                                            @Suppress("DEPRECATION")
+                                            MediaRecorder()
+                                        }
+                                        mr.setAudioSource(MediaRecorder.AudioSource.MIC)
+                                        mr.setOutputFormat(MediaRecorder.OutputFormat.OGG)
+                                        mr.setAudioEncoder(MediaRecorder.AudioEncoder.OPUS)
+                                        mr.setOutputFile(outputFile.absolutePath)
+                                        mr.prepare()
+                                        mr.start()
+                                        mediaRecorderRef.value = mr
+                                        isRecording = true
+                                        change.consume()
+                                    } else if (!change.pressed && isRecording) {
+                                        // Stop recording
+                                        try {
+                                            mediaRecorderRef.value?.stop()
+                                        } catch (e: Exception) { }
+                                        mediaRecorderRef.value?.release()
+                                        mediaRecorderRef.value = null
+                                        isRecording = false
+                                        val file = voiceFileRef.value
+                                        if (file != null && file.exists() && file.length() > 1000) {
+                                            onVoiceMemoRecorded(file)
+                                        }
+                                        change.consume()
+                                    }
+                                }
+                            }
+                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = if (isRecording) "Stop recording" else "Record voice memo",
+                        tint = micTint,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
                 

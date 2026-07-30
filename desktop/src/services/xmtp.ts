@@ -90,8 +90,9 @@ export async function findOrCreateDm(client: Client, address: string): Promise<a
 
 /**
  * Loads all messages for a conversation.
+ * Returns the visible messages AND a pre-built reactions map from historical data.
  */
-export async function loadMessages(conversation: any): Promise<any[]> {
+export async function loadMessages(conversation: any): Promise<{ msgs: any[]; reactions: Record<string, Record<string, string>> }> {
   if (typeof conversation.sync === 'function') {
     try {
       await conversation.sync()
@@ -100,20 +101,33 @@ export async function loadMessages(conversation: any): Promise<any[]> {
     }
   }
   const all = await conversation.messages()
-  return all.filter((m: any) => {
-    // V3 message might have text in m.content or m.content?.text depending on content type
+  const reactions: Record<string, Record<string, string>> = {}
+
+  const msgs = all.filter((m: any) => {
     let contentStr = ''
     if (typeof m.content === 'string') contentStr = m.content
     else if (m.content?.text) contentStr = m.content.text
-    else return false
+    else return true // keep non-text (e.g. attachment) messages
 
     if (isSystemMessage(contentStr)) return false
 
-    // Filter out structural messages (typing, read, reaction, etc)
+    // Intercept structural payloads
     if (contentStr.trim().startsWith('{') && contentStr.trim().endsWith('}')) {
       try {
         const json = JSON.parse(contentStr)
-        if (['typing', 'reaction', 'read', 'reply'].includes(json.type)) return false
+        if (json.type === 'reaction') {
+          // Build historical reactions map
+          const senderId = (m as any).senderInboxId || (m as any).senderAddress || 'unknown'
+          if (json.messageId && json.emoji) {
+            reactions[json.messageId] = {
+              ...(reactions[json.messageId] || {}),
+              [senderId]: json.emoji,
+            }
+          }
+          return false
+        }
+        if (['typing', 'read', 'reply'].includes(json.type)) return false
+        if (json.type === 'reply') return true // reply messages are shown
       } catch (e) { }
     }
 
@@ -123,6 +137,8 @@ export async function loadMessages(conversation: any): Promise<any[]> {
     const timeB = b.sentAt || b.sent || b.createdAt
     return new Date(timeA).getTime() - new Date(timeB).getTime()
   })
+
+  return { msgs, reactions }
 }
 
 /**
@@ -166,6 +182,46 @@ export async function sendAttachment(conversation: any, file: File): Promise<str
     scheme: 'https://',
     contentLength: encryptedAttachment.payload.length,
     filename: attachment.filename,
+  }
+
+  const sent = await conversation.send(remoteAttachment, { contentType: ContentTypeRemoteAttachment })
+  return typeof sent === 'string' ? sent : sent.id
+}
+
+/**
+ * Sends an encrypted voice memo to a conversation.
+ * Identical pipeline to sendAttachment but pins the MIME type to audio/webm.
+ */
+export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise<string> {
+  const buffer = await audioBlob.arrayBuffer()
+  const filename = `voice_memo_${Date.now()}.webm`
+  const attachment = {
+    filename,
+    mimeType: 'audio/webm',
+    data: new Uint8Array(buffer),
+  }
+
+  const encryptedAttachment = await RemoteAttachmentCodec.encodeEncrypted(
+    attachment,
+    new AttachmentCodec()
+  )
+
+  const res = await fetch('http://localhost:8080/v1/attachments/upload', {
+    method: 'POST',
+    body: new Blob([encryptedAttachment.payload.buffer as ArrayBuffer])
+  })
+  if (!res.ok) throw new Error('Voice memo upload failed')
+  const { url } = await res.json()
+
+  const remoteAttachment: RemoteAttachment = {
+    url,
+    contentDigest: encryptedAttachment.digest,
+    salt: encryptedAttachment.salt,
+    nonce: encryptedAttachment.nonce,
+    secret: encryptedAttachment.secret,
+    scheme: 'https://',
+    contentLength: encryptedAttachment.payload.length,
+    filename,
   }
 
   const sent = await conversation.send(remoteAttachment, { contentType: ContentTypeRemoteAttachment })

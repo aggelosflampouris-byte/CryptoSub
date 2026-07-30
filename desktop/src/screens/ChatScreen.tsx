@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import { DecodedMessage } from '@xmtp/browser-sdk'
 import ProfileDetailsModal from '../components/ProfileDetailsModal'
+import { startRecording, RecordingHandle } from '../services/AudioRecorder'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -16,8 +17,219 @@ function formatDay(date: Date) {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
+function formatDuration(seconds: number) {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// ── Audio Player Bubble ──────────────────────────────────────────────────────
+
+function AudioPlayer({ src, filename }: { src: string; filename?: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [duration, setDuration] = useState(0)
+
+  const toggle = () => {
+    const a = audioRef.current
+    if (!a) return
+    if (playing) { a.pause() } else { a.play() }
+    setPlaying(!playing)
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 200, padding: '4px 0' }}>
+      <audio
+        ref={audioRef}
+        src={src}
+        onTimeUpdate={e => {
+          const a = e.currentTarget
+          setProgress(a.duration ? a.currentTime / a.duration : 0)
+        }}
+        onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+        onEnded={() => setPlaying(false)}
+        style={{ display: 'none' }}
+      />
+      <button
+        onClick={toggle}
+        style={{
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.2)',
+          border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16, color: 'inherit', flexShrink: 0,
+        }}
+      >
+        {playing ? '⏸' : '▶'}
+      </button>
+      <div style={{ flex: 1 }}>
+        <div style={{
+          height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2,
+          position: 'relative', cursor: 'pointer',
+        }}
+          onClick={e => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            const ratio = (e.clientX - rect.left) / rect.width
+            if (audioRef.current) { audioRef.current.currentTime = ratio * audioRef.current.duration }
+          }}
+        >
+          <div style={{ width: `${progress * 100}%`, height: '100%', background: 'currentColor', borderRadius: 2, opacity: 0.7 }} />
+        </div>
+        <div style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>
+          {duration > 0 ? formatDuration(duration) : filename ?? 'Voice memo'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Reaction Toolbar ─────────────────────────────────────────────────────────
+
+const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🔥']
+
+function ReactionToolbar({ onReact, onCopy, text }: { onReact: (e: string) => void; onCopy: () => void; text?: string }) {
+  return (
+    <div style={{
+      position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 24, padding: '6px 10px',
+      display: 'flex', alignItems: 'center', gap: 4,
+      boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+      zIndex: 10, whiteSpace: 'nowrap',
+    }}>
+      {REACTION_EMOJIS.map(e => (
+        <button
+          key={e}
+          onClick={() => onReact(e)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 20, padding: '2px 4px', borderRadius: 8,
+            transition: 'transform 0.1s',
+          }}
+          onMouseEnter={ev => (ev.currentTarget.style.transform = 'scale(1.3)')}
+          onMouseLeave={ev => (ev.currentTarget.style.transform = 'scale(1)')}
+        >
+          {e}
+        </button>
+      ))}
+      {text && (
+        <button
+          onClick={onCopy}
+          title="Copy"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 14, padding: '2px 6px', borderRadius: 8,
+            color: 'var(--text-secondary)',
+          }}
+        >
+          📋
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Bubble Content Renderer ──────────────────────────────────────────────────
+
+function BubbleContent({ msg }: { msg: DecodedMessage }) {
+  const content = msg.content as any
+
+  // Inline attachment (small file via AttachmentCodec)
+  if (content && content.mimeType && content.data instanceof Uint8Array) {
+    const blob = new Blob([content.data], { type: content.mimeType })
+    const url = URL.createObjectURL(blob)
+
+    if (content.mimeType.startsWith('image/')) {
+      return (
+        <img
+          src={url}
+          alt={content.filename}
+          style={{ maxWidth: '100%', borderRadius: 8, marginTop: 4, marginBottom: 4, display: 'block' }}
+        />
+      )
+    }
+    if (content.mimeType.startsWith('video/')) {
+      return (
+        <video
+          controls
+          style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, marginTop: 4, marginBottom: 4, display: 'block' }}
+        >
+          <source src={url} type={content.mimeType} />
+        </video>
+      )
+    }
+    if (content.mimeType.startsWith('audio/')) {
+      return <AudioPlayer src={url} filename={content.filename} />
+    }
+    // Generic file chip
+    return (
+      <a
+        href={url}
+        download={content.filename}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', color: 'inherit', textDecoration: 'none' }}
+      >
+        <span style={{ fontSize: 22 }}>
+          {content.mimeType === 'application/pdf' ? '📄' : '📎'}
+        </span>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 13 }}>{content.filename}</div>
+          <div style={{ fontSize: 11, opacity: 0.7 }}>{content.mimeType}</div>
+        </div>
+      </a>
+    )
+  }
+
+  // Decoded remote attachment (downloaded + decrypted by XMTP SDK)
+  if (content && typeof content === 'object' && content.mimeType && content.data) {
+    const bytes = content.data instanceof Uint8Array ? content.data : new Uint8Array(content.data)
+    const blob = new Blob([bytes], { type: content.mimeType })
+    const url = URL.createObjectURL(blob)
+
+    if (content.mimeType.startsWith('image/')) {
+      return <img src={url} alt={content.filename} style={{ maxWidth: '100%', borderRadius: 8, display: 'block' }} />
+    }
+    if (content.mimeType.startsWith('video/')) {
+      return (
+        <video controls style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, display: 'block' }}>
+          <source src={url} type={content.mimeType} />
+        </video>
+      )
+    }
+    if (content.mimeType.startsWith('audio/')) {
+      return <AudioPlayer src={url} filename={content.filename} />
+    }
+    return (
+      <a href={url} download={content.filename}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', color: 'inherit', textDecoration: 'none' }}
+      >
+        <span style={{ fontSize: 22 }}>{content.mimeType === 'application/pdf' ? '📄' : '📎'}</span>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 13 }}>{content.filename}</div>
+          <div style={{ fontSize: 11, opacity: 0.7 }}>{content.mimeType}</div>
+        </div>
+      </a>
+    )
+  }
+
+  // Reply payload
+  if (content && typeof content === 'object' && content.type === 'reply') {
+    return <div className="chat-text">{content.content}</div>
+  }
+
+  // Plain text
+  const text = typeof content === 'string' ? content : JSON.stringify(content)
+  return <div className="chat-text">{text}</div>
+}
+
+// ── Main Chat Screen ─────────────────────────────────────────────────────────
+
 export default function ChatScreen() {
-  const { client, activeConversationId, conversations, messages, messagesLoading, typingUsers, sendMessage, sendAttachment, refreshConversations } = useXmtp()
+  const {
+    client, activeConversationId, conversations, messages, messagesLoading,
+    typingUsers, reactions, sendMessage, sendAttachment, sendReaction, sendVoiceMemo, refreshConversations
+  } = useXmtp()
+
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -27,9 +239,14 @@ export default function ChatScreen() {
   const lastTypingSentAtRef = useRef<number>(0)
   const [showProfile, setShowProfile] = useState(false)
 
+  // Voice memo state
+  const [recording, setRecording] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
+  const recordingHandleRef = useRef<RecordingHandle | null>(null)
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const activeMeta = conversations.find(c => c.id === activeConversationId)
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -37,61 +254,40 @@ export default function ChatScreen() {
   const handleSend = async () => {
     const trimmed = text.trim()
     if (!trimmed || sending) return
-    
-    // Clear typing status instantly
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     lastTypingSentAtRef.current = 0
     sendMessage(JSON.stringify({ type: 'typing', isTyping: false })).catch(console.error)
-    
     setSending(true)
     setText('')
-    try {
-      await sendMessage(trimmed)
-    } catch (e) {
-      console.error('Send failed', e)
-    } finally {
-      setSending(false)
-      textareaRef.current?.focus()
-    }
+    try { await sendMessage(trimmed) } catch (e) { console.error('Send failed', e) }
+    finally { setSending(false); textareaRef.current?.focus() }
   }
 
   const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || sending) return
     setSending(true)
-    try {
-      await sendAttachment(file)
-    } catch (err) {
-      console.error('Failed to send attachment', err)
-      alert('Failed to send attachment')
-    } finally {
-      setSending(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+    try { await sendAttachment(file) }
+    catch (err) { console.error('Failed to send attachment', err); alert('Failed to send attachment') }
+    finally { setSending(false); if (fileInputRef.current) fileInputRef.current.value = '' }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
-  // Auto-resize textarea and send typing state
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
     setText(val)
     const t = e.target
     t.style.height = 'auto'
     t.style.height = `${Math.min(t.scrollHeight, 140)}px`
-
     const now = Date.now()
     if (val.trim()) {
       if (now - lastTypingSentAtRef.current > 2000) {
         lastTypingSentAtRef.current = now
         sendMessage(JSON.stringify({ type: 'typing', isTyping: true })).catch(console.error)
       }
-      
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
       typingTimeoutRef.current = setTimeout(() => {
         lastTypingSentAtRef.current = 0
@@ -103,6 +299,50 @@ export default function ChatScreen() {
       sendMessage(JSON.stringify({ type: 'typing', isTyping: false })).catch(console.error)
     }
   }
+
+  const handleMicMouseDown = useCallback(async () => {
+    if (recording) return
+    try {
+      const handle = await startRecording()
+      recordingHandleRef.current = handle
+      setRecording(true)
+      setRecordingSeconds(0)
+      recordingTimerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000)
+    } catch (e) {
+      console.error('Microphone access denied', e)
+      alert('Could not access microphone. Please grant permission.')
+    }
+  }, [recording])
+
+  const handleMicMouseUp = useCallback(async () => {
+    if (!recording || !recordingHandleRef.current) return
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+    setRecording(false)
+    setRecordingSeconds(0)
+    setSending(true)
+    try {
+      const blob = await recordingHandleRef.current.stop()
+      recordingHandleRef.current = null
+      if (blob.size > 1000) { // ignore tiny accidental presses
+        await sendVoiceMemo(blob)
+      }
+    } catch (e) {
+      console.error('Failed to send voice memo', e)
+      alert('Failed to send voice memo')
+    } finally {
+      setSending(false)
+    }
+  }, [recording, sendVoiceMemo])
+
+  // Cancel recording if user drags off button
+  const handleMicCancel = useCallback(() => {
+    if (!recording || !recordingHandleRef.current) return
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+    recordingHandleRef.current.cancel()
+    recordingHandleRef.current = null
+    setRecording(false)
+    setRecordingSeconds(0)
+  }, [recording])
 
   if (!activeConversationId) {
     return (
@@ -116,7 +356,6 @@ export default function ChatScreen() {
     )
   }
 
-  // Group messages by day
   const grouped: { day: string; messages: DecodedMessage[] }[] = []
   for (const msg of messages) {
     const day = formatDay(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()))
@@ -129,7 +368,9 @@ export default function ChatScreen() {
 
   const activeTypingUsers = typingUsers[activeConversationId]
   const myId = (client as any)?.inboxId || (client as any)?.address
-  const isPeerTyping = activeTypingUsers ? Array.from(activeTypingUsers).some(id => id.toLowerCase() !== myId?.toLowerCase()) : false
+  const isPeerTyping = activeTypingUsers
+    ? Array.from(activeTypingUsers).some(id => id.toLowerCase() !== myId?.toLowerCase())
+    : false
 
   return (
     <div className="chat-area">
@@ -149,13 +390,10 @@ export default function ChatScreen() {
       </div>
 
       {showProfile && activeMeta && (
-        <ProfileDetailsModal 
-          conversation={activeMeta} 
-          onClose={() => setShowProfile(false)} 
-          onProfileUpdated={() => {
-            setShowProfile(false)
-            refreshConversations()
-          }}
+        <ProfileDetailsModal
+          conversation={activeMeta}
+          onClose={() => setShowProfile(false)}
+          onProfileUpdated={() => { setShowProfile(false); refreshConversations() }}
         />
       )}
 
@@ -171,44 +409,44 @@ export default function ChatScreen() {
               <div key={group.day}>
                 <div className="day-divider">{group.day}</div>
                 {group.messages.map((msg, i) => {
-                  const isMine = ((msg as any).senderInboxId || (msg as any).senderAddress)?.toLowerCase() === ((client as any).inboxId || (client as any).address)?.toLowerCase()
+                  const isMine = ((msg as any).senderInboxId || (msg as any).senderAddress)?.toLowerCase() === myId?.toLowerCase()
+                  const msgId = msg.id ?? String(i)
+                  const msgReactions = reactions[msgId]
+                  const reactionCounts = msgReactions
+                    ? Object.values(msgReactions).reduce<Record<string, number>>((acc, emoji) => {
+                        acc[emoji] = (acc[emoji] || 0) + 1
+                        return acc
+                      }, {})
+                    : null
+
+                  // Extract plain text for copy
+                  const contentText = typeof msg.content === 'string' ? msg.content : undefined
+
                   return (
-                    <div key={msg.id ?? i} className={`message-group ${isMine ? 'outgoing' : 'incoming'}`}>
-                      <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
-                        {(() => {
-                          const content = msg.content as any
-                          if (content && content.mimeType && content.data instanceof Uint8Array) {
-                            const blob = new Blob([content.data], { type: content.mimeType })
-                            const url = URL.createObjectURL(blob)
-                            if (content.mimeType.startsWith('image/')) {
-                              return <img src={url} alt={content.filename} style={{ maxWidth: '100%', borderRadius: 8, marginTop: 4, marginBottom: 4 }} />
-                            }
-                            return (
-                              <a href={url} download={content.filename} style={{ color: 'inherit', textDecoration: 'underline', display: 'block', padding: '8px 0' }}>
-                                📎 {content.filename}
-                              </a>
-                            )
-                          }
-                          return <div className="chat-text">{typeof content === 'string' ? content : JSON.stringify(content)}</div>
-                        })()}
-                        <div className="chat-time">{formatTime(new Date(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date())))}</div>
-                      </div>
-                    </div>
+                    <MessageBubble
+                      key={msgId}
+                      msg={msg}
+                      isMine={isMine}
+                      msgId={msgId}
+                      contentText={contentText}
+                      reactionCounts={reactionCounts}
+                      onReact={(emoji) => sendReaction(msgId, emoji)}
+                    />
                   )
                 })}
               </div>
             ))}
-            
+
             {isPeerTyping && (
               <div className="message-group incoming">
                 <div className="chat-bubble theirs typing-indicator">
-                  <span className="dot"></span>
-                  <span className="dot"></span>
-                  <span className="dot"></span>
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
                 </div>
               </div>
             )}
-            
+
             <div ref={bottomRef} />
           </>
         )}
@@ -216,20 +454,44 @@ export default function ChatScreen() {
 
       {/* Input */}
       <div className="message-input-area">
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          style={{ display: 'none' }} 
-          onChange={handleAttach} 
-        />
-        <button 
-          className="attach-btn" 
+        <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleAttach} />
+
+        {/* Attach button */}
+        <button
+          className="attach-btn"
           onClick={() => fileInputRef.current?.click()}
-          disabled={sending}
-          style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '0 12px', color: 'var(--text)' }}
+          disabled={sending || recording}
+          style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '0 8px', color: 'var(--text)' }}
+          title="Attach file"
         >
           📎
         </button>
+
+        {/* Mic / voice memo button */}
+        <button
+          onMouseDown={handleMicMouseDown}
+          onMouseUp={handleMicMouseUp}
+          onMouseLeave={handleMicCancel}
+          onTouchStart={handleMicMouseDown}
+          onTouchEnd={handleMicMouseUp}
+          disabled={sending && !recording}
+          style={{
+            background: recording ? 'var(--primary)' : 'none',
+            border: 'none',
+            fontSize: recording ? 14 : 20,
+            cursor: 'pointer',
+            padding: '0 8px',
+            color: recording ? '#fff' : 'var(--text)',
+            borderRadius: recording ? 12 : 0,
+            transition: 'all 0.15s',
+            userSelect: 'none',
+            minWidth: recording ? 80 : 'auto',
+          }}
+          title="Hold to record voice memo"
+        >
+          {recording ? `🔴 ${formatDuration(recordingSeconds)}` : '🎙️'}
+        </button>
+
         <textarea
           ref={textareaRef}
           className="message-input"
@@ -238,16 +500,83 @@ export default function ChatScreen() {
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           rows={1}
-          disabled={sending}
+          disabled={sending || recording}
         />
         <button
           className="send-btn"
           onClick={handleSend}
-          disabled={!text.trim() || sending}
+          disabled={!text.trim() || sending || recording}
           title="Send (Enter)"
         >
           {sending ? <span className="spinner dark" style={{ width: 16, height: 16 }} /> : '↑'}
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Message Bubble Component ─────────────────────────────────────────────────
+
+function MessageBubble({
+  msg, isMine, msgId, contentText, reactionCounts, onReact,
+}: {
+  msg: DecodedMessage
+  isMine: boolean
+  msgId: string
+  contentText?: string
+  reactionCounts: Record<string, number> | null
+  onReact: (emoji: string) => void
+}) {
+  const [hovered, setHovered] = useState(false)
+
+  const copyToClipboard = () => {
+    if (contentText) navigator.clipboard.writeText(contentText).catch(console.error)
+  }
+
+  return (
+    <div className={`message-group ${isMine ? 'outgoing' : 'incoming'}`}>
+      <div
+        style={{ position: 'relative', display: 'inline-block', maxWidth: '75%' }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {/* Reaction toolbar on hover */}
+        {hovered && (
+          <ReactionToolbar
+            onReact={(e) => { onReact(e); setHovered(false) }}
+            onCopy={copyToClipboard}
+            text={contentText}
+          />
+        )}
+
+        <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
+          <BubbleContent msg={msg} />
+          <div className="chat-time">
+            {formatTime(new Date(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date())))}
+          </div>
+        </div>
+
+        {/* Reaction badges */}
+        {reactionCounts && Object.keys(reactionCounts).length > 0 && (
+          <div style={{
+            display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4,
+            justifyContent: isMine ? 'flex-end' : 'flex-start',
+          }}>
+            {Object.entries(reactionCounts).map(([emoji, count]) => (
+              <button
+                key={emoji}
+                onClick={() => onReact(emoji)}
+                style={{
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '2px 7px',
+                  fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3,
+                }}
+              >
+                {emoji}{count > 1 && <span style={{ opacity: 0.8 }}>{count}</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -10,8 +10,12 @@ import {
   listConversations,
   loadMessages,
   sendMessage as xmtpSendMessage,
+  sendVoiceMemo as xmtpSendVoiceMemo,
 } from '../services/xmtp'
 import { getMetadata } from '../services/metadataStore'
+
+// msgId -> { senderId -> emoji }
+export type ReactionsMap = Record<string, Record<string, string>>
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,6 +42,7 @@ interface XmtpContextValue {
   messages: DecodedMessage[]
   messagesLoading: boolean
   typingUsers: { [conversationId: string]: Set<string> }
+  reactions: ReactionsMap
   register: () => Promise<string | null>
   restore: (privateKeyHex: string) => Promise<void>
   logout: () => Promise<void>
@@ -45,6 +50,8 @@ interface XmtpContextValue {
   startNewConversation: (address: string) => Promise<void>
   sendMessage: (text: string) => Promise<void>
   sendAttachment: (file: File) => Promise<void>
+  sendReaction: (messageId: string, emoji: string) => Promise<void>
+  sendVoiceMemo: (audioBlob: Blob) => Promise<void>
   refreshConversations: () => Promise<void>
 }
 
@@ -61,6 +68,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [typingUsers, setTypingUsers] = useState<{ [convId: string]: Set<string> }>({})
+  const [reactions, setReactions] = useState<ReactionsMap>({})
 
   const activeConvRef = useRef<string | null>(null)
   const convMapRef = useRef<Map<string, Conversation>>(new Map())
@@ -182,7 +190,19 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
                   return next
                 })
               }
-            } else if (json.type === 'reaction' || json.type === 'read') {
+            } else if (json.type === 'reaction') {
+              isStructural = true
+              const senderId = (msg as any).senderInboxId || (msg as any).senderAddress || 'unknown'
+              if (json.messageId && json.emoji) {
+                setReactions(prev => ({
+                  ...prev,
+                  [json.messageId]: {
+                    ...(prev[json.messageId] || {}),
+                    [senderId]: json.emoji,
+                  }
+                }))
+              }
+            } else if (json.type === 'read') {
               isStructural = true
             } else if (json.type === 'reply') {
               contentStr = json.content || contentStr
@@ -359,7 +379,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         if (activeConversationId) {
           const conv = convMapRef.current.get(activeConversationId)
           if (conv) {
-             const msgs = await loadMessages(conv)
+             const { msgs } = await loadMessages(conv)
              setMessages(msgs)
           }
         }
@@ -422,12 +442,13 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     activeConvRef.current = id
     // Clear unread when opening
     setConversations(prev => prev.map(c => c.id === id ? { ...c, unreadCount: 0 } : c))
-    // Load messages
+    // Load messages and reactions
     const conv = convMapRef.current.get(id)
     if (!conv) return
     setMessagesLoading(true)
-    loadMessages(conv).then(msgs => {
+    loadMessages(conv).then(({ msgs, reactions: newReactions }) => {
       setMessages(msgs)
+      setReactions(prev => ({ ...prev, ...newReactions }))
       setMessagesLoading(false)
     })
   }, [])
@@ -468,6 +489,26 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     await xmtpSendAttachment(conv, file)
   }, [client, activeConversationId])
 
+  const sendReaction = useCallback(async (messageId: string, emoji: string) => {
+    if (!client || !activeConversationId) return
+    const conv = convMapRef.current.get(activeConversationId)
+    if (!conv) return
+    await xmtpSendMessage(conv, JSON.stringify({ type: 'reaction', messageId, emoji }))
+    // Optimistic local update
+    const myId = (client as any).inboxId || (client as any).address
+    setReactions(prev => ({
+      ...prev,
+      [messageId]: { ...(prev[messageId] || {}), [myId]: emoji }
+    }))
+  }, [client, activeConversationId])
+
+  const sendVoiceMemo = useCallback(async (audioBlob: Blob) => {
+    if (!client || !activeConversationId) return
+    const conv = convMapRef.current.get(activeConversationId)
+    if (!conv) return
+    await xmtpSendVoiceMemo(conv, audioBlob)
+  }, [client, activeConversationId])
+
   const refreshConversations = useCallback(async () => {
     if (!client) return
     await loadConversations(client)
@@ -484,6 +525,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       messages,
       messagesLoading,
       typingUsers,
+      reactions,
       register,
       restore,
       logout,
@@ -491,6 +533,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       startNewConversation,
       sendMessage,
       sendAttachment,
+      sendReaction,
+      sendVoiceMemo,
       refreshConversations,
     }}>
       {children}
