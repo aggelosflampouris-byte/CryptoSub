@@ -114,6 +114,70 @@ fun ChatScreen(
 
     LaunchedEffect(conversationId) {
         conversation = database.conversationDao().getConversation(conversationId)
+        
+        // Historical Backfill
+        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val client = app.xmtpClient ?: return@launch
+                val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
+                val xmtpMessages = xmtpConversation.messages()
+                
+                var hasNew = false
+                var lastMsgContent = ""
+                var lastMsgTime = 0L
+
+                xmtpMessages.forEach { msg ->
+                    if (database.messageDao().getMessage(msg.id) == null) {
+                        var finalContent = msg.body
+                        var finalReplyToId: String? = null
+                        var isStructuralPayload = false
+
+                        val trimmedBody = msg.body.trim()
+                        if (trimmedBody.startsWith("{") && trimmedBody.endsWith("}")) {
+                            try {
+                                val json = com.google.gson.JsonParser.parseString(trimmedBody).asJsonObject
+                                val type = json.get("type")?.asString
+                                
+                                if (type == "reaction" || type == "read" || type == "typing") {
+                                    isStructuralPayload = true
+                                } else if (type == "reply") {
+                                    finalContent = json.get("content")?.asString ?: msg.body
+                                    finalReplyToId = json.get("replyToId")?.asString
+                                }
+                            } catch (e: Exception) {
+                                // Not a valid structural JSON, treat as normal text
+                            }
+                        }
+
+                        if (!isStructuralPayload) {
+                            val msgEntity = MessageEntity(
+                                id = msg.id,
+                                conversationId = conversationId,
+                                senderUserId = msg.senderInboxId,
+                                content = finalContent,
+                                replyToMessageId = finalReplyToId,
+                                timestamp = msg.sentAt.time,
+                                status = MessageStatus.DELIVERED
+                            )
+                            database.messageDao().insert(msgEntity)
+                            hasNew = true
+                            if (msg.sentAt.time > lastMsgTime) {
+                                lastMsgTime = msg.sentAt.time
+                                lastMsgContent = finalContent
+                            }
+                        }
+                    }
+                }
+                
+                if (hasNew) {
+                    if (lastMsgTime > (conversation?.lastMessageTimestamp ?: 0L)) {
+                        database.conversationDao().updateLastMessage(conversationId, lastMsgContent, lastMsgTime)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChatScreen", "Failed to backfill historical messages", e)
+            }
+        }
     }
 
     // Mark as read when entering or receiving new messages while in the chat

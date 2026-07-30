@@ -197,7 +197,7 @@ fun ChatListScreen(
                     TextButton(
                         onClick = {
                             coroutineScope.launch(Dispatchers.IO) {
-                                database.conversationDao().delete(conv.id)
+                                database.conversationDao().hideConversation(conv.id)
                                 database.messageDao().deleteAllInConversation(conv.id)
                             }
                             renamingConversation = null

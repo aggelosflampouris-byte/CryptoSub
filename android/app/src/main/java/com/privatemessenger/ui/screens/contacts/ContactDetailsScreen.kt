@@ -276,7 +276,7 @@ fun ContactDetailsScreen(
                 OutlinedButton(
                     onClick = {
                         coroutineScope.launch(Dispatchers.IO) {
-                            database.conversationDao().delete(conversationId)
+                            database.conversationDao().hideConversation(conversationId)
                             withContext(Dispatchers.Main) {
                                 onBack()
                             }

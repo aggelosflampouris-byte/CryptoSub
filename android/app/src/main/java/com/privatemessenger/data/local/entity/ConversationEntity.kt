@@ -45,4 +45,7 @@ data class ConversationEntity(
 
     @ColumnInfo(name = "profile_picture_uri")
     val profilePictureUri: String? = null,
+    
+    @ColumnInfo(name = "is_hidden")
+    val isHidden: Boolean = false
 )
