@@ -586,7 +586,7 @@ fun ChatScreen(
                                 database.conversationDao().updateLastMessage(conversationId, "🎙️ Voice memo", System.currentTimeMillis())
                             } catch (e: Exception) {
                                 android.util.Log.e("ChatScreen", "Failed to send voice memo", e)
-                                kotlinx.coroutines.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                     android.widget.Toast.makeText(app, "Voice memo failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                                 }
                             }
