@@ -1201,8 +1201,11 @@ fun ChatInputArea(
                                 .background(MaterialTheme.colorScheme.error)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
+                        val minutes = recordingSeconds / 60
+                        val seconds = recordingSeconds % 60
+                        val timeString = String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds)
                         Text(
-                            text = "Recording voice message...",
+                            text = "Recording... $timeString",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f)
@@ -1234,7 +1237,7 @@ fun ChatInputArea(
                             mediaRecorderRef.value = null
                             isRecording = false
                             val file = voiceFileRef.value
-                            if (file != null && file.exists() && file.length() > 500) {
+                            if (file != null && file.exists() && file.length() > 0) {
                                 onVoiceMemoRecorded(file)
                             }
                         },
