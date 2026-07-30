@@ -1160,26 +1160,120 @@ fun ChatInputArea(
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Attach image / file button
-                IconButton(onClick = { launcher.launch("*/*") }) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Attach file",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                if (!isRecording) {
+                    // Attach image / file button
+                    IconButton(onClick = { launcher.launch("*/*") }) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Attach file",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
-                // Mic / voice memo button
-                val micBg = if (isRecording) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
-                val micTint = if (isRecording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary
-                IconButton(
-                    onClick = {
-                        if (!isRecording) {
+                    TextField(
+                        value = text,
+                        onValueChange = onTextChange,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(24.dp)),
+                        placeholder = { Text("Message") },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        maxLines = 4
+                    )
+                } else {
+                    // Recording Indicator
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(MaterialTheme.colorScheme.error)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Recording voice message...",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                // Cancel recording
+                                try { mediaRecorderRef.value?.stop() } catch (e: Exception) {}
+                                mediaRecorderRef.value?.release()
+                                mediaRecorderRef.value = null
+                                isRecording = false
+                                voiceFileRef.value?.delete()
+                            },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                if (isRecording) {
+                    // Send voice memo button
+                    IconButton(
+                        onClick = {
+                            try { mediaRecorderRef.value?.stop() } catch (e: Exception) { }
+                            mediaRecorderRef.value?.release()
+                            mediaRecorderRef.value = null
+                            isRecording = false
+                            val file = voiceFileRef.value
+                            if (file != null && file.exists() && file.length() > 500) {
+                                onVoiceMemoRecorded(file)
+                            }
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send voice memo",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+                } else if (text.isNotBlank()) {
+                    // Send text message button
+                    IconButton(
+                        onClick = onSend,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+                } else {
+                    // Mic button (Start recording)
+                    IconButton(
+                        onClick = {
                             if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 return@IconButton
                             }
-                            // Start recording
                             val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.ogg")
                             voiceFileRef.value = outputFile
                             val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -1201,65 +1295,16 @@ fun ChatInputArea(
                                 android.util.Log.e("ChatScreen", "Failed to start recording", e)
                                 android.widget.Toast.makeText(context, "Failed to start recording", android.widget.Toast.LENGTH_SHORT).show()
                             }
-                        } else {
-                            // Stop recording and send
-                            try {
-                                mediaRecorderRef.value?.stop()
-                            } catch (e: Exception) { }
-                            mediaRecorderRef.value?.release()
-                            mediaRecorderRef.value = null
-                            isRecording = false
-                            val file = voiceFileRef.value
-                            if (file != null && file.exists() && file.length() > 500) {
-                                onVoiceMemoRecorded(file)
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(micBg)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = if (isRecording) "Stop recording" else "Record voice memo",
-                        tint = micTint,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                
-                TextField(
-                    value = text,
-                    onValueChange = onTextChange,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(24.dp)),
-                    placeholder = { Text("Message") },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                    maxLines = 4
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                AnimatedVisibility(visible = text.isNotBlank()) {
-                    IconButton(
-                        onClick = onSend,
+                        },
                         modifier = Modifier
                             .size(48.dp)
                             .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.primary)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.padding(start = 4.dp) // Optical alignment
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Record voice memo",
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
