@@ -67,7 +67,7 @@ export default function AccountModal({ onClose }: Props) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const publicAddress = ((client as any)?.inboxId || (client as any)?.address) ?? ''
+  const publicAddress = ((client as any)?.address || (client as any)?.inboxId) ?? ''
 
   const handleUpdateSetting = async (updates: Partial<AppSettings>) => {
     const next = updateSettings(updates)
