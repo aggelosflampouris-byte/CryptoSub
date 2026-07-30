@@ -500,6 +500,9 @@ fun ChatScreen(
                                     android.util.Log.e("ChatScreen", "Failed to send attachment", e)
                                     database.messageDao().updateStatus(localMessageId, MessageStatus.FAILED)
                                 }
+                            } catch (e: Exception) {
+                                android.util.Log.e("ChatScreen", "Failed to process attachment", e)
+                            }
                         }
                     },
                     onVoiceMemoRecorded = { audioFile ->
@@ -540,6 +543,9 @@ fun ChatScreen(
                                         android.widget.Toast.makeText(app, "Voice memo failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 }
+                            } catch (e: Exception) {
+                                android.util.Log.e("ChatScreen", "Failed to process voice memo", e)
+                            }
                         }
                     },
                     onTypingStateChange = { isTypingPayload ->
