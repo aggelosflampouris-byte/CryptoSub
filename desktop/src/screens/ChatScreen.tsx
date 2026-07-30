@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import { DecodedMessage } from '@xmtp/browser-sdk'
 import ProfileDetailsModal from '../components/ProfileDetailsModal'
 import { startRecording, RecordingHandle } from '../services/AudioRecorder'
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
+import React from 'react'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -414,6 +416,27 @@ export default function ChatScreen() {
     }
   }
 
+  const flattenedItems = useMemo(() => {
+    const items: { type: 'day' | 'message'; content: any; indexInGroup?: number }[] = []
+    for (const group of grouped) {
+      items.push({ type: 'day', content: group.day })
+      for (let i = 0; i < group.messages.length; i++) {
+        items.push({ type: 'message', content: group.messages[i], indexInGroup: i })
+      }
+    }
+    return items
+  }, [grouped])
+
+  const virtuosoRef = useRef<VirtuosoHandle>(null)
+  
+  useEffect(() => {
+    if (flattenedItems.length > 0) {
+      setTimeout(() => {
+        virtuosoRef.current?.scrollToIndex({ index: flattenedItems.length - 1, align: 'end', behavior: 'smooth' })
+      }, 100)
+    }
+  }, [flattenedItems.length])
+
   const activeTypingUsers = typingUsers[activeConversationId]
   const myId = (client as any)?.inboxId || (client as any)?.address
   const isPeerTyping = activeTypingUsers
@@ -490,53 +513,60 @@ export default function ChatScreen() {
           </div>
         ) : (
           <>
-            {grouped.map(group => (
-              <div key={group.day}>
-                <div className="day-divider">{group.day}</div>
-                {group.messages.map((msg, i) => {
-                  const isMine = ((msg as any).senderInboxId || (msg as any).senderAddress)?.toLowerCase() === myId?.toLowerCase()
-                  const msgId = msg.id ?? String(i)
-                  const msgReactions = reactions[msgId]
-                  const reactionCounts = msgReactions
-                    ? Object.values(msgReactions).reduce<Record<string, number>>((acc, emoji) => {
-                        acc[emoji] = (acc[emoji] || 0) + 1
-                        return acc
-                      }, {})
-                    : null
+            <Virtuoso
+              ref={virtuosoRef}
+              style={{ flex: 1, width: '100%' }}
+              data={flattenedItems}
+              initialTopMostItemIndex={flattenedItems.length > 0 ? flattenedItems.length - 1 : 0}
+              followOutput="smooth"
+              itemContent={(index, item) => {
+                if (item.type === 'day') {
+                  return <div className="day-divider">{item.content}</div>
+                }
 
-                  // Extract plain text for copy
-                  const contentText = typeof msg.content === 'string' ? msg.content : undefined
+                const msg = item.content
+                const i = item.indexInGroup!
+                const isMine = ((msg as any).senderInboxId || (msg as any).senderAddress)?.toLowerCase() === myId?.toLowerCase()
+                const msgId = msg.id ?? String(index)
+                const msgReactions = reactions[msgId]
+                const reactionCounts = msgReactions
+                  ? Object.values(msgReactions).reduce<Record<string, number>>((acc, emoji) => {
+                      acc[emoji] = (acc[emoji] || 0) + 1
+                      return acc
+                    }, {})
+                  : null
 
-                  return (
-                    <MessageBubble
-                      key={msgId}
-                      msg={msg}
-                      isMine={isMine}
-                      msgId={msgId}
-                      contentText={contentText}
-                      reactionCounts={reactionCounts}
-                      onReact={(emoji) => sendReaction(msgId, emoji)}
-                      onSystemAction={async (action) => {
-                        if (!activeMeta) return
-                        if (action.startsWith('accept_clear:')) {
-                          const tsStr = action.split(':')[1]
-                          const ts = parseInt(tsStr) || Date.now()
-                          const payload = JSON.stringify({ type: 'clear_history_accept', timestamp: ts })
-                          await sendMessage(payload).catch(console.error)
-                          import('../services/metadataStore').then(m => {
-                            m.setMetadata(activeMeta.id, { clearedUpTo: ts })
-                            refreshConversations()
-                          })
-                        } else if (action === 'decline_clear') {
-                          const payload = JSON.stringify({ type: 'clear_history_decline' })
-                          await sendMessage(payload).catch(console.error)
-                        }
-                      }}
-                    />
-                  )
-                })}
-              </div>
-            ))}
+                const contentText = typeof msg.content === 'string' ? msg.content : undefined
+
+                return (
+                  <MessageBubble
+                    key={msgId}
+                    msg={msg}
+                    isMine={isMine}
+                    msgId={msgId}
+                    contentText={contentText}
+                    reactionCounts={reactionCounts}
+                    onReact={(emoji) => sendReaction(msgId, emoji)}
+                    onSystemAction={async (action) => {
+                      if (!activeMeta) return
+                      if (action.startsWith('accept_clear:')) {
+                        const tsStr = action.split(':')[1]
+                        const ts = parseInt(tsStr) || Date.now()
+                        const payload = JSON.stringify({ type: 'clear_history_accept', timestamp: ts })
+                        await sendMessage(payload).catch(console.error)
+                        import('../services/metadataStore').then(m => {
+                          m.setMetadata(activeMeta.id, { clearedUpTo: ts })
+                          refreshConversations()
+                        })
+                      } else if (action === 'decline_clear') {
+                        const payload = JSON.stringify({ type: 'clear_history_decline' })
+                        await sendMessage(payload).catch(console.error)
+                      }
+                    }}
+                  />
+                )
+              }}
+            />
 
             {isPeerTyping && (
               <div className="message-group incoming">
@@ -618,7 +648,7 @@ export default function ChatScreen() {
 
 // ── Message Bubble Component ─────────────────────────────────────────────────
 
-function MessageBubble({
+const MessageBubble = React.memo(function MessageBubble({
   msg, isMine, msgId, contentText, reactionCounts, onReact, onSystemAction
 }: {
   msg: DecodedMessage
@@ -682,4 +712,4 @@ function MessageBubble({
       </div>
     </div>
   )
-}
+})

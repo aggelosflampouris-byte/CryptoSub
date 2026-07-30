@@ -47,6 +47,12 @@ export default defineConfig(async () => ({
     sourcemap: !!process.env.TAURI_DEBUG,
     rollupOptions: {
       external: [],
+      output: {
+        manualChunks: {
+          xmtp: ['@xmtp/browser-sdk'],
+          ethers: ['ethers'],
+        }
+      }
     },
   },
 }))
