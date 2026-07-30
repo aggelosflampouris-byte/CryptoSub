@@ -2,6 +2,8 @@ export interface ConversationMetadata {
   displayName?: string
   description?: string
   profilePicture?: string // Base64 or local file path
+  isHidden?: boolean
+  clearedUpTo?: number
 }
 
 const STORAGE_PREFIX = 'cryptosub_meta_'

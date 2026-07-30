@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ConversationMeta } from '../context/XmtpContext'
+import { useXmtp, ConversationMeta } from '../context/XmtpContext'
 import { getMetadata, setMetadata } from '../services/metadataStore'
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
 }
 
 export default function ProfileDetailsModal({ conversation, onClose, onProfileUpdated }: Props) {
+  const { selectConversation } = useXmtp()
   const [editing, setEditing] = useState(false)
   const meta = getMetadata(conversation.id)
   
@@ -62,7 +63,14 @@ export default function ProfileDetailsModal({ conversation, onClose, onProfileUp
                 {description}
               </div>
             )}
-            <button className="primary-btn" style={{ width: '100%' }} onClick={() => setEditing(true)}>Edit Profile</button>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button className="primary-btn" onClick={() => setEditing(true)}>Edit Profile</button>
+              <button className="secondary-btn" style={{ color: 'var(--error)' }} onClick={() => {
+                setMetadata(conversation.id, { isHidden: true })
+                selectConversation(null)
+                onClose()
+              }}>Delete Contact</button>
+            </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

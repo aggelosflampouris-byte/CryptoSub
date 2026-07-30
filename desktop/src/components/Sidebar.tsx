@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useXmtp } from '../context/XmtpContext'
 import AddContactModal from '../components/AddContactModal'
 import CreateGroupModal from '../components/CreateGroupModal'
+import { getMetadata } from '../services/metadataStore'
 
 interface Props {
   onOpenAccount: () => void
@@ -17,6 +18,9 @@ export default function Sidebar({ onOpenAccount }: Props) {
   const [showMenu, setShowMenu] = useState(false)
 
   const filtered = conversations.filter(c => {
+    const meta = getMetadata(c.id)
+    if (meta.isHidden) return false
+
     const matchesSearch = c.displayName.toLowerCase().includes(search.toLowerCase()) ||
                           c.peerAddress.toLowerCase().includes(search.toLowerCase())
     if (!matchesSearch) return false

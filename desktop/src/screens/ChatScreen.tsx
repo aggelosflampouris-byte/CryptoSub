@@ -132,8 +132,50 @@ function ReactionToolbar({ onReact, onCopy, text }: { onReact: (e: string) => vo
 
 // ── Bubble Content Renderer ──────────────────────────────────────────────────
 
-function BubbleContent({ msg }: { msg: DecodedMessage }) {
+function BubbleContent({ msg, onSystemAction }: { msg: DecodedMessage, onSystemAction?: (action: string) => void }) {
   const content = msg.content as any
+
+  if (typeof content === 'string' && content.startsWith('SYSTEM_UI:')) {
+    const parts = content.split(':')
+    const type = parts[1]
+    const tsStr = parts[2]
+    switch (type) {
+      case 'clear_history_request_sent':
+        return <div className="chat-text" style={{ fontStyle: 'italic', opacity: 0.8 }}>You requested to clear history for both users. Waiting for consent...</div>
+      case 'clear_history_request':
+        return (
+          <div className="chat-text" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontWeight: 'bold' }}>Contact requested to clear the chat history for both users.</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="primary-btn" style={{ background: 'var(--error)' }} onClick={() => onSystemAction?.('accept_clear:' + tsStr)}>Accept</button>
+              <button className="secondary-btn" onClick={() => onSystemAction?.('decline_clear')}>Decline</button>
+            </div>
+          </div>
+        )
+      case 'clear_history_accept':
+        return <div className="chat-text" style={{ fontStyle: 'italic', opacity: 0.8 }}>History cleared by consent.</div>
+      case 'clear_history_decline':
+        return <div className="chat-text" style={{ fontStyle: 'italic', opacity: 0.8 }}>Contact declined the clear history request.</div>
+    }
+  }
+
+  // Parse structural JSON payloads coming directly over XMTP
+  if (typeof content === 'string' && content.trim().startsWith('{')) {
+    try {
+      const json = JSON.parse(content)
+      if (json.type === 'clear_history_request') {
+        return (
+          <div className="chat-text" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontWeight: 'bold' }}>Contact requested to clear the chat history for both users.</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="primary-btn" style={{ background: 'var(--error)' }} onClick={() => onSystemAction?.('accept_clear:' + json.timestamp)}>Accept</button>
+              <button className="secondary-btn" onClick={() => onSystemAction?.('decline_clear')}>Decline</button>
+            </div>
+          </div>
+        )
+      }
+    } catch {}
+  }
 
   // Inline attachment (small file via AttachmentCodec)
   if (content && content.mimeType && content.data instanceof Uint8Array) {
@@ -238,6 +280,7 @@ export default function ChatScreen() {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastTypingSentAtRef = useRef<number>(0)
   const [showProfile, setShowProfile] = useState(false)
+  const [showClearDialog, setShowClearDialog] = useState(false)
 
   // Voice memo state
   const [recording, setRecording] = useState(false)
@@ -356,9 +399,14 @@ export default function ChatScreen() {
     )
   }
 
+  const clearedUpTo = activeMeta ? (JSON.parse(localStorage.getItem('cryptosub_meta_' + activeMeta.id) || '{}').clearedUpTo || 0) : 0
+
   const grouped: { day: string; messages: DecodedMessage[] }[] = []
   for (const msg of messages) {
-    const day = formatDay(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()))
+    const sentTime = ((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).getTime()
+    if (sentTime <= clearedUpTo) continue
+
+    const day = formatDay(new Date(sentTime))
     if (!grouped.length || grouped[grouped.length - 1].day !== day) {
       grouped.push({ day, messages: [msg] })
     } else {
@@ -387,7 +435,42 @@ export default function ChatScreen() {
           <div className="chat-header-name">{activeMeta?.displayName ?? '…'}</div>
           <div className="chat-header-address">{activeMeta?.peerAddress}</div>
         </div>
+        <button className="icon-btn" style={{ marginLeft: 'auto', padding: 8 }} title="Clear Chat History" onClick={(e) => { e.stopPropagation(); setShowClearDialog(true); }}>
+          🗑️
+        </button>
       </div>
+
+      {showClearDialog && activeMeta && (
+        <div className="modal-backdrop" onClick={() => setShowClearDialog(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h2>Clear Chat History</h2>
+            <p>How would you like to clear this chat history?</p>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              <strong>Local Clear</strong> will instantly delete all messages from this device.<br/><br/>
+              <strong>Clear for Both</strong> will send a request to the other user to consensually delete the history for both of you.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+              <button className="secondary-btn" onClick={() => {
+                const ts = Date.now()
+                import('../services/metadataStore').then(m => {
+                  m.setMetadata(activeMeta.id, { clearedUpTo: ts })
+                  refreshConversations() // forces re-render which will filter out messages
+                })
+                setShowClearDialog(false)
+              }}>Local Clear</button>
+              <button className="primary-btn" onClick={() => {
+                const ts = Date.now()
+                const payload = JSON.stringify({ type: 'clear_history_request', timestamp: ts })
+                sendMessage(payload).catch(console.error)
+                // We'll rely on the context fetching this new message shortly or we can force refresh
+                setTimeout(() => refreshConversations(), 500)
+                setShowClearDialog(false)
+              }}>Clear for Both</button>
+              <button className="icon-btn" style={{ alignSelf: 'center', marginTop: 8 }} onClick={() => setShowClearDialog(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showProfile && activeMeta && (
         <ProfileDetailsModal
@@ -431,6 +514,22 @@ export default function ChatScreen() {
                       contentText={contentText}
                       reactionCounts={reactionCounts}
                       onReact={(emoji) => sendReaction(msgId, emoji)}
+                      onSystemAction={async (action) => {
+                        if (!activeConversation) return
+                        if (action.startsWith('accept_clear:')) {
+                          const tsStr = action.split(':')[1]
+                          const ts = parseInt(tsStr) || Date.now()
+                          const payload = JSON.stringify({ type: 'clear_history_accept', timestamp: ts })
+                          await activeConversation.send(payload).catch(console.error)
+                          import('../services/metadataStore').then(m => {
+                            m.setMetadata(activeMeta.id, { clearedUpTo: ts })
+                            refreshConversations()
+                          })
+                        } else if (action === 'decline_clear') {
+                          const payload = JSON.stringify({ type: 'clear_history_decline' })
+                          await activeConversation.send(payload).catch(console.error)
+                        }
+                      }}
                     />
                   )
                 })}
@@ -518,7 +617,7 @@ export default function ChatScreen() {
 // ── Message Bubble Component ─────────────────────────────────────────────────
 
 function MessageBubble({
-  msg, isMine, msgId, contentText, reactionCounts, onReact,
+  msg, isMine, msgId, contentText, reactionCounts, onReact, onSystemAction
 }: {
   msg: DecodedMessage
   isMine: boolean
@@ -526,6 +625,7 @@ function MessageBubble({
   contentText?: string
   reactionCounts: Record<string, number> | null
   onReact: (emoji: string) => void
+  onSystemAction?: (action: string) => void
 }) {
   const [hovered, setHovered] = useState(false)
 
@@ -549,8 +649,8 @@ function MessageBubble({
           />
         )}
 
-        <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
-          <BubbleContent msg={msg} />
+        <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'} animated-message`}>
+          <BubbleContent msg={msg} onSystemAction={onSystemAction} />
           <div className="chat-time">
             {formatTime(new Date(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date())))}
           </div>
