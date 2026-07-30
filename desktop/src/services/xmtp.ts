@@ -165,13 +165,17 @@ export async function sendAttachment(conversation: any, file: File): Promise<str
     new AttachmentCodec()
   )
 
-  const res = await fetch('http://localhost:8080/v1/attachments/upload', {
+  const formData = new FormData();
+  formData.append('reqtype', 'fileupload');
+  formData.append('fileToUpload', new Blob([encryptedAttachment.payload.buffer as ArrayBuffer]), attachment.filename);
+
+  const res = await fetch('https://catbox.moe/user/api.php', {
     method: 'POST',
-    body: new Blob([encryptedAttachment.payload.buffer as ArrayBuffer])
-  })
+    body: formData
+  });
   
-  if (!res.ok) throw new Error('Upload failed')
-  const { url } = await res.json()
+  if (!res.ok) throw new Error('Upload failed');
+  const url = await res.text();
 
   const remoteAttachment: RemoteAttachment = {
     url,
@@ -206,12 +210,16 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
     new AttachmentCodec()
   )
 
-  const res = await fetch('http://localhost:8080/v1/attachments/upload', {
+  const formData = new FormData();
+  formData.append('reqtype', 'fileupload');
+  formData.append('fileToUpload', new Blob([encryptedAttachment.payload.buffer as ArrayBuffer]), filename);
+
+  const res = await fetch('https://catbox.moe/user/api.php', {
     method: 'POST',
-    body: new Blob([encryptedAttachment.payload.buffer as ArrayBuffer])
-  })
-  if (!res.ok) throw new Error('Voice memo upload failed')
-  const { url } = await res.json()
+    body: formData
+  });
+  if (!res.ok) throw new Error('Voice memo upload failed');
+  const url = await res.text();
 
   const remoteAttachment: RemoteAttachment = {
     url,

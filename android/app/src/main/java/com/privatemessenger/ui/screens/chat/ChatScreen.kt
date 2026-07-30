@@ -481,17 +481,19 @@ fun ChatScreen(
                                 val encryptedAttachment = RemoteAttachment.encodeEncrypted(attachment, AttachmentCodec())
                                 
                                 val okHttpClient = OkHttpClient()
-                                val requestBody = encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull())
+                                val requestBody = okhttp3.MultipartBody.Builder()
+                                    .setType(okhttp3.MultipartBody.FORM)
+                                    .addFormDataPart("reqtype", "fileupload")
+                                    .addFormDataPart("fileToUpload", attachment.filename, encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull()))
+                                    .build()
                                 val request = Request.Builder()
-                                    .url("http://10.0.2.2:8443/v1/attachments/upload")
+                                    .url("https://catbox.moe/user/api.php")
                                     .post(requestBody)
                                     .build()
                                     
                                 val response = okHttpClient.newCall(request).execute()
                                 if (!response.isSuccessful) throw Exception("Upload failed: ${response.code}")
-                                val responseBody = response.body?.string() ?: throw Exception("Empty response")
-                                val url = org.json.JSONObject(responseBody).getString("url")
-                                val finalUrl = url.replace("localhost", "10.0.2.2")
+                                val finalUrl = response.body?.string()?.trim() ?: throw Exception("Empty response")
                                 
                                 val remoteAttachment = RemoteAttachment(
                                     url = URL(finalUrl),
@@ -545,16 +547,18 @@ fun ChatScreen(
                                 )
                                 val encryptedAttachment = RemoteAttachment.encodeEncrypted(attachment, AttachmentCodec())
                                 val okHttpClient = OkHttpClient()
-                                val requestBody = encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull())
+                                val requestBody = okhttp3.MultipartBody.Builder()
+                                    .setType(okhttp3.MultipartBody.FORM)
+                                    .addFormDataPart("reqtype", "fileupload")
+                                    .addFormDataPart("fileToUpload", filename, encryptedAttachment.payload.toByteArray().toRequestBody("application/octet-stream".toMediaTypeOrNull()))
+                                    .build()
                                 val request = Request.Builder()
-                                    .url("http://10.0.2.2:8443/v1/attachments/upload")
+                                    .url("https://catbox.moe/user/api.php")
                                     .post(requestBody)
                                     .build()
                                 val response = okHttpClient.newCall(request).execute()
                                 if (!response.isSuccessful) throw Exception("Upload failed: ${response.code}")
-                                val responseBody = response.body?.string() ?: throw Exception("Empty response")
-                                val url = org.json.JSONObject(responseBody).getString("url")
-                                val finalUrl = url.replace("localhost", "10.0.2.2")
+                                val finalUrl = response.body?.string()?.trim() ?: throw Exception("Empty response")
                                 val remoteAttachment = RemoteAttachment(
                                     url = URL(finalUrl),
                                     contentDigest = encryptedAttachment.contentDigest,
