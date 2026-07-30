@@ -111,7 +111,9 @@ fun ChatScreen(
     val clipboardManager = LocalClipboardManager.current
     
     val typingStates by TypingManager.typingStates.collectAsState()
-    val isTyping = typingStates[conversationId]?.any { it != app.xmtpClient?.inboxId } == true
+    val isTyping by remember(conversationId, typingStates) {
+        androidx.compose.runtime.derivedStateOf { typingStates[conversationId]?.any { it != app.xmtpClient?.inboxId } == true }
+    }
 
     LaunchedEffect(conversationId) {
         conversation = database.conversationDao().getConversation(conversationId)
@@ -121,7 +123,7 @@ fun ChatScreen(
             try {
                 val client = app.xmtpClient ?: return@launch
                 val xmtpConversation = client.conversations.findConversation(conversationId) ?: return@launch
-                val xmtpMessages = xmtpConversation.messages()
+                val xmtpMessages = xmtpConversation.messages(limit = 50)
                 
                 var hasNew = false
                 var lastMsgContent = ""

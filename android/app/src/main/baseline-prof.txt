@@ -1,0 +1,21 @@
+# Jetpack Compose and Material 3 Core
+HPLandroidx/compose/foundation/**
+HPLandroidx/compose/material3/**
+HPLandroidx/compose/ui/**
+HPLandroidx/compose/runtime/**
+
+# App Screens and UI
+HPLcom/privatemessenger/ui/**
+HPLcom/privatemessenger/ui/screens/chat/**
+HPLcom/privatemessenger/ui/screens/home/**
+HPLcom/privatemessenger/ui/screens/settings/**
+
+# Architecture Components
+HPLandroidx/lifecycle/**
+HPLandroidx/navigation/**
+
+# Room Database Core
+HPLandroidx/room/**
+
+# Kotlin Coroutines
+HPLkotlinx/coroutines/**
