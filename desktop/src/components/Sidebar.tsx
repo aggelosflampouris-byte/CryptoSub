@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function Sidebar({ onOpenAccount }: Props) {
-  const { conversations, activeConversationId, selectConversation, refreshConversations } = useXmtp()
+  const { isConnected, conversations, activeConversationId, selectConversation, refreshConversations } = useXmtp()
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'contacts' | 'groups'>('all')
   const [showAddContact, setShowAddContact] = useState(false)
@@ -38,7 +38,19 @@ export default function Sidebar({ onOpenAccount }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header" style={{ position: 'relative' }}>
-        <h1>CryptoSub</h1>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          CryptoSub
+          <div 
+            title={isConnected ? "Connected to XMTP network" : "Connecting..."}
+            style={{ 
+              width: 10, 
+              height: 10, 
+              borderRadius: '50%', 
+              backgroundColor: isConnected ? '#4CAF50' : '#f44336',
+              boxShadow: isConnected ? '0 0 8px #4CAF50' : '0 0 8px #f44336'
+            }} 
+          />
+        </h1>
         <div className="sidebar-actions">
           <button className="icon-btn" title="Menu" onClick={() => setShowMenu(!showMenu)}>
             ☰

@@ -9,7 +9,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import okhttp3.OkHttpClient
+import okhttp3.CertificatePinner
 import org.xmtp.android.library.Client
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.privatemessenger.workers.SendMessageWorker
 
 /**
  * Application subclass that initializes the cryptographic and storage
@@ -31,7 +38,17 @@ class PrivateMessengerApp : Application() {
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     /** Shared OkHttpClient — connection pool is reused across all upload calls. */
-    val httpClient: OkHttpClient by lazy { OkHttpClient() }
+    val httpClient: OkHttpClient by lazy {
+        val certificatePinner = CertificatePinner.Builder()
+            // Let's Encrypt Root & Intermediate keys used by catbox.moe
+            .add("catbox.moe", "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=") // ISRG Root X1
+            .add("catbox.moe", "sha256/jQJTbIh0grw0/1TkHSumWb+Fs0Ggogr621gT3PvPKG0=") // Let's Encrypt R3
+            .build()
+            
+        OkHttpClient.Builder()
+            .certificatePinner(certificatePinner)
+            .build()
+    }
 
     lateinit var keyStoreManager: KeyStoreManager
         private set
@@ -76,6 +93,20 @@ class PrivateMessengerApp : Application() {
      */
     fun initXmtpClient(client: Client) {
         xmtpClient = client
+
+        // Kick off a background worker to retry any messages stuck in SENDING
+        // as soon as the network becomes available.
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val workRequest = OneTimeWorkRequestBuilder<SendMessageWorker>()
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "retry_offline_messages",
+            ExistingWorkPolicy.REPLACE,
+            workRequest
+        )
     }
 
     private fun initCryptoIfRegistered() {

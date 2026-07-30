@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -469,29 +471,35 @@ fun ChatScreen(
                                 val ext = mimeType.substringAfterLast('/')
                                 val filename = "attachment_${System.currentTimeMillis()}.$ext"
 
-                                val result = com.privatemessenger.utils.sendEncryptedAttachment(
-                                    app, conversationId, bytes, mimeType, filename
-                                ) ?: return@launch
-                                val (_, sentMessageId) = result
-
                                 val localFile = File(app.filesDir, filename)
                                 localFile.writeBytes(bytes)
 
                                 val client = app.xmtpClient ?: return@launch
+                                val localMessageId = java.util.UUID.randomUUID().toString()
                                 val msgEntity = MessageEntity(
-                                    id = sentMessageId,
+                                    id = localMessageId,
                                     conversationId = conversationId,
                                     senderUserId = client.inboxId,
                                     content = "📎 Attachment",
                                     attachmentUri = localFile.absolutePath,
                                     timestamp = System.currentTimeMillis(),
-                                    status = MessageStatus.SENT
+                                    status = MessageStatus.SENDING
                                 )
                                 database.messageDao().insert(msgEntity)
-                                database.conversationDao().updateLastMessage(conversationId, "📎 Attachment", System.currentTimeMillis())
-                            } catch (e: Exception) {
-                                android.util.Log.e("ChatScreen", "Failed to send attachment", e)
-                            }
+                                database.conversationDao().updateLastMessage(conversationId, "📎 Attachment", msgEntity.timestamp)
+
+                                try {
+                                    val result = com.privatemessenger.utils.sendEncryptedAttachment(
+                                        app, conversationId, bytes, mimeType, filename
+                                    ) ?: throw Exception("Attachment null result")
+                                    val (_, sentMessageId) = result
+
+                                    database.messageDao().delete(localMessageId)
+                                    database.messageDao().insert(msgEntity.copy(id = sentMessageId, status = MessageStatus.SENT))
+                                } catch (e: Exception) {
+                                    android.util.Log.e("ChatScreen", "Failed to send attachment", e)
+                                    database.messageDao().updateStatus(localMessageId, MessageStatus.FAILED)
+                                }
                         }
                     },
                     onVoiceMemoRecorded = { audioFile ->
@@ -500,32 +508,38 @@ fun ChatScreen(
                                 val bytes = audioFile.readBytes()
                                 val filename = audioFile.name
 
-                                val result = com.privatemessenger.utils.sendEncryptedAttachment(
-                                    app, conversationId, bytes, "audio/ogg", filename
-                                ) ?: return@launch
-                                val (_, sentMessageId) = result
-
                                 val localCopy = File(app.filesDir, filename)
                                 localCopy.writeBytes(bytes)
                                 val client = app.xmtpClient ?: return@launch
+                                val localMessageId = java.util.UUID.randomUUID().toString()
                                 val msgEntity = MessageEntity(
-                                    id = sentMessageId,
+                                    id = localMessageId,
                                     conversationId = conversationId,
                                     senderUserId = client.inboxId,
                                     content = "🎙️ Voice memo",
                                     audioUri = localCopy.absolutePath,
                                     type = MessageType.VOICE,
                                     timestamp = System.currentTimeMillis(),
-                                    status = MessageStatus.SENT
+                                    status = MessageStatus.SENDING
                                 )
                                 database.messageDao().insert(msgEntity)
-                                database.conversationDao().updateLastMessage(conversationId, "🎙️ Voice memo", System.currentTimeMillis())
-                            } catch (e: Exception) {
-                                android.util.Log.e("ChatScreen", "Failed to send voice memo", e)
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    android.widget.Toast.makeText(app, "Voice memo failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                                database.conversationDao().updateLastMessage(conversationId, "🎙️ Voice memo", msgEntity.timestamp)
+
+                                try {
+                                    val result = com.privatemessenger.utils.sendEncryptedAttachment(
+                                        app, conversationId, bytes, "audio/ogg", filename
+                                    ) ?: throw Exception("Audio attachment null result")
+                                    val (_, sentMessageId) = result
+
+                                    database.messageDao().delete(localMessageId)
+                                    database.messageDao().insert(msgEntity.copy(id = sentMessageId, status = MessageStatus.SENT))
+                                } catch (e: Exception) {
+                                    android.util.Log.e("ChatScreen", "Failed to send voice memo", e)
+                                    database.messageDao().updateStatus(localMessageId, MessageStatus.FAILED)
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        android.widget.Toast.makeText(app, "Voice memo failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                                    }
                                 }
-                            }
                         }
                     },
                     onTypingStateChange = { isTypingPayload ->
@@ -552,7 +566,6 @@ fun ChatScreen(
                             replyingToMessage = null
 
                             // Instantly cancel typing status locally to trigger the false broadcast via LaunchedEffect
-                        
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     val conversation = database.conversationDao().getConversation(conversationId)
@@ -564,6 +577,19 @@ fun ChatScreen(
                                                 return@launch
                                             }
                                             
+                                        val localMessageId = java.util.UUID.randomUUID().toString()
+                                        val msgEntity = MessageEntity(
+                                            id = localMessageId,
+                                            conversationId = conversation.id,
+                                            senderUserId = client.inboxId,
+                                            content = textToSend,
+                                            replyToMessageId = replyToId,
+                                            timestamp = System.currentTimeMillis(),
+                                            status = MessageStatus.SENDING
+                                        )
+                                        database.messageDao().insert(msgEntity)
+                                        database.conversationDao().updateLastMessage(conversation.id, textToSend, msgEntity.timestamp)
+
                                         val payload = if (replyToId != null) {
                                             Gson().toJson(mapOf(
                                                 "type" to "reply",
@@ -574,25 +600,21 @@ fun ChatScreen(
                                             textToSend
                                         }
                                         
-                                        val sentMessageId = when (xmtpConversation) {
-                                            is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
-                                            is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
+                                        try {
+                                            val sentMessageId = when (xmtpConversation) {
+                                                is org.xmtp.android.library.Conversation.Dm -> xmtpConversation.dm.send(payload)
+                                                is org.xmtp.android.library.Conversation.Group -> xmtpConversation.group.send(payload)
+                                                else -> error("Unknown conversation type")
+                                            }
+                                            database.messageDao().delete(localMessageId)
+                                            database.messageDao().insert(msgEntity.copy(id = sentMessageId, status = MessageStatus.SENT))
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("ChatScreen", "Failed to send message", e)
+                                            database.messageDao().updateStatus(localMessageId, MessageStatus.FAILED)
                                         }
-                                        
-                                        val msgEntity = MessageEntity(
-                                            id = sentMessageId,
-                                            conversationId = conversation.id,
-                                            senderUserId = client.inboxId,
-                                            content = textToSend,
-                                            replyToMessageId = replyToId,
-                                            timestamp = System.currentTimeMillis(),
-                                            status = MessageStatus.SENT
-                                        )
-                                        database.messageDao().insert(msgEntity)
-                                        database.conversationDao().updateLastMessage(conversation.id, textToSend, System.currentTimeMillis())
                                     }
                                 } catch (e: Exception) {
-                                    android.util.Log.e("ChatScreen", "Failed to send message", e)
+                                    android.util.Log.e("ChatScreen", "Failed to construct message", e)
                                 }
                             }
                         }
@@ -878,8 +900,13 @@ fun MessageBubble(
                         )
                         if (isCurrentUser) {
                             Spacer(modifier = Modifier.width(4.dp))
-                            val icon = if (message.status == MessageStatus.READ) Icons.Default.DoneAll else Icons.Default.Check
-                            val tint = if (message.status == MessageStatus.READ) Color(0xFF34B7F1) else textColor.copy(alpha = 0.7f) // Blue for read
+                            val (icon, tint) = when (message.status) {
+                                MessageStatus.READ -> Icons.Default.DoneAll to Color(0xFF34B7F1)
+                                MessageStatus.DELIVERED -> Icons.Default.DoneAll to textColor.copy(alpha = 0.7f)
+                                MessageStatus.SENT -> Icons.Default.Check to textColor.copy(alpha = 0.7f)
+                                MessageStatus.SENDING -> Icons.Default.Schedule to textColor.copy(alpha = 0.5f)
+                                MessageStatus.FAILED -> Icons.Default.Error to MaterialTheme.colorScheme.error
+                            }
                             Icon(
                                 imageVector = icon,
                                 contentDescription = "Status",

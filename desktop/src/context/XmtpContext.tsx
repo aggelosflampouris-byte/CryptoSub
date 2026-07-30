@@ -34,6 +34,7 @@ export interface ConversationMeta {
 
 interface XmtpContextValue {
   client: Client | null
+  isConnected: boolean
   isRegistered: boolean
   isLoading: boolean
   error: string | null
@@ -61,6 +62,7 @@ const XmtpContext = createContext<XmtpContextValue | null>(null)
 
 export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const [client, setClient] = useState<Client | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [conversations, setConversations] = useState<ConversationMeta[]>([])
@@ -157,6 +159,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
           await xmtpClient.conversations.sync().catch(console.error)
           
           const stream = await xmtpClient.conversations.streamAllMessages()
+          setIsConnected(true)
           retryDelay = 3000 // reset on success
 
           for await (const msg of stream) {
@@ -285,10 +288,13 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         })
       }
       
-      // Stream cleanly ended
-      if (isActive) await new Promise(r => setTimeout(r, retryDelay))
+      if (isActive) {
+        setIsConnected(false)
+        await new Promise(r => setTimeout(r, retryDelay))
+      }
       
       } catch (e) {
+        setIsConnected(false)
         console.error("Message stream failed, restarting...", e)
         if (isActive) {
           await new Promise(r => setTimeout(r, retryDelay))
@@ -518,6 +524,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   return (
     <XmtpContext.Provider value={{
       client,
+      isConnected,
       isRegistered: !!client,
       isLoading,
       error,
