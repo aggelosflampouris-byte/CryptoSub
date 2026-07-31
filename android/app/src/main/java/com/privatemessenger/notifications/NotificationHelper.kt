@@ -13,6 +13,7 @@ object NotificationHelper {
     private const val CHANNEL_MESSAGES = "new_messages"
     private const val CHANNEL_SERVICE = "background_service_v2"
     private const val CHANNEL_UPDATES = "app_updates"
+    private const val CHANNEL_CALLS = "incoming_calls"
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -46,6 +47,14 @@ object NotificationHelper {
                 "App Updates",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply { description = "Alerts when a new app version is available" }
+        )
+
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_CALLS,
+                "Incoming Calls",
+                NotificationManager.IMPORTANCE_MAX
+            ).apply { description = "Rings when someone calls you via WebRTC" }
         )
     }
 
@@ -132,5 +141,32 @@ object NotificationHelper {
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify("update_notification".hashCode(), notification)
+    }
+
+    fun showIncomingCallNotification(context: Context, callerLabel: String, conversationId: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("open_conversation", conversationId)
+            putExtra("action", "answer_call")
+        }
+        val fullScreenIntent = PendingIntent.getActivity(
+            context, conversationId.hashCode(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_CALLS)
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setContentTitle("Incoming Video Call")
+            .setContentText("$callerLabel is calling you")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setFullScreenIntent(fullScreenIntent, true)
+            .setOngoing(true)
+            .setAutoCancel(true)
+            .addAction(android.R.drawable.ic_menu_call, "Answer", fullScreenIntent)
+            .build()
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify("call_${conversationId}".hashCode(), notification)
     }
 }

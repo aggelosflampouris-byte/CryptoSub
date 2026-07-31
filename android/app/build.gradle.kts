@@ -136,4 +136,9 @@ dependencies {
     // -------------------------------------------------------------------------
     implementation("org.xmtp:android:4.10.0")
     implementation("org.web3j:core:4.10.3")
+
+    // -------------------------------------------------------------------------
+    // WebRTC for Video Calling
+    // -------------------------------------------------------------------------
+    implementation("io.getstream:stream-webrtc-android:1.1.1")
 }

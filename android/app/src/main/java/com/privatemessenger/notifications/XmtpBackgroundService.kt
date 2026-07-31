@@ -178,6 +178,25 @@ class XmtpBackgroundService : Service() {
                                         )
                                         app.database.messageDao().insert(msgEntity)
                                         isStructuralPayload = true
+                                    } else if (type.startsWith("webrtc_")) {
+                                        isStructuralPayload = true
+                                        val signal = com.privatemessenger.webrtc.WebRTCSignal(
+                                            type = type,
+                                            sdp = json.get("sdp")?.asString,
+                                            candidate = json.get("candidate")?.asString,
+                                            sdpMid = json.get("sdpMid")?.asString,
+                                            sdpMLineIndex = if (json.has("sdpMLineIndex")) json.get("sdpMLineIndex")?.asInt else null,
+                                            senderInboxId = message.senderInboxId
+                                        )
+                                        com.privatemessenger.webrtc.WebRTCSignalingManager.emitSignal(signal)
+                                        
+                                        if (type == "webrtc_offer") {
+                                            val conversationExists = app.database.conversationDao().getConversation(convId) != null
+                                            val xmtpConv = client.conversations.findConversation(convId)
+                                            val peerId = (xmtpConv as? org.xmtp.android.library.Conversation.Dm)?.dm?.peerInboxId ?: message.senderInboxId
+                                            val label = app.database.conversationDao().getConversation(convId)?.displayName ?: "${peerId.take(6)}...${peerId.takeLast(4)}"
+                                            NotificationHelper.showIncomingCallNotification(app, label, convId)
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     // Not a valid structural JSON, treat as normal text

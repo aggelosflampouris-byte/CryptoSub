@@ -144,6 +144,7 @@ export async function loadMessages(conversation: any): Promise<{ msgs: any[]; re
         }
         if (['typing', 'read', 'reply'].includes(json.type)) return false
         if (json.type === 'reply') return true // reply messages are shown
+        if (json.type && json.type.startsWith('webrtc_')) return false
       } catch (e) { }
     }
 

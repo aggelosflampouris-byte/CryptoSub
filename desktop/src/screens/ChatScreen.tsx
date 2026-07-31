@@ -6,6 +6,8 @@ import { startRecording, RecordingHandle } from '../services/AudioRecorder'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import React from 'react'
 import { getClearedUpTo } from '../services/metadataStore'
+import { VideoCallModal } from '../components/VideoCallModal'
+import { Video } from 'lucide-react'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -270,21 +272,17 @@ function BubbleContent({ msg, onSystemAction }: { msg: DecodedMessage, onSystemA
 // ── Main Chat Screen ─────────────────────────────────────────────────────────
 
 export default function ChatScreen() {
-  const {
-    client, activeConversationId, conversations, messages, messagesLoading,
-    typingUsers, reactions, sendMessage, sendAttachment, sendReaction, sendVoiceMemo, refreshConversations
-  } = useXmtp()
-
+  const { activeConversationId, messages, sendMessage, sendReaction, sendAttachment, messagesLoading, client, typingUsers, reactions, sendVoiceMemo, incomingSignal, clearIncomingSignal, conversations, refreshConversations } = useXmtp()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const [showClearDialog, setShowClearDialog] = useState(false)
+  const [showVideoCall, setShowVideoCall] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastTypingSentAtRef = useRef<number>(0)
-  const [showProfile, setShowProfile] = useState(false)
-  const [showClearDialog, setShowClearDialog] = useState(false)
-
   // Voice memo state
   const [recording, setRecording] = useState(false)
   const [recordingSeconds, setRecordingSeconds] = useState(0)
@@ -446,6 +444,23 @@ export default function ChatScreen() {
 
   return (
     <div className="chat-area">
+      {/* Video Call Modal */}
+      {showVideoCall && activeConversationId && (
+        <VideoCallModal 
+          conversationId={activeConversationId} 
+          isIncoming={false} 
+          onClose={() => setShowVideoCall(false)} 
+        />
+      )}
+      
+      {incomingSignal && incomingSignal.type === 'webrtc_offer' && incomingSignal.conversationId === activeConversationId && (
+        <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'var(--primary)', color: 'white', padding: '12px 24px', borderRadius: 24, display: 'flex', gap: 16, alignItems: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <div>Incoming Video Call</div>
+          <button onClick={() => setShowVideoCall(true)} style={{ background: '#22c55e', border: 'none', padding: '8px 16px', borderRadius: 16, cursor: 'pointer', color: 'white', fontWeight: 'bold' }}>Answer</button>
+          <button onClick={() => { sendMessage(JSON.stringify({ type: 'webrtc_call_reject' })); clearIncomingSignal() }} style={{ background: '#ef4444', border: 'none', padding: '8px 16px', borderRadius: 16, cursor: 'pointer', color: 'white', fontWeight: 'bold' }}>Decline</button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="chat-header" onClick={() => setShowProfile(true)} style={{ cursor: 'pointer' }}>
         {activeMeta?.profilePicture ? (
@@ -459,7 +474,17 @@ export default function ChatScreen() {
           <div className="chat-header-name">{activeMeta?.displayName ?? '…'}</div>
           <div className="chat-header-address">{activeMeta?.peerAddress}</div>
         </div>
-        <button className="icon-btn" style={{ marginLeft: 'auto', padding: 8 }} title="Clear Chat History" onClick={(e) => { e.stopPropagation(); setShowClearDialog(true); }}>
+        
+        <button 
+          className="icon-btn" 
+          style={{ padding: 8, marginRight: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }} 
+          title="Video Call" 
+          onClick={(e) => { e.stopPropagation(); setShowVideoCall(true) }}
+        >
+          <Video size={20} />
+        </button>
+
+        <button className="icon-btn" style={{ padding: 8 }} title="Clear Chat History" onClick={(e) => { e.stopPropagation(); setShowClearDialog(true); }}>
           🗑️
         </button>
       </div>

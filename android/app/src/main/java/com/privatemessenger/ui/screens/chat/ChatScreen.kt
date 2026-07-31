@@ -101,7 +101,8 @@ fun ChatScreen(
     database: AppDatabase,
     app: com.privatemessenger.PrivateMessengerApp,
     onBack: () -> Unit,
-    onHeaderClicked: () -> Unit
+    onHeaderClicked: () -> Unit,
+    onVideoCallClicked: () -> Unit
 ) {
     val allMessages by database.messageDao().getMessagesForConversation(conversationId).collectAsState(initial = emptyList())
     val messages = remember(allMessages) { allMessages.filter { !it.content.trim().startsWith("@") } }
@@ -144,7 +145,7 @@ fun ChatScreen(
                                 val json = com.google.gson.JsonParser.parseString(trimmedBody).asJsonObject
                                 val type = json.get("type")?.asString
                                 
-                                if (type == "reaction" || type == "read" || type == "typing" || type == "clear_history_request" || type == "clear_history_accept" || type == "clear_history_decline") {
+                                if (type == "reaction" || type == "read" || type == "typing" || type == "clear_history_request" || type == "clear_history_accept" || type == "clear_history_decline" || type?.startsWith("webrtc_") == true) {
                                     isStructuralPayload = true
                                 } else if (type == "reply") {
                                     finalContent = json.get("content")?.asString ?: msg.body
@@ -273,6 +274,9 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onVideoCallClicked() }) {
+                        Icon(androidx.compose.material.icons.filled.Videocam, contentDescription = "Video Call")
+                    }
                     var showClearHistoryDialog by remember { mutableStateOf(false) }
                     IconButton(onClick = { showClearHistoryDialog = true }) {
                         Icon(Icons.Default.Delete, contentDescription = "Clear Chat History")

@@ -54,6 +54,8 @@ interface XmtpContextValue {
   sendReaction: (messageId: string, emoji: string) => Promise<void>
   sendVoiceMemo: (audioBlob: Blob) => Promise<void>
   refreshConversations: () => Promise<void>
+  incomingSignal: any | null
+  clearIncomingSignal: () => void
 }
 
 const XmtpContext = createContext<XmtpContextValue | null>(null)
@@ -71,6 +73,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [typingUsers, setTypingUsers] = useState<{ [convId: string]: Set<string> }>({})
   const [reactions, setReactions] = useState<ReactionsMap>({})
+  const [incomingSignal, setIncomingSignal] = useState<any | null>(null)
 
   const activeConvRef = useRef<string | null>(null)
   const convMapRef = useRef<Map<string, Conversation>>(new Map())
@@ -209,6 +212,10 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
               isStructural = true
             } else if (json.type === 'reply') {
               contentStr = json.content || contentStr
+            } else if (json.type && json.type.startsWith('webrtc_')) {
+              isStructural = true
+              const msgSenderId = (msg as any).senderInboxId || (msg as any).senderAddress
+              setIncomingSignal({ ...json, senderId: msgSenderId, conversationId: (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic })
             }
           } catch(e) {}
         }
@@ -552,6 +559,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       sendReaction,
       sendVoiceMemo,
       refreshConversations,
+      incomingSignal,
+      clearIncomingSignal: () => setIncomingSignal(null),
     }}>
       {children}
     </XmtpContext.Provider>

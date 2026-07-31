@@ -27,6 +27,8 @@
     "@xmtp/browser-sdk": "^2.0.11",
     "@xmtp/content-type-remote-attachment": "^2.0.4",
     "ethers": "^5.7.2",
+    "framer-motion": "^12.43.0",
+    "lucide-react": "^1.28.0",
     "qr-scanner": "^1.4.2",
     "qrcode": "^1.5.3",
     "qrcode.react": "^4.2.0",

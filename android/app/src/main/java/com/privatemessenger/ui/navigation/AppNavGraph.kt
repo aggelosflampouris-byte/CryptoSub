@@ -302,6 +302,70 @@ fun AppNavGraph(
                             }
                         }
                     }
+                },
+                onVideoCallClicked = {
+                    navController.navigate("video_call/${android.net.Uri.encode(conversationId)}?isIncoming=false")
+                }
+            )
+        }
+
+        composable(
+            route = "video_call/{conversationId}?isIncoming={isIncoming}",
+            arguments = listOf(
+                navArgument("conversationId") { type = NavType.StringType },
+                navArgument("isIncoming") { type = NavType.BoolType; defaultValue = false }
+            )
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
+            val isIncoming = backStackEntry.arguments?.getBoolean("isIncoming") ?: false
+            
+            // We need a remembered WebRTCClient
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val webRTCClient = remember { 
+                com.privatemessenger.webrtc.WebRTCClient(
+                    context, 
+                    object : org.webrtc.PeerConnection.Observer {
+                        override fun onSignalingChange(p0: org.webrtc.PeerConnection.SignalingState?) {}
+                        override fun onIceConnectionChange(p0: org.webrtc.PeerConnection.IceConnectionState?) {}
+                        override fun onIceConnectionReceivingChange(p0: Boolean) {}
+                        override fun onIceGatheringChange(p0: org.webrtc.PeerConnection.IceGatheringState?) {}
+                        override fun onIceCandidate(candidate: org.webrtc.IceCandidate) {
+                            // Send candidate over XMTP
+                        }
+                        override fun onIceCandidatesRemoved(p0: Array<out org.webrtc.IceCandidate>?) {}
+                        override fun onAddStream(p0: org.webrtc.MediaStream) {}
+                        override fun onRemoveStream(p0: org.webrtc.MediaStream?) {}
+                        override fun onDataChannel(p0: org.webrtc.DataChannel?) {}
+                        override fun onRenegotiationNeeded() {}
+                        override fun onAddTrack(receiver: org.webrtc.RtpReceiver?, streams: Array<out org.webrtc.MediaStream>?) {}
+                    }
+                )
+            }
+
+            LaunchedEffect(Unit) {
+                webRTCClient.initPeerConnection()
+                if (!isIncoming) {
+                    webRTCClient.call(object : org.webrtc.SdpObserver {
+                        override fun onCreateSuccess(desc: org.webrtc.SessionDescription?) {
+                            desc?.let { 
+                                webRTCClient.setLocalDescription(it)
+                                // Send offer via XMTP
+                            }
+                        }
+                        override fun onSetSuccess() {}
+                        override fun onCreateFailure(p0: String?) {}
+                        override fun onSetFailure(p0: String?) {}
+                    })
+                }
+            }
+
+            com.privatemessenger.ui.screens.call.VideoCallScreen(
+                conversationId = conversationId,
+                webRTCClient = webRTCClient,
+                isIncoming = isIncoming,
+                onEndCall = {
+                    webRTCClient.close()
+                    navController.popBackStack()
                 }
             )
         }
