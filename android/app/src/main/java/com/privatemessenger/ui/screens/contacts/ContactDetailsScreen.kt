@@ -240,7 +240,7 @@ fun ContactDetailsScreen(
                                 contact?.recipientUserId?.let { userId ->
                                     val ce = database.contactDao().getContact(userId)
                                     if (ce == null) {
-                                        database.contactDao().upsert(com.privatemessenger.data.local.entity.ContactEntity(userId = userId, description = description))
+                                        database.contactDao().upsert(com.privatemessenger.data.local.entity.ContactEntity(userId = userId, phoneHash = "", description = description))
                                     } else {
                                         database.contactDao().updateDescription(userId, description)
                                     }
