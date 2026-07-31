@@ -155,12 +155,17 @@ fun AppNavGraph(
         }
 
         composable(
-            route = "contact_details/{conversationId}",
-            arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+            route = "contact_details/{conversationId}?editName={editName}",
+            arguments = listOf(
+                navArgument("conversationId") { type = NavType.StringType },
+                navArgument("editName") { type = NavType.BoolType; defaultValue = false }
+            )
         ) { backStackEntry ->
             val conversationId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
+            val editName = backStackEntry.arguments?.getBoolean("editName") ?: false
             com.privatemessenger.ui.screens.contacts.ContactDetailsScreen(
                 conversationId = conversationId,
+                initialEditMode = editName,
                 database = app.database,
                 onBack = { navController.popBackStack() },
                 onNavigateToChat = { convId ->
@@ -255,9 +260,9 @@ fun AppNavGraph(
                             // 4. Sync so the other device's welcome message is received
                             client.conversations.sync()
 
-                            // 5. Navigate using the XMTP conversation ID, not the raw address
+                            // 5. Navigate using the XMTP conversation ID, not the raw address, and trigger edit mode
                             kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                navController.navigate("chat/$xmtpConvId") {
+                                navController.navigate("contact_details/$xmtpConvId?editName=true") {
                                     popUpTo("chat_list")
                                 }
                             }

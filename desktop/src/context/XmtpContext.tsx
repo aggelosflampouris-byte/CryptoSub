@@ -48,7 +48,7 @@ interface XmtpContextValue {
   restore: (privateKeyHex: string) => Promise<void>
   logout: () => Promise<void>
   selectConversation: (id: string) => void
-  startNewConversation: (address: string) => Promise<void>
+  startNewConversation: (address: string) => Promise<string>
   sendMessage: (text: string) => Promise<void>
   sendAttachment: (file: File) => Promise<void>
   sendReaction: (messageId: string, emoji: string) => Promise<void>
@@ -460,7 +460,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  const startNewConversation = useCallback(async (address: string) => {
+  const startNewConversation = useCallback(async (address: string): Promise<string> => {
     if (!client) throw new Error('Not connected')
     const conv = await findOrCreateDm(client, address)
     convMapRef.current.set(conv.id, conv)
@@ -479,7 +479,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     startStreaming(client)
     
     selectConversation(conv.id)
-  }, [client, selectConversation, buildMeta, startStreaming])
+    return conv.id
+  }, [client, buildMeta, selectConversation, startStreaming])
 
   const sendMessage = useCallback(async (text: string) => {
     if (!client || !activeConversationId) return

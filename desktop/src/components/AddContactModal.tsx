@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useXmtp } from '../context/XmtpContext'
 import { canMessage } from '../services/xmtp'
+import { setMetadata } from '../services/metadataStore'
 
 interface Props {
   onClose: () => void
@@ -11,6 +12,7 @@ export default function AddContactModal({ onClose }: Props) {
   const { client, startNewConversation } = useXmtp()
   const [tab, setTab] = useState<'address' | 'qr'>('address')
   const [address, setAddress] = useState('')
+  const [customName, setCustomName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
@@ -47,7 +49,10 @@ export default function AddContactModal({ onClose }: Props) {
         setError('This address has not registered on XMTP yet.')
         return
       }
-      await startNewConversation(clean)
+      const newConvId = await startNewConversation(clean)
+      if (customName.trim()) {
+        setMetadata(newConvId, { displayName: customName.trim() })
+      }
       onClose()
     } catch (e: any) {
       setError(e.message || 'Failed to start conversation.')
@@ -96,7 +101,16 @@ export default function AddContactModal({ onClose }: Props) {
               />
               {error && <p className="form-error">{error}</p>}
             </div>
-            <div className="modal-actions">
+            <div className="form-field" style={{ marginTop: '4px' }}>
+              <label className="form-label">Contact Name (Optional)</label>
+              <input
+                className="form-input"
+                placeholder="e.g. Alice"
+                value={customName}
+                onChange={e => setCustomName(e.target.value)}
+              />
+            </div>
+            <div className="modal-actions" style={{ marginTop: '12px' }}>
               <button className="btn btn-ghost" style={{ width: 'auto', padding: '0 20px' }} onClick={onClose}>Cancel</button>
               <button
                 className="btn btn-primary"

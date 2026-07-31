@@ -37,14 +37,21 @@ import com.privatemessenger.data.local.entity.ContactEntity
 fun ContactDetailsScreen(
     conversationId: String,
     database: AppDatabase,
+    initialEditMode: Boolean = false,
     onBack: () -> Unit,
     onNavigateToChat: (String) -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     var contact by remember { mutableStateOf<ConversationEntity?>(null) }
     var contactEntity by remember { mutableStateOf<ContactEntity?>(null) }
-    var showEditNameDialog by remember { mutableStateOf(false) }
+    var showEditNameDialog by remember { mutableStateOf(initialEditMode) }
     var newName by remember { mutableStateOf("") }
+    
+    LaunchedEffect(contact) {
+        if (contact != null && initialEditMode) {
+            newName = contact?.displayName ?: ""
+        }
+    }
     
     // Description state
     var description by remember { mutableStateOf("") }
