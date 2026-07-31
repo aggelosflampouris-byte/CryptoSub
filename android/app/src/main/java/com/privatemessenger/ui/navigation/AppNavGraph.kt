@@ -363,8 +363,13 @@ fun AppNavGraph(
                 }
             }
 
-            val callerName = app.database.conversationDao().getConversation(conversationId)?.displayName
-                ?: "${conversationId.take(6)}…${conversationId.takeLast(4)}"
+            val callerNameState = remember { androidx.compose.runtime.mutableStateOf("${conversationId.take(6)}…${conversationId.takeLast(4)}") }
+            LaunchedEffect(conversationId) {
+                app.database.conversationDao().getConversation(conversationId)?.displayName?.let {
+                    callerNameState.value = it
+                }
+            }
+            val callerName = callerNameState.value
 
             com.privatemessenger.ui.screens.call.VideoCallScreen(
                 conversationId = conversationId,
