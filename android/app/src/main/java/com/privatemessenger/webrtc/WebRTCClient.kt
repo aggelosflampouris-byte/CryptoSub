@@ -2,6 +2,7 @@ package com.privatemessenger.webrtc
 
 import android.content.Context
 import org.webrtc.*
+import org.webrtc.audio.JavaAudioDeviceModule
 
 class WebRTCClient(
     private val context: Context,
@@ -42,7 +43,10 @@ class WebRTCClient(
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {
         val videoEncoderFactory = DefaultVideoEncoderFactory(eglBaseContext, true, true)
         val videoDecoderFactory = DefaultVideoDecoderFactory(eglBaseContext)
-        val audioDeviceModule = JavaAudioDeviceModule.builder(context).createAudioDeviceModule()
+        val audioDeviceModule = JavaAudioDeviceModule.builder(context)
+            .setUseHardwareAcousticEchoCanceler(true)
+            .setUseHardwareNoiseSuppressor(true)
+            .createAudioDeviceModule()
         
         return PeerConnectionFactory.builder()
             .setVideoEncoderFactory(videoEncoderFactory)

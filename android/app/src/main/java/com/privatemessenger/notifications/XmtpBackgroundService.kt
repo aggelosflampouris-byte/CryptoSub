@@ -178,10 +178,10 @@ class XmtpBackgroundService : Service() {
                                         )
                                         app.database.messageDao().insert(msgEntity)
                                         isStructuralPayload = true
-                                    } else if (type.startsWith("webrtc_")) {
+                                    } else if (type?.startsWith("webrtc_") == true) {
                                         isStructuralPayload = true
                                         val signal = com.privatemessenger.webrtc.WebRTCSignal(
-                                            type = type,
+                                            type = type ?: "unknown",
                                             sdp = json.get("sdp")?.asString,
                                             candidate = json.get("candidate")?.asString,
                                             sdpMid = json.get("sdpMid")?.asString,

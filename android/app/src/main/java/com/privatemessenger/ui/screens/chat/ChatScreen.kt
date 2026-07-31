@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -275,7 +276,7 @@ fun ChatScreen(
                 },
                 actions = {
                     IconButton(onClick = { onVideoCallClicked() }) {
-                        Icon(androidx.compose.material.icons.filled.Videocam, contentDescription = "Video Call")
+                        Icon(Icons.Default.Videocam, contentDescription = "Video Call")
                     }
                     var showClearHistoryDialog by remember { mutableStateOf(false) }
                     IconButton(onClick = { showClearHistoryDialog = true }) {
