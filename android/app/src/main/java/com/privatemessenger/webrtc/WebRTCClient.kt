@@ -24,6 +24,8 @@ class WebRTCClient(
     private val localAudioTrack: AudioTrack
     
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
+    
+    private var isClosed = false
 
     init {
         initWebRTC()
@@ -139,12 +141,14 @@ class WebRTCClient(
     }
 
     fun close() {
-        videoCapturer?.stopCapture()
-        videoCapturer?.dispose()
-        localVideoSource.dispose()
-        localAudioSource.dispose()
-        peerConnection?.close()
-        peerConnectionFactory.dispose()
-        rootEglBase.release()
+        if (isClosed) return
+        isClosed = true
+        try { videoCapturer?.stopCapture() } catch(e:Exception){}
+        try { videoCapturer?.dispose() } catch(e:Exception){}
+        try { localVideoSource.dispose() } catch(e:Exception){}
+        try { localAudioSource.dispose() } catch(e:Exception){}
+        try { peerConnection?.close() } catch(e:Exception){}
+        try { peerConnectionFactory.dispose() } catch(e:Exception){}
+        try { rootEglBase.release() } catch(e:Exception){}
     }
 }

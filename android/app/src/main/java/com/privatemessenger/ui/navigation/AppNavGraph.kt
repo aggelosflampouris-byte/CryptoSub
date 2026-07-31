@@ -400,7 +400,6 @@ fun AppNavGraph(
                             android.util.Log.e("AppNavGraph", "call end message failed", e)
                         }
                     }
-                    webRTCClient.close()
                     navController.popBackStack()
                 }
             )
