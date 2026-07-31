@@ -85,7 +85,10 @@ fun ContactDetailsScreen(
                         outputStream.close()
                         
                         database.conversationDao().updateProfilePicture(conversationId, Uri.fromFile(file).toString())
-                        contact = database.conversationDao().getConversation(conversationId)
+                        val updated = database.conversationDao().getConversation(conversationId)
+                        withContext(Dispatchers.Main) {
+                            contact = updated
+                        }
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("ContactDetails", "Failed to save avatar", e)

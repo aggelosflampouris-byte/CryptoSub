@@ -255,6 +255,9 @@ fun AppNavGraph(
                                     unreadCount = 0
                                 )
                                 app.database.conversationDao().upsert(contact)
+                            } else {
+                                // If the contact already exists, bump its timestamp so it appears at the top of the list
+                                app.database.conversationDao().updateLastMessage(xmtpConvId, existing.lastMessage ?: "Scanned", System.currentTimeMillis())
                             }
 
                             // 4. Sync so the other device's welcome message is received
