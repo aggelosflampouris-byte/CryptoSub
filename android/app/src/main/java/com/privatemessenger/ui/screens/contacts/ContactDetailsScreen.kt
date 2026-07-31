@@ -48,7 +48,7 @@ fun ContactDetailsScreen(
     var newName by remember { mutableStateOf("") }
     
     LaunchedEffect(contact) {
-        if (contact != null && initialEditMode) {
+        if (contact != null && newName.isEmpty()) {
             newName = contact?.displayName ?: ""
         }
     }
@@ -238,7 +238,12 @@ fun ContactDetailsScreen(
                         Button(onClick = {
                             coroutineScope.launch(Dispatchers.IO) {
                                 contact?.recipientUserId?.let { userId ->
-                                    database.contactDao().updateDescription(userId, description)
+                                    val ce = database.contactDao().getContact(userId)
+                                    if (ce == null) {
+                                        database.contactDao().upsert(com.privatemessenger.data.local.entity.ContactEntity(userId = userId, description = description))
+                                    } else {
+                                        database.contactDao().updateDescription(userId, description)
+                                    }
                                     contactEntity = database.contactDao().getContact(userId)
                                 }
                                 withContext(Dispatchers.Main) {

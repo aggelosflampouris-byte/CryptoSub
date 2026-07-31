@@ -88,7 +88,7 @@ fun AppNavGraph(
                 database = app.database,
                 app = app,
                 onChatClicked = { conversationId ->
-                    navController.navigate("chat/$conversationId")
+                    navController.navigate("chat/${android.net.Uri.encode(conversationId)}")
                 },
                 onAddContactClicked = {
                     navController.navigate("scanner")
@@ -169,7 +169,7 @@ fun AppNavGraph(
                 database = app.database,
                 onBack = { navController.popBackStack() },
                 onNavigateToChat = { convId ->
-                    navController.navigate("chat/$convId") {
+                    navController.navigate("chat/${android.net.Uri.encode(convId)}") {
                         popUpTo("chat_list")
                     }
                 }
@@ -180,7 +180,7 @@ fun AppNavGraph(
             com.privatemessenger.ui.screens.groups.GroupsScreen(
                 database = app.database,
                 onChatClicked = { conversationId ->
-                    navController.navigate("chat/$conversationId") {
+                    navController.navigate("chat/${android.net.Uri.encode(conversationId)}") {
                         popUpTo("chat_list")
                     }
                 },
@@ -207,7 +207,7 @@ fun AppNavGraph(
             CreateGroupScreen(
                 app = app,
                 onGroupCreated = { groupId ->
-                    navController.navigate("chat/$groupId") {
+                    navController.navigate("chat/${android.net.Uri.encode(groupId)}") {
                         popUpTo("chat_list")
                     }
                 },
@@ -262,7 +262,7 @@ fun AppNavGraph(
 
                             // 5. Navigate using the XMTP conversation ID, not the raw address, and trigger edit mode
                             kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                navController.navigate("contact_details/$xmtpConvId?editName=true") {
+                                navController.navigate("contact_details/${android.net.Uri.encode(xmtpConvId)}?editName=true") {
                                     popUpTo("chat_list")
                                 }
                             }
