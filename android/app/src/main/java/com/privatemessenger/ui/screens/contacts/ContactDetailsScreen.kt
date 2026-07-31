@@ -378,9 +378,17 @@ fun ContactDetailsScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    coroutineScope.launch(Dispatchers.IO) {
-                        database.conversationDao().updateDisplayName(conversationId, newName)
-                        contact = database.conversationDao().getConversation(conversationId)
+                    val nameToSave = newName.trim()
+                    if (nameToSave.isNotEmpty()) {
+                        coroutineScope.launch(Dispatchers.IO) {
+                            database.conversationDao().updateDisplayName(conversationId, nameToSave)
+                            val updated = database.conversationDao().getConversation(conversationId)
+                            withContext(Dispatchers.Main) {
+                                contact = updated
+                                showEditNameDialog = false
+                            }
+                        }
+                    } else {
                         showEditNameDialog = false
                     }
                 }) {
