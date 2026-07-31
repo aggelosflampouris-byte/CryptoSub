@@ -12,7 +12,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 
 /** Main app — routing is done with simple state, no router library needed. */
 export default function App() {
-  const { isRegistered, isLoading } = useXmtp()
+  const { isRegistered, isInitializing } = useXmtp()
   const [showAccount, setShowAccount] = useState(false)
   const [isLocked, setIsLocked] = useState(true)
   const [pinInput, setPinInput] = useState('')
@@ -42,7 +42,7 @@ export default function App() {
   }
 
   // Loading state while restoring key from local storage
-  if (isLoading) {
+  if (isInitializing) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, background: 'var(--bg)' }}>
         <span style={{ fontSize: 36, fontWeight: 800, letterSpacing: '0.06em' }}>CryptoSub</span>

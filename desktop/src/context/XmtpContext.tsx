@@ -37,6 +37,7 @@ interface XmtpContextValue {
   isConnected: boolean
   isRegistered: boolean
   isLoading: boolean
+  isInitializing: boolean
   error: string | null
   conversations: ConversationMeta[]
   activeConversationId: string | null
@@ -65,7 +66,8 @@ const XmtpContext = createContext<XmtpContextValue | null>(null)
 export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const [client, setClient] = useState<Client | null>(null)
   const [isConnected, setIsConnected] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isInitializing, setIsInitializing] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conversations, setConversations] = useState<ConversationMeta[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
@@ -376,7 +378,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         console.error('Failed to restore XMTP session', e)
       } finally {
-        setIsLoading(false)
+        setIsInitializing(false)
       }
     })()
   }, [initClient])
@@ -405,16 +407,25 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   }, [client, activeConversationId, loadConversations])
 
   const register = useCallback(async (): Promise<string | null> => {
-    setIsLoading(true)
     setError(null)
     try {
       const { privateKey } = generateWallet()
-      await storePrivateKey(privateKey)
-      await initClient(privateKey)
       return privateKey
     } catch (e: any) {
       setError(e.message || 'Failed to generate identity.')
       return null
+    }
+  }, [])
+
+  const confirmRegistration = useCallback(async (privateKeyHex: string) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      await storePrivateKey(privateKeyHex)
+      await initClient(privateKeyHex)
+    } catch (e: any) {
+      await clearKeystore()
+      throw new Error(e.message || 'Failed to register identity.')
     } finally {
       setIsLoading(false)
     }
@@ -541,6 +552,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       client,
       isConnected,
       isRegistered: !!client,
+      isInitializing,
       isLoading,
       error,
       conversations,
@@ -550,6 +562,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       typingUsers,
       reactions,
       register,
+      confirmRegistration,
       restore,
       logout,
       selectConversation,

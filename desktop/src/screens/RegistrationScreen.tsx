@@ -4,7 +4,7 @@ import { useXmtp } from '../context/XmtpContext'
 type View = 'register' | 'import' | 'showKey'
 
 export default function RegistrationScreen() {
-  const { register, restore, isLoading, error } = useXmtp()
+  const { register, confirmRegistration, restore, isLoading, error } = useXmtp()
   const [view, setView] = useState<View>('register')
   const [generatedKey, setGeneratedKey] = useState<string | null>(null)
   const [importKey, setImportKey] = useState('')
@@ -62,10 +62,11 @@ export default function RegistrationScreen() {
           </p>
           <button
             className="btn btn-primary"
-            onClick={() => { /* Client already set in context — no action needed */ }}
+            onClick={() => confirmRegistration(generatedKey)}
+            disabled={isLoading}
             style={{ marginTop: 8 }}
           >
-            ✓ I have safely stored it
+            {isLoading ? <span className="spinner dark" /> : '✓ I have safely stored it'}
           </button>
         </div>
       </div>
