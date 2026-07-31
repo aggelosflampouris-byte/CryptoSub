@@ -305,21 +305,23 @@ fun AppNavGraph(
                         }
                     }
                 },
-                onVideoCallClicked = {
-                    navController.navigate("video_call/${android.net.Uri.encode(conversationId)}?isIncoming=false")
+                onCallClicked = { isVoiceOnly ->
+                    navController.navigate("video_call/${android.net.Uri.encode(conversationId)}?isIncoming=false&isVoiceOnly=${isVoiceOnly}")
                 }
             )
         }
 
         composable(
-            route = "video_call/{conversationId}?isIncoming={isIncoming}",
+            route = "video_call/{conversationId}?isIncoming={isIncoming}&isVoiceOnly={isVoiceOnly}",
             arguments = listOf(
                 navArgument("conversationId") { type = NavType.StringType },
-                navArgument("isIncoming") { type = NavType.BoolType; defaultValue = false }
+                navArgument("isIncoming") { type = NavType.BoolType; defaultValue = false },
+                navArgument("isVoiceOnly") { type = NavType.BoolType; defaultValue = false }
             )
         ) { backStackEntry ->
             val conversationId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
             val isIncoming = backStackEntry.arguments?.getBoolean("isIncoming") ?: false
+            val isVoiceOnly = backStackEntry.arguments?.getBoolean("isVoiceOnly") ?: false
             
             // We need a remembered WebRTCClient
             val context = androidx.compose.ui.platform.LocalContext.current
@@ -361,11 +363,38 @@ fun AppNavGraph(
                 }
             }
 
+            val callerName = app.database.conversationDao().getConversation(conversationId)?.displayName
+                ?: "${conversationId.take(6)}…${conversationId.takeLast(4)}"
+
             com.privatemessenger.ui.screens.call.VideoCallScreen(
                 conversationId = conversationId,
                 webRTCClient = webRTCClient,
                 isIncoming = isIncoming,
-                onEndCall = {
+                isVoiceOnly = isVoiceOnly,
+                callerName = callerName,
+                onEndCall = { durationSeconds ->
+                    // Send call-ended chat message
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val client = app.xmtpClient
+                            val xmtpConv = client?.conversations?.findConversation(conversationId)
+                            if (client != null && xmtpConv != null) {
+                                val callTypeLabel = if (isVoiceOnly) "📞 Voice call" else "📹 Video call"
+                                val durationLabel = if (durationSeconds > 0) {
+                                    val m = durationSeconds / 60
+                                    val s = durationSeconds % 60
+                                    " • %d:%02d".format(m, s)
+                                } else ""
+                                val payload = "${callTypeLabel} ended${durationLabel}"
+                                when (xmtpConv) {
+                                    is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
+                                    is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("AppNavGraph", "call end message failed", e)
+                        }
+                    }
                     webRTCClient.close()
                     navController.popBackStack()
                 }

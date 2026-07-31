@@ -7,7 +7,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import React from 'react'
 import { getClearedUpTo } from '../services/metadataStore'
 import { VideoCallModal } from '../components/VideoCallModal'
-import { Video } from 'lucide-react'
+import { Phone, Video } from 'lucide-react'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -161,6 +161,26 @@ function BubbleContent({ msg, onSystemAction }: { msg: DecodedMessage, onSystemA
         return <div className="chat-text" style={{ fontStyle: 'italic', opacity: 0.8 }}>History cleared by consent.</div>
       case 'clear_history_decline':
         return <div className="chat-text" style={{ fontStyle: 'italic', opacity: 0.8 }}>Contact declined the clear history request.</div>
+      case 'call_started':
+        return (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, fontStyle: 'italic',
+            opacity: 0.85, padding: '4px 0', fontSize: 13,
+          }}>
+            <span style={{ fontSize: 16 }}>{tsStr?.startsWith('📞') ? '📞' : '📹'}</span>
+            <span>{tsStr?.replace(/^[📞📹]\s*/, '') ?? 'Call started'}</span>
+          </div>
+        )
+      case 'call_ended':
+        return (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, fontStyle: 'italic',
+            opacity: 0.75, padding: '4px 0', fontSize: 13,
+          }}>
+            <span style={{ fontSize: 16 }}>📵</span>
+            <span>{parts.slice(2).join(':') ?? 'Call ended'}</span>
+          </div>
+        )
     }
   }
 
@@ -277,7 +297,8 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [showClearDialog, setShowClearDialog] = useState(false)
-  const [showVideoCall, setShowVideoCall] = useState(false)
+  const [showCallPicker, setShowCallPicker] = useState(false)
+  const [activeCall, setActiveCall] = useState<{ isVoiceOnly: boolean; isIncoming: boolean } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -444,20 +465,59 @@ export default function ChatScreen() {
 
   return (
     <div className="chat-area">
-      {/* Video Call Modal */}
-      {showVideoCall && activeConversationId && (
-        <VideoCallModal 
-          conversationId={activeConversationId} 
-          isIncoming={false} 
-          onClose={() => setShowVideoCall(false)} 
+      {/* Call Modal */}
+      {activeCall && activeConversationId && (
+        <VideoCallModal
+          conversationId={activeConversationId}
+          isIncoming={activeCall.isIncoming}
+          isVoiceOnly={activeCall.isVoiceOnly}
+          callerName={activeMeta?.displayName ?? 'Unknown'}
+          onClose={(duration: number) => {
+            const callType = activeCall.isVoiceOnly ? '📞 Voice call' : '📹 Video call'
+            const durationStr = duration > 0
+              ? ` • ${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`
+              : ''
+            sendMessage(`SYSTEM_UI:call_ended:${callType} ended${durationStr}`)
+            setActiveCall(null)
+          }}
         />
       )}
       
-      {incomingSignal && incomingSignal.type === 'webrtc_offer' && incomingSignal.conversationId === activeConversationId && (
-        <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'var(--primary)', color: 'white', padding: '12px 24px', borderRadius: 24, display: 'flex', gap: 16, alignItems: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-          <div>Incoming Video Call</div>
-          <button onClick={() => setShowVideoCall(true)} style={{ background: '#22c55e', border: 'none', padding: '8px 16px', borderRadius: 16, cursor: 'pointer', color: 'white', fontWeight: 'bold' }}>Answer</button>
-          <button onClick={() => { sendMessage(JSON.stringify({ type: 'webrtc_call_reject' })); clearIncomingSignal() }} style={{ background: '#ef4444', border: 'none', padding: '8px 16px', borderRadius: 16, cursor: 'pointer', color: 'white', fontWeight: 'bold' }}>Decline</button>
+      {/* Incoming call banner */}
+      {incomingSignal && incomingSignal.type === 'webrtc_offer' && incomingSignal.conversationId === activeConversationId && !activeCall && (
+        <div style={{
+          position: 'absolute', top: 64, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 100, background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+          color: 'white', padding: '14px 24px', borderRadius: 24,
+          display: 'flex', gap: 16, alignItems: 'center',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          whiteSpace: 'nowrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ animation: 'pulse 1.5s infinite', color: '#22c55e' }}>
+              <Phone size={18} />
+            </div>
+            <span style={{ fontWeight: 600 }}>
+              {incomingSignal.isVoiceOnly ? 'Incoming voice call' : 'Incoming video call'}
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              sendMessage(`SYSTEM_UI:call_started:${incomingSignal.isVoiceOnly ? '📞 Voice' : '📹 Video'} call started`)
+              setActiveCall({ isVoiceOnly: !!incomingSignal.isVoiceOnly, isIncoming: true })
+              clearIncomingSignal()
+            }}
+            style={{ background: '#22c55e', border: 'none', padding: '8px 18px', borderRadius: 14, cursor: 'pointer', color: 'white', fontWeight: 700, fontSize: 13 }}
+          >
+            Answer
+          </button>
+          <button
+            onClick={() => { sendMessage(JSON.stringify({ type: 'webrtc_call_reject' })); clearIncomingSignal() }}
+            style={{ background: '#ef4444', border: 'none', padding: '8px 18px', borderRadius: 14, cursor: 'pointer', color: 'white', fontWeight: 700, fontSize: 13 }}
+          >
+            Decline
+          </button>
         </div>
       )}
 
@@ -474,15 +534,56 @@ export default function ChatScreen() {
           <div className="chat-header-name">{activeMeta?.displayName ?? '…'}</div>
           <div className="chat-header-address">{activeMeta?.peerAddress}</div>
         </div>
-        
-        <button 
-          className="icon-btn" 
-          style={{ padding: 8, marginRight: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }} 
-          title="Video Call" 
-          onClick={(e) => { e.stopPropagation(); setShowVideoCall(true) }}
-        >
-          <Video size={20} />
-        </button>
+
+        {/* Phone / call picker button */}
+        <div style={{ position: 'relative' }}>
+          <button
+            className="icon-btn"
+            style={{ padding: 8, marginRight: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }}
+            title="Call"
+            onClick={(e) => { e.stopPropagation(); setShowCallPicker(p => !p) }}
+          >
+            <Phone size={20} />
+          </button>
+
+          {showCallPicker && (
+            <div
+              style={{
+                position: 'absolute', top: '110%', right: 0,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 14, overflow: 'hidden',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+                zIndex: 200, minWidth: 180,
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover, rgba(255,255,255,0.06))')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                onClick={() => {
+                  setShowCallPicker(false)
+                  sendMessage(`SYSTEM_UI:call_started:📞 Voice call started`)
+                  setActiveCall({ isVoiceOnly: true, isIncoming: false })
+                }}
+              >
+                <Phone size={16} /> Voice Call
+              </button>
+              <button
+                style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, borderTop: '1px solid var(--border)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover, rgba(255,255,255,0.06))')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                onClick={() => {
+                  setShowCallPicker(false)
+                  sendMessage(`SYSTEM_UI:call_started:📹 Video call started`)
+                  setActiveCall({ isVoiceOnly: false, isIncoming: false })
+                }}
+              >
+                <Video size={16} /> Video Call
+              </button>
+            </div>
+          )}
+        </div>
 
         <button className="icon-btn" style={{ padding: 8 }} title="Clear Chat History" onClick={(e) => { e.stopPropagation(); setShowClearDialog(true); }}>
           🗑️

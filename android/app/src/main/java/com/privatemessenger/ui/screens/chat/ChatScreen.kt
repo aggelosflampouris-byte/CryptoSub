@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -103,7 +104,7 @@ fun ChatScreen(
     app: com.privatemessenger.PrivateMessengerApp,
     onBack: () -> Unit,
     onHeaderClicked: () -> Unit,
-    onVideoCallClicked: () -> Unit
+    onCallClicked: (isVoiceOnly: Boolean) -> Unit
 ) {
     val allMessages by database.messageDao().getMessagesForConversation(conversationId).collectAsState(initial = emptyList())
     val messages = remember(allMessages) { allMessages.filter { !it.content.trim().startsWith("@") } }
@@ -113,6 +114,7 @@ fun ChatScreen(
     var conversation by remember { mutableStateOf<ConversationEntity?>(null) }
     var replyingToMessage by remember { mutableStateOf<MessageEntity?>(null) }
     val clipboardManager = LocalClipboardManager.current
+    var showCallPicker by remember { mutableStateOf(false) }
     
     val typingStates by TypingManager.typingStates.collectAsState()
     val isTyping by remember(conversationId, typingStates) {
@@ -218,6 +220,68 @@ fun ChatScreen(
         }
     }
 
+    // Call type picker dialog
+    if (showCallPicker) {
+        AlertDialog(
+            onDismissRequest = { showCallPicker = false },
+            title = { Text("Start a Call") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Voice call option
+                    OutlinedButton(
+                        onClick = {
+                            showCallPicker = false
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val client = app.xmtpClient ?: return@launch
+                                    val xmtpConv = client.conversations.findConversation(conversationId) ?: return@launch
+                                    val payload = """{"type":"call_event","event":"started","callType":"voice"}"""
+                                    when (xmtpConv) {
+                                        is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
+                                        is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
+                                    }
+                                } catch (e: Exception) { android.util.Log.e("ChatScreen", "call event failed", e) }
+                            }
+                            onCallClicked(true)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Voice Call")
+                    }
+                    // Video call option
+                    Button(
+                        onClick = {
+                            showCallPicker = false
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val client = app.xmtpClient ?: return@launch
+                                    val xmtpConv = client.conversations.findConversation(conversationId) ?: return@launch
+                                    val payload = """{"type":"call_event","event":"started","callType":"video"}"""
+                                    when (xmtpConv) {
+                                        is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
+                                        is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
+                                    }
+                                } catch (e: Exception) { android.util.Log.e("ChatScreen", "call event failed", e) }
+                            }
+                            onCallClicked(false)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Video Call")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showCallPicker = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     Scaffold(
         modifier = Modifier.imePadding(),
         topBar = {
@@ -275,8 +339,8 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onVideoCallClicked() }) {
-                        Icon(Icons.Default.Videocam, contentDescription = "Video Call")
+                    IconButton(onClick = { showCallPicker = true }) {
+                        Icon(Icons.Default.Phone, contentDescription = "Call")
                     }
                     var showClearHistoryDialog by remember { mutableStateOf(false) }
                     IconButton(onClick = { showClearHistoryDialog = true }) {
