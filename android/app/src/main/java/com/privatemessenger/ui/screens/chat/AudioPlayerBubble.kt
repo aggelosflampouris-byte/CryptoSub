@@ -99,16 +99,26 @@ fun AudioPlayerBubble(
         Spacer(Modifier.width(8.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            // Scrubber bar
-            LinearProgressIndicator(
-                progress = { progress },
+            // Waveform scrubber
+            val pattern = listOf(0.2f, 0.4f, 0.3f, 0.6f, 0.8f, 0.5f, 0.4f, 0.7f, 1.0f, 0.8f, 0.6f, 0.4f, 0.5f, 0.9f, 0.7f, 0.5f, 0.3f, 0.5f, 0.8f, 0.6f, 0.4f, 0.3f, 0.5f, 0.7f, 0.5f, 0.3f, 0.4f, 0.6f, 0.3f, 0.2f)
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = textColor.copy(alpha = 0.8f),
-                trackColor = textColor.copy(alpha = 0.2f),
-            )
+                    .height(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                pattern.forEachIndexed { index, heightFactor ->
+                    val isPlayed = (index.toFloat() / pattern.size) <= progress
+                    Box(
+                        modifier = Modifier
+                            .width(2.5.dp)
+                            .fillMaxHeight(heightFactor)
+                            .clip(CircleShape)
+                            .background(if (isPlayed) textColor else textColor.copy(alpha = 0.3f))
+                    )
+                }
+            }
             Spacer(Modifier.height(3.dp))
             // Duration label
             val displayMs = if (isPlaying && duration > 0) (progress * duration).toInt() else duration

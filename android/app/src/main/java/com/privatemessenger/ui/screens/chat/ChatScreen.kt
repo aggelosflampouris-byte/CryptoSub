@@ -519,7 +519,7 @@ fun ChatScreen(
                                     id = localMessageId,
                                     conversationId = conversationId,
                                     senderUserId = client.inboxId,
-                                    content = "🎙️ Voice memo",
+                                    content = "",
                                     audioUri = localCopy.absolutePath,
                                     type = MessageType.VOICE,
                                     timestamp = System.currentTimeMillis(),
@@ -890,7 +890,7 @@ fun MessageBubble(
                             modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
-                    if (message.content.isNotBlank()) {
+                    if (message.content.isNotBlank() && message.content != "🎙️ Voice memo") {
                         MessageText(text = message.content, textColor = textColor)
                     }
                     
