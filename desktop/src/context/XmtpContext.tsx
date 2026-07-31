@@ -46,6 +46,7 @@ interface XmtpContextValue {
   typingUsers: { [conversationId: string]: Set<string> }
   reactions: ReactionsMap
   register: () => Promise<string | null>
+  confirmRegistration: (privateKeyHex: string) => Promise<void>
   restore: (privateKeyHex: string) => Promise<void>
   logout: () => Promise<void>
   selectConversation: (id: string) => void
