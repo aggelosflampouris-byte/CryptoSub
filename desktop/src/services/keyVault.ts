@@ -1,4 +1,4 @@
-import { load } from '@tauri-apps/plugin-store'
+import { load, Store } from '@tauri-apps/plugin-store'
 
 /**
  * Secure key vault for the Desktop app.
@@ -10,8 +10,13 @@ import { load } from '@tauri-apps/plugin-store'
 const STORE_FILE = 'cryptosub-vault.json'
 const KEY_NAME = 'pm_pk'
 
+let storePromise: Promise<Store> | null = null
+
 async function getStore() {
-  return load(STORE_FILE, { autoSave: true })
+  if (!storePromise) {
+    storePromise = load(STORE_FILE, { autoSave: true })
+  }
+  return storePromise
 }
 
 export async function storePrivateKey(hex: string): Promise<void> {

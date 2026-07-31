@@ -60,9 +60,18 @@ export default function RegistrationScreen() {
           <p className="warning-text">
             Store it offline. DO NOT share it with anyone.
           </p>
+          {localError && <p style={{ color: 'var(--error)', fontSize: 13, textAlign: 'center', marginTop: 8 }}>{localError}</p>}
+          {error && <p style={{ color: 'var(--error)', fontSize: 13, textAlign: 'center', marginTop: 8 }}>{error}</p>}
           <button
             className="btn btn-primary"
-            onClick={() => confirmRegistration(generatedKey)}
+            onClick={async () => {
+              setLocalError(null)
+              try {
+                await confirmRegistration(generatedKey)
+              } catch (e: any) {
+                setLocalError(e.message)
+              }
+            }}
             disabled={isLoading}
             style={{ marginTop: 8 }}
           >
