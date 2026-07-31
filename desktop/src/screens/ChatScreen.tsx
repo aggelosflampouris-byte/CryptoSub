@@ -516,13 +516,13 @@ export default function ChatScreen() {
           <>
             <Virtuoso
               ref={virtuosoRef}
-              style={{ flex: 1, width: '100%' }}
+              style={{ flex: 1, width: '100%', height: '100%' }}
               data={flattenedItems}
               initialTopMostItemIndex={flattenedItems.length > 0 ? flattenedItems.length - 1 : 0}
               followOutput="smooth"
               itemContent={(index, item) => {
                 if (item.type === 'day') {
-                  return <div className="day-divider">{item.content}</div>
+                  return <div className="day-divider" style={{ padding: '0 16px' }}>{item.content}</div>
                 }
 
                 const msg = item.content
@@ -540,6 +540,7 @@ export default function ChatScreen() {
                 const contentText = typeof msg.content === 'string' ? msg.content : undefined
 
                 return (
+                  <div style={{ padding: '2px 16px' }}>
                   <MessageBubble
                     key={msgId}
                     msg={msg}
@@ -565,6 +566,7 @@ export default function ChatScreen() {
                       }
                     }}
                   />
+                  </div>
                 )
               }}
             />

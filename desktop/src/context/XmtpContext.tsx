@@ -451,11 +451,18 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     setConversations(prev => prev.map(c => c.id === id ? { ...c, unreadCount: 0 } : c))
     // Load messages and reactions
     const conv = convMapRef.current.get(id)
-    if (!conv) return
+    if (!conv) {
+      setMessages([])
+      return
+    }
+    setMessages([])
     setMessagesLoading(true)
     loadMessages(conv).then(({ msgs, reactions: newReactions }) => {
       setMessages(msgs)
       setReactions(prev => ({ ...prev, ...newReactions }))
+    }).catch(e => {
+      console.error('Failed to load messages', e)
+    }).finally(() => {
       setMessagesLoading(false)
     })
   }, [])
