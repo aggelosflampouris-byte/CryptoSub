@@ -41,6 +41,7 @@ fun VideoCallScreen(
     webRTCClient: WebRTCClient,
     isIncoming: Boolean,
     isVoiceOnly: Boolean = false,
+    isConnected: Boolean = false,
     callerName: String = "Unknown",
     onEndCall: (durationSeconds: Int) -> Unit,
     onOfferCreated: (String) -> Unit = {},
@@ -58,6 +59,12 @@ fun VideoCallScreen(
 
     val localRenderer = remember { SurfaceViewRenderer(context) }
     val remoteRenderer = remember { SurfaceViewRenderer(context) }
+    
+    LaunchedEffect(isConnected) {
+        if (isConnected) {
+            callStatus = CallStatus.CONNECTED
+        }
+    }
 
     // Timer
     LaunchedEffect(callStatus) {

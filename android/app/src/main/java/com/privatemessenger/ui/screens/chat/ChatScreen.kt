@@ -235,7 +235,7 @@ fun ChatScreen(
                                 try {
                                     val client = app.xmtpClient ?: return@launch
                                     val xmtpConv = client.conversations.findConversation(conversationId) ?: return@launch
-                                    val payload = """{"type":"call_event","event":"started","callType":"voice"}"""
+                                    val payload = "SYSTEM_UI:call_started:📞 Voice call started"
                                     when (xmtpConv) {
                                         is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
                                         is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
@@ -258,7 +258,7 @@ fun ChatScreen(
                                 try {
                                     val client = app.xmtpClient ?: return@launch
                                     val xmtpConv = client.conversations.findConversation(conversationId) ?: return@launch
-                                    val payload = """{"type":"call_event","event":"started","callType":"video"}"""
+                                    val payload = "SYSTEM_UI:call_started:📹 Video call started"
                                     when (xmtpConv) {
                                         is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
                                         is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
@@ -879,6 +879,30 @@ fun MessageBubble(
                                     style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
                                     color = textColor.copy(alpha = 0.8f)
                                 )
+                            }
+                            "call_started" -> {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val icon = if (timestampStr?.startsWith("📞") == true) "📞" else "📹"
+                                    val rest = timestampStr?.removePrefix("📞")?.removePrefix("📹")?.trim() ?: "Call started"
+                                    Text(icon, fontSize = 16.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = rest.ifEmpty { "Call started" },
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                                        color = textColor.copy(alpha = 0.85f)
+                                    )
+                                }
+                            }
+                            "call_ended" -> {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("📵", fontSize = 16.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = parts.drop(2).joinToString(":").ifEmpty { "Call ended" },
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                                        color = textColor.copy(alpha = 0.75f)
+                                    )
+                                }
                             }
                             else -> {
                                 Text(

@@ -325,12 +325,17 @@ fun AppNavGraph(
             
             // We need a remembered WebRTCClient
             val context = androidx.compose.ui.platform.LocalContext.current
+            val isConnectedState = remember { androidx.compose.runtime.mutableStateOf(false) }
             val webRTCClient = remember { 
                 com.privatemessenger.webrtc.WebRTCClient(
                     context, 
                     object : org.webrtc.PeerConnection.Observer {
                         override fun onSignalingChange(p0: org.webrtc.PeerConnection.SignalingState?) {}
-                        override fun onIceConnectionChange(p0: org.webrtc.PeerConnection.IceConnectionState?) {}
+                        override fun onIceConnectionChange(state: org.webrtc.PeerConnection.IceConnectionState?) {
+                            if (state == org.webrtc.PeerConnection.IceConnectionState.CONNECTED) {
+                                isConnectedState.value = true
+                            }
+                        }
                         override fun onIceConnectionReceivingChange(p0: Boolean) {}
                         override fun onIceGatheringChange(p0: org.webrtc.PeerConnection.IceGatheringState?) {}
                         override fun onIceCandidate(candidate: org.webrtc.IceCandidate) {
@@ -376,6 +381,7 @@ fun AppNavGraph(
                 webRTCClient = webRTCClient,
                 isIncoming = isIncoming,
                 isVoiceOnly = isVoiceOnly,
+                isConnected = isConnectedState.value,
                 callerName = callerName,
                 onEndCall = { durationSeconds ->
                     // Send call-ended chat message
@@ -390,7 +396,7 @@ fun AppNavGraph(
                                     val s = durationSeconds % 60
                                     " • %d:%02d".format(m, s)
                                 } else ""
-                                val payload = "${callTypeLabel} ended${durationLabel}"
+                                val payload = "SYSTEM_UI:call_ended:${callTypeLabel} ended${durationLabel}"
                                 when (xmtpConv) {
                                     is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
                                     is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
