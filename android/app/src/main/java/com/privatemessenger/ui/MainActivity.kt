@@ -13,6 +13,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
@@ -308,7 +310,12 @@ class MainActivity : FragmentActivity() {
                                                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                                                 modifier = Modifier.fillMaxWidth(0.8f)
                                                 ) {
-                                                    Text("Unlock with Fingerprint", color = MaterialTheme.colorScheme.onSecondary)
+                                                    androidx.compose.material3.Icon(
+                                                        imageVector = androidx.compose.material.icons.Icons.Default.Fingerprint,
+                                                        contentDescription = "Unlock with Fingerprint",
+                                                        tint = MaterialTheme.colorScheme.onSecondary,
+                                                        modifier = Modifier.size(32.dp)
+                                                    )
                                                 }
                                             }
                                         }
