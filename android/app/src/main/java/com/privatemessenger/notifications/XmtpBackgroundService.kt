@@ -192,11 +192,12 @@ class XmtpBackgroundService : Service() {
                                         
                                         if (type == "webrtc_offer") {
                                             if (message.senderInboxId != client.inboxId) {
-                                                val conversationExists = app.database.conversationDao().getConversation(convId) != null
                                                 val xmtpConv = client.conversations.findConversation(convId)
                                                 val peerId = (xmtpConv as? org.xmtp.android.library.Conversation.Dm)?.dm?.peerInboxId ?: message.senderInboxId
                                                 val label = app.database.conversationDao().getConversation(convId)?.displayName ?: "${peerId.take(6)}...${peerId.takeLast(4)}"
-                                                NotificationHelper.showIncomingCallNotification(app, label, convId)
+                                                val offerSdp = json.get("sdp")?.asString ?: ""
+                                                val isVoiceOnly = json.get("isVoiceOnly")?.asBoolean ?: false
+                                                NotificationHelper.showIncomingCallNotification(app, label, convId, offerSdp, isVoiceOnly)
                                             }
                                         }
                                     }

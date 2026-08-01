@@ -143,27 +143,40 @@ object NotificationHelper {
         nm.notify("update_notification".hashCode(), notification)
     }
 
-    fun showIncomingCallNotification(context: Context, callerLabel: String, conversationId: String) {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+    fun showIncomingCallNotification(context: Context, callerLabel: String, conversationId: String, offerSdp: String = "", isVoiceOnly: Boolean = false) {
+        val answerIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra("open_conversation", conversationId)
             putExtra("action", "answer_call")
+            putExtra("offer_sdp", offerSdp)
+            putExtra("is_voice_only", isVoiceOnly)
         }
-        val fullScreenIntent = PendingIntent.getActivity(
-            context, conversationId.hashCode(), intent,
+        val answerPi = PendingIntent.getActivity(
+            context, conversationId.hashCode(), answerIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val declineIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra("open_conversation", conversationId)
+            putExtra("action", "decline_call")
+        }
+        val declinePi = PendingIntent.getActivity(
+            context, "decline_${conversationId}".hashCode(), declineIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_CALLS)
             .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setContentTitle("Incoming Video Call")
+            .setContentTitle(if (isVoiceOnly) "Incoming Voice Call" else "Incoming Video Call")
             .setContentText("$callerLabel is calling you")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setFullScreenIntent(fullScreenIntent, true)
+            .setFullScreenIntent(answerPi, true)
             .setOngoing(true)
-            .setAutoCancel(true)
-            .addAction(android.R.drawable.ic_menu_call, "Answer", fullScreenIntent)
+            .setAutoCancel(false)
+            .addAction(android.R.drawable.ic_menu_call, "Answer", answerPi)
+            .addAction(android.R.drawable.ic_delete, "Decline", declinePi)
             .build()
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

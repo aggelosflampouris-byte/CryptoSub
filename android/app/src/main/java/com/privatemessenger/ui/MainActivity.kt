@@ -65,6 +65,10 @@ import org.xmtp.android.library.XMTPEnvironment
 class MainActivity : FragmentActivity() {
     private var pendingNavigation = androidx.compose.runtime.mutableStateOf<String?>(null)
 
+    companion object {
+        /** The SDP offer carried from the incoming-call notification. Cleared once consumed. */
+        var pendingOfferSdp: String = ""
+    }
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -75,7 +79,15 @@ class MainActivity : FragmentActivity() {
         val action = intent?.getStringExtra("action")
         val convId = intent?.getStringExtra("open_conversation")
         if (action == "answer_call" && convId != null) {
-            pendingNavigation.value = "video_call/${android.net.Uri.encode(convId)}?isIncoming=true&isVoiceOnly=false"
+            val offerSdp = intent.getStringExtra("offer_sdp") ?: ""
+            val isVoiceOnly = intent.getBooleanExtra("is_voice_only", false)
+            // Store SDP so the call screen can retrieve it once composed
+            pendingOfferSdp = offerSdp
+            pendingNavigation.value = "video_call/${android.net.Uri.encode(convId)}?isIncoming=true&isVoiceOnly=${isVoiceOnly}"
+        } else if (action == "decline_call" && convId != null) {
+            // Dismiss — nothing to navigate, just cancel the notification
+            val nm = getSystemService(android.app.NotificationManager::class.java)
+            nm.cancel("call_${convId}".hashCode())
         } else if (convId != null) {
             pendingNavigation.value = "chat/${android.net.Uri.encode(convId)}"
         }
