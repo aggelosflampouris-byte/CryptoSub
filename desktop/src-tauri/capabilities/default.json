@@ -10,6 +10,7 @@
     "notification:allow-notify",
     "os:default",
     "window-state:default",
-    "http:default"
+    "http:default",
+    "store:default"
   ]
 }

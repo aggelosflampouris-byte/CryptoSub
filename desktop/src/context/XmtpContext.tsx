@@ -425,8 +425,13 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       await storePrivateKey(privateKeyHex)
       await initClient(privateKeyHex)
     } catch (e: any) {
-      await clearKeystore()
-      throw new Error(e.message || 'Failed to register identity.')
+      const msg = typeof e === 'string' ? e : (e?.message || 'Failed to register identity.')
+      try {
+        await clearKeystore()
+      } catch (clearErr) {
+        console.error('Failed to clear keystore:', clearErr)
+      }
+      throw new Error(msg)
     } finally {
       setIsLoading(false)
     }
@@ -443,8 +448,13 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       await storePrivateKey(clean)
       await initClient(clean)
     } catch (e: any) {
-      await clearKeystore()
-      throw new Error(e.message || 'Failed to restore identity.')
+      const msg = typeof e === 'string' ? e : (e?.message || 'Failed to restore identity.')
+      try {
+        await clearKeystore()
+      } catch (clearErr) {
+        console.error('Failed to clear keystore:', clearErr)
+      }
+      throw new Error(msg)
     } finally {
       setIsLoading(false)
     }
