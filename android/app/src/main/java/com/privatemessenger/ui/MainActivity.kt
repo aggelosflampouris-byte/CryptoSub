@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
@@ -259,7 +262,7 @@ class MainActivity : FragmentActivity() {
                                     }
 
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(androidx.compose.material.icons.Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.height(16.dp))
                                         Text("App Locked", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
                                         Spacer(modifier = Modifier.height(32.dp))
@@ -340,7 +343,7 @@ class MainActivity : FragmentActivity() {
                                                 modifier = Modifier.fillMaxWidth(0.8f)
                                                 ) {
                                                     androidx.compose.material3.Icon(
-                                                        imageVector = androidx.compose.material.icons.Icons.Default.Fingerprint,
+                                                        imageVector = Icons.Default.Fingerprint,
                                                         contentDescription = "Unlock with Fingerprint",
                                                         tint = MaterialTheme.colorScheme.onSecondary,
                                                         modifier = Modifier.size(32.dp)
