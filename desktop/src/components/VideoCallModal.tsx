@@ -225,7 +225,7 @@ export function VideoCallModal({ conversationId, isIncoming, isVoiceOnly, caller
 
             <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginBottom: 32 }}>
               {isWaiting
-                ? (isIncoming ? 'Incoming voice call…' : 'Calling…')
+                ? (isIncoming ? 'Incoming voice call…' : 'Waiting for participant(s)...')
                 : formatDuration(elapsedSeconds)
               }
             </div>

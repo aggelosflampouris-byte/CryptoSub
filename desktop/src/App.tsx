@@ -17,7 +17,17 @@ export default function App() {
   const [isLocked, setIsLocked] = useState(true)
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState(false)
+  const [failCount, setFailCount] = useState(0)
+  const [cooldownUntil, setCooldownUntil] = useState(0)
+  const [, setTick] = useState(0)
   const settings = getSettings()
+
+  useEffect(() => {
+    if (cooldownUntil > Date.now()) {
+      const interval = setInterval(() => setTick(t => t + 1), 1000)
+      return () => clearInterval(interval)
+    }
+  }, [cooldownUntil])
 
   useEffect(() => {
     if (settings.theme === 'light') document.body.classList.add('light-theme')
@@ -33,10 +43,20 @@ export default function App() {
   }, [])
 
   const handleUnlock = () => {
+    if (cooldownUntil > Date.now()) return
+
     if (pinInput === settings.appLockPin) {
       setIsLocked(false)
+      setFailCount(0)
     } else {
-      setPinError(true)
+      const newFails = failCount + 1
+      setFailCount(newFails)
+      if (newFails >= 3) {
+        setCooldownUntil(Date.now() + 5 * 60 * 1000)
+        setFailCount(0)
+      } else {
+        setPinError(true)
+      }
       setPinInput('')
     }
   }
@@ -52,22 +72,32 @@ export default function App() {
   }
 
   if (isLocked) {
+    const cooldownRemaining = cooldownUntil - Date.now()
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, background: 'var(--bg)' }}>
         <span style={{ fontSize: 24, fontWeight: 700 }}>App Locked</span>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input 
-            type="password" 
-            className="form-input" 
-            placeholder="Enter PIN" 
-            value={pinInput} 
-            onChange={e => { setPinInput(e.target.value); setPinError(false) }} 
-            onKeyDown={e => e.key === 'Enter' && handleUnlock()}
-            autoFocus
-          />
-          <button className="btn btn-primary" style={{ width: 'auto' }} onClick={handleUnlock}>Unlock</button>
-        </div>
-        {pinError && <span style={{ color: 'var(--error)', fontSize: 13 }}>Incorrect PIN</span>}
+        {cooldownRemaining > 0 ? (
+          <span style={{ color: 'var(--error)' }}>
+            PIN disabled for {Math.floor(cooldownRemaining / 60000)}:
+            {Math.floor((cooldownRemaining / 1000) % 60).toString().padStart(2, '0')}
+          </span>
+        ) : (
+          <>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input 
+                type="password" 
+                className="form-input" 
+                placeholder="Enter PIN" 
+                value={pinInput} 
+                onChange={e => { setPinInput(e.target.value); setPinError(false) }} 
+                onKeyDown={e => e.key === 'Enter' && handleUnlock()}
+                autoFocus
+              />
+              <button className="btn btn-primary" style={{ width: 'auto' }} onClick={handleUnlock}>Unlock</button>
+            </div>
+            {pinError && <span style={{ color: 'var(--error)', fontSize: 13 }}>Incorrect PIN</span>}
+          </>
+        )}
       </div>
     )
   }
