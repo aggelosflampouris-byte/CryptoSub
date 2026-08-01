@@ -191,11 +191,13 @@ class XmtpBackgroundService : Service() {
                                         com.privatemessenger.webrtc.WebRTCSignalingManager.emitSignal(signal)
                                         
                                         if (type == "webrtc_offer") {
-                                            val conversationExists = app.database.conversationDao().getConversation(convId) != null
-                                            val xmtpConv = client.conversations.findConversation(convId)
-                                            val peerId = (xmtpConv as? org.xmtp.android.library.Conversation.Dm)?.dm?.peerInboxId ?: message.senderInboxId
-                                            val label = app.database.conversationDao().getConversation(convId)?.displayName ?: "${peerId.take(6)}...${peerId.takeLast(4)}"
-                                            NotificationHelper.showIncomingCallNotification(app, label, convId)
+                                            if (message.senderInboxId != client.inboxId) {
+                                                val conversationExists = app.database.conversationDao().getConversation(convId) != null
+                                                val xmtpConv = client.conversations.findConversation(convId)
+                                                val peerId = (xmtpConv as? org.xmtp.android.library.Conversation.Dm)?.dm?.peerInboxId ?: message.senderInboxId
+                                                val label = app.database.conversationDao().getConversation(convId)?.displayName ?: "${peerId.take(6)}...${peerId.takeLast(4)}"
+                                                NotificationHelper.showIncomingCallNotification(app, label, convId)
+                                            }
                                         }
                                     }
                                 } catch (e: Exception) {

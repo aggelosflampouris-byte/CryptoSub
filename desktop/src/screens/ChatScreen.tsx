@@ -420,9 +420,55 @@ export default function ChatScreen() {
     setRecordingSeconds(0)
   }, [recording])
 
+  const renderIncomingCallBanner = () => {
+    if (incomingSignal && incomingSignal.type === 'webrtc_offer' && !activeCall) {
+      return (
+        <div style={{
+          position: 'absolute', top: 64, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 100, background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+          color: 'white', padding: '14px 24px', borderRadius: 24,
+          display: 'flex', gap: 16, alignItems: 'center',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          whiteSpace: 'nowrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ animation: 'pulse 1.5s infinite', color: '#22c55e' }}>
+              <Phone size={18} />
+            </div>
+            <span style={{ fontWeight: 600 }}>
+              {incomingSignal.isVoiceOnly ? 'Incoming voice call' : 'Incoming video call'}
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              if (activeConversationId !== incomingSignal.conversationId) {
+                selectConversation(incomingSignal.conversationId)
+              }
+              sendMessage(`SYSTEM_UI:call_started:${incomingSignal.isVoiceOnly ? '📞 Voice' : '📹 Video'} call started`, incomingSignal.conversationId)
+              setActiveCall({ isVoiceOnly: !!incomingSignal.isVoiceOnly, isIncoming: true })
+              clearIncomingSignal()
+            }}
+            style={{ background: '#22c55e', border: 'none', padding: '8px 18px', borderRadius: 14, cursor: 'pointer', color: 'white', fontWeight: 700, fontSize: 13 }}
+          >
+            Answer
+          </button>
+          <button
+            onClick={() => { sendMessage(JSON.stringify({ type: 'webrtc_call_reject' }), incomingSignal.conversationId); clearIncomingSignal() }}
+            style={{ background: '#ef4444', border: 'none', padding: '8px 18px', borderRadius: 14, cursor: 'pointer', color: 'white', fontWeight: 700, fontSize: 13 }}
+          >
+            Decline
+          </button>
+        </div>
+      )
+    }
+    return null
+  }
+
   if (!activeConversationId) {
     return (
       <div className="chat-area">
+        {renderIncomingCallBanner()}
         <div className="chat-empty">
           <span className="chat-empty-icon">🔐</span>
           <h2>Select a conversation</h2>
@@ -493,46 +539,9 @@ export default function ChatScreen() {
           }}
         />
       )}
-      
-      {/* Incoming call banner */}
-      {incomingSignal && incomingSignal.type === 'webrtc_offer' && incomingSignal.conversationId === activeConversationId && !activeCall && (
-        <div style={{
-          position: 'absolute', top: 64, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 100, background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
-          color: 'white', padding: '14px 24px', borderRadius: 24,
-          display: 'flex', gap: 16, alignItems: 'center',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          whiteSpace: 'nowrap',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ animation: 'pulse 1.5s infinite', color: '#22c55e' }}>
-              <Phone size={18} />
-            </div>
-            <span style={{ fontWeight: 600 }}>
-              {incomingSignal.isVoiceOnly ? 'Incoming voice call' : 'Incoming video call'}
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              sendMessage(`SYSTEM_UI:call_started:${incomingSignal.isVoiceOnly ? '📞 Voice' : '📹 Video'} call started`)
-              setActiveCall({ isVoiceOnly: !!incomingSignal.isVoiceOnly, isIncoming: true })
-              clearIncomingSignal()
-            }}
-            style={{ background: '#22c55e', border: 'none', padding: '8px 18px', borderRadius: 14, cursor: 'pointer', color: 'white', fontWeight: 700, fontSize: 13 }}
-          >
-            Answer
-          </button>
-          <button
-            onClick={() => { sendMessage(JSON.stringify({ type: 'webrtc_call_reject' })); clearIncomingSignal() }}
-            style={{ background: '#ef4444', border: 'none', padding: '8px 18px', borderRadius: 14, cursor: 'pointer', color: 'white', fontWeight: 700, fontSize: 13 }}
-          >
-            Decline
-          </button>
-        </div>
-      )}
 
-      {/* Header */}
+      {/* Global Incoming call banner */}
+      {renderIncomingCallBanner()}
       <div className="chat-header" onClick={() => setShowProfile(true)} style={{ cursor: 'pointer' }}>
         {activeMeta?.profilePicture ? (
           <img src={activeMeta.profilePicture} alt="Avatar" className="avatar" style={{ width: 36, height: 36, objectFit: 'cover' }} />

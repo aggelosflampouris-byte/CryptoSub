@@ -51,7 +51,7 @@ interface XmtpContextValue {
   logout: () => Promise<void>
   selectConversation: (id: string) => void
   startNewConversation: (address: string) => Promise<string>
-  sendMessage: (text: string) => Promise<void>
+  sendMessage: (text: string, overrideConvId?: string) => Promise<void>
   sendAttachment: (file: File) => Promise<void>
   sendReaction: (messageId: string, emoji: string) => Promise<void>
   sendVoiceMemo: (audioBlob: Blob) => Promise<void>
@@ -218,7 +218,10 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
             } else if (json.type && json.type.startsWith('webrtc_')) {
               isStructural = true
               const msgSenderId = (msg as any).senderInboxId || (msg as any).senderAddress
-              setIncomingSignal({ ...json, senderId: msgSenderId, conversationId: (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic })
+              const myId = (xmtpClient as any).inboxId || (xmtpClient as any).address
+              if (msgSenderId?.toLowerCase() !== myId?.toLowerCase()) {
+                setIncomingSignal({ ...json, senderId: msgSenderId, conversationId: (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic })
+              }
             }
           } catch(e) {}
         }
@@ -518,9 +521,11 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     return conv.id
   }, [client, buildMeta, selectConversation, startStreaming])
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!client || !activeConversationId) return
-    const conv = convMapRef.current.get(activeConversationId)
+  const sendMessage = useCallback(async (text: string, overrideConvId?: string) => {
+    if (!client) return
+    const targetConvId = overrideConvId || activeConversationId
+    if (!targetConvId) return
+    const conv = convMapRef.current.get(targetConvId)
     if (!conv) return
     await xmtpSendMessage(conv, text)
   }, [client, activeConversationId])
