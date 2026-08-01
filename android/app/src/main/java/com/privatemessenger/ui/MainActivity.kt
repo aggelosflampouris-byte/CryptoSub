@@ -138,6 +138,7 @@ class MainActivity : FragmentActivity() {
             val settingsManager = remember { SettingsManager.getInstance(this@MainActivity) }
             val isScreenshotProtectionEnabled by settingsManager.isScreenshotProtectionEnabled.collectAsState(initial = false)
             val isBiometricEnabled by settingsManager.isBiometricLockEnabled.collectAsState(initial = false)
+            val appLockPin by settingsManager.appLockPin.collectAsState(initial = null)
             
             LaunchedEffect(isScreenshotProtectionEnabled) {
                 if (isScreenshotProtectionEnabled) {
@@ -151,15 +152,15 @@ class MainActivity : FragmentActivity() {
             var backgroundTime by rememberSaveable { mutableStateOf(0L) }
             val lifecycleOwner = LocalLifecycleOwner.current
             
-            LaunchedEffect(isBiometricEnabled) {
-                if (isBiometricEnabled && System.currentTimeMillis() - backgroundTime > 60_000L) {
+            LaunchedEffect(isBiometricEnabled, appLockPin) {
+                if ((isBiometricEnabled || appLockPin != null) && System.currentTimeMillis() - backgroundTime > 60_000L) {
                     isLocked = true
                 }
             }
 
-            DisposableEffect(lifecycleOwner, isBiometricEnabled) {
+            DisposableEffect(lifecycleOwner, isBiometricEnabled, appLockPin) {
                 val observer = LifecycleEventObserver { _, event ->
-                    if (isBiometricEnabled) {
+                    if (isBiometricEnabled || appLockPin != null) {
                         when (event) {
                             Lifecycle.Event.ON_STOP -> {
                                 backgroundTime = System.currentTimeMillis()
@@ -212,29 +213,70 @@ class MainActivity : FragmentActivity() {
                         ) {
                             Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                                 Box(contentAlignment = Alignment.Center) {
+                                    var unlockPinInput by remember { mutableStateOf("") }
+                                    var pinError by remember { mutableStateOf(false) }
+
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Icon(androidx.compose.material.icons.Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.height(16.dp))
                                         Text("App Locked", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
                                         Spacer(modifier = Modifier.height(32.dp))
-                                        Button(onClick = {
-                                            val executor = ContextCompat.getMainExecutor(this@MainActivity)
-                                            val biometricPrompt = BiometricPrompt(this@MainActivity, executor,
-                                                object : BiometricPrompt.AuthenticationCallback() {
-                                                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                                                        super.onAuthenticationSucceeded(result)
+
+                                        if (appLockPin != null) {
+                                            androidx.compose.material3.OutlinedTextField(
+                                                value = unlockPinInput,
+                                                onValueChange = { 
+                                                    if (it.length <= 6 && it.all { char -> char.isDigit() }) unlockPinInput = it 
+                                                    pinError = false
+                                                },
+                                                label = { Text("Enter 6-digit PIN") },
+                                                isError = pinError,
+                                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth(0.8f)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Button(
+                                                onClick = {
+                                                    if (unlockPinInput == appLockPin) {
                                                         isLocked = false
                                                         backgroundTime = System.currentTimeMillis()
+                                                        unlockPinInput = ""
+                                                    } else {
+                                                        pinError = true
                                                     }
-                                                })
-                                            val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                                                .setTitle("Unlock CryptoSub")
-                                                .setSubtitle("Authenticate to access your private messages")
-                                                .setNegativeButtonText("Cancel")
-                                                .build()
-                                            biometricPrompt.authenticate(promptInfo)
-                                        }) {
-                                            Text("Unlock", color = MaterialTheme.colorScheme.onPrimary)
+                                                },
+                                                modifier = Modifier.fillMaxWidth(0.8f)
+                                            ) {
+                                                Text("Unlock with PIN")
+                                            }
+                                        }
+
+                                        if (isBiometricEnabled) {
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Button(onClick = {
+                                                val executor = ContextCompat.getMainExecutor(this@MainActivity)
+                                                val biometricPrompt = BiometricPrompt(this@MainActivity, executor,
+                                                    object : BiometricPrompt.AuthenticationCallback() {
+                                                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                                            super.onAuthenticationSucceeded(result)
+                                                            isLocked = false
+                                                            backgroundTime = System.currentTimeMillis()
+                                                        }
+                                                    })
+                                                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                                                    .setTitle("Unlock CryptoSub")
+                                                    .setSubtitle("Authenticate to access your private messages")
+                                                    .setNegativeButtonText("Cancel")
+                                                    .build()
+                                                biometricPrompt.authenticate(promptInfo)
+                                            },
+                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                            modifier = Modifier.fillMaxWidth(0.8f)
+                                            ) {
+                                                Text("Unlock with Fingerprint", color = MaterialTheme.colorScheme.onSecondary)
+                                            }
                                         }
                                     }
                                 }

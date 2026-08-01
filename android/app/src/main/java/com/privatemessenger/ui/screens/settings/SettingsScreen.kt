@@ -68,12 +68,15 @@ fun SettingsScreen(
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val isBiometricEnabled by settingsManager.isBiometricLockEnabled.collectAsState()
+    val appLockPin by settingsManager.appLockPin.collectAsState()
     val isScreenshotProtectionEnabled by settingsManager.isScreenshotProtectionEnabled.collectAsState()
 
     var updateInfo by remember { mutableStateOf<AppUpdater.UpdateInfo?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
 
     var showPasswordDialog by remember { mutableStateOf(false) }
+    var showPinDialog by remember { mutableStateOf(false) }
+    var pinInput by remember { mutableStateOf("") }
     var backupPassword by remember { mutableStateOf("") }
     var isExporting by remember { mutableStateOf(false) }
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
@@ -246,6 +249,42 @@ fun SettingsScreen(
                             checked = isBiometricEnabled,
                             onCheckedChange = { settingsManager.setBiometricLockEnabled(it) }
                         )
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                pinInput = ""
+                                showPinDialog = true
+                            }
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            androidx.compose.material.icons.Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "App Lock PIN",
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                if (appLockPin != null) "6-digit PIN is set" else "Set a 6-digit PIN to unlock the app",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     HorizontalDivider(
@@ -520,6 +559,57 @@ fun SettingsScreen(
                     backupPassword = ""
                 }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showPinDialog) {
+        AlertDialog(
+            onDismissRequest = { showPinDialog = false },
+            title = { Text(if (appLockPin != null) "Change PIN" else "Set App PIN") },
+            text = {
+                Column {
+                    Text("Enter a 6-digit PIN to secure your messages.")
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = pinInput,
+                        onValueChange = { if (it.length <= 6 && it.all { char -> char.isDigit() }) pinInput = it },
+                        label = { Text("6-Digit PIN") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (pinInput.length == 6) {
+                            settingsManager.setAppLockPin(pinInput)
+                            showPinDialog = false
+                        } else {
+                            Toast.makeText(context, "PIN must be exactly 6 digits", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (appLockPin != null) {
+                        TextButton(onClick = {
+                            settingsManager.setAppLockPin(null)
+                            showPinDialog = false
+                            Toast.makeText(context, "PIN removed", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Text("Remove PIN", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    TextButton(onClick = { showPinDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
             }
         )

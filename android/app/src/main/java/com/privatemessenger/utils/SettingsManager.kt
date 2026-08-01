@@ -26,6 +26,11 @@ class SettingsManager private constructor(context: Context) {
     )
     val isBiometricLockEnabled: StateFlow<Boolean> = _isBiometricLockEnabled.asStateFlow()
 
+    private val _appLockPin = MutableStateFlow(
+        sharedPreferences.getString(KEY_APP_LOCK_PIN, null)
+    )
+    val appLockPin: StateFlow<String?> = _appLockPin.asStateFlow()
+
     private val _isScreenshotProtectionEnabled = MutableStateFlow(
         sharedPreferences.getBoolean(KEY_SCREENSHOT_PROTECTION, false)
     )
@@ -36,6 +41,15 @@ class SettingsManager private constructor(context: Context) {
         _isBiometricLockEnabled.value = enabled
     }
 
+    fun setAppLockPin(pin: String?) {
+        if (pin == null) {
+            sharedPreferences.edit().remove(KEY_APP_LOCK_PIN).apply()
+        } else {
+            sharedPreferences.edit().putString(KEY_APP_LOCK_PIN, pin).apply()
+        }
+        _appLockPin.value = pin
+    }
+
     fun setScreenshotProtectionEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_SCREENSHOT_PROTECTION, enabled).apply()
         _isScreenshotProtectionEnabled.value = enabled
@@ -43,6 +57,7 @@ class SettingsManager private constructor(context: Context) {
 
     companion object {
         private const val KEY_BIOMETRIC_LOCK = "biometric_lock_enabled"
+        private const val KEY_APP_LOCK_PIN = "app_lock_pin"
         private const val KEY_SCREENSHOT_PROTECTION = "screenshot_protection_enabled"
 
         @Volatile
