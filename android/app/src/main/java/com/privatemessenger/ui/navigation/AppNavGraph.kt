@@ -402,41 +402,31 @@ fun AppNavGraph(
 
                     if (offerSdp.isNotEmpty()) {
                         val remoteDesc = org.webrtc.SessionDescription(org.webrtc.SessionDescription.Type.OFFER, offerSdp)
-                        webRTCClient.setRemoteDescription(remoteDesc, object : org.webrtc.SdpObserver {
-                            override fun onCreateSuccess(p0: org.webrtc.SessionDescription?) {}
-                            override fun onSetSuccess() {
-                                webRTCClient.answer(object : org.webrtc.SdpObserver {
-                                    override fun onCreateSuccess(desc: org.webrtc.SessionDescription?) {
-                                        desc?.let {
-                                            webRTCClient.setLocalDescription(it)
-                                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                                try {
-                                                    val client = app.xmtpClient ?: return@launch
-                                                    val xmtpConv = client.conversations.findConversation(conversationId) ?: return@launch
-                                                    val payload = com.google.gson.Gson().toJson(mapOf(
-                                                        "type" to "webrtc_answer",
-                                                        "sdp" to it.description
-                                                    ))
-                                                    when (xmtpConv) {
-                                                        is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
-                                                        is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
-                                                    }
-                                                    val nm = context.getSystemService(android.app.NotificationManager::class.java)
-                                                    nm.cancel("call_${conversationId}".hashCode())
-                                                } catch (e: Exception) {
-                                                    android.util.Log.e("AppNavGraph", "Failed to send webrtc_answer", e)
-                                                }
-                                            }
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            val success = webRTCClient.setRemoteDescriptionAwait(remoteDesc)
+                            if (success) {
+                                val desc = webRTCClient.answerAwait()
+                                desc?.let {
+                                    webRTCClient.setLocalDescription(it)
+                                    try {
+                                        val client = app.xmtpClient ?: return@launch
+                                        val xmtpConv = client.conversations.findConversation(conversationId) ?: return@launch
+                                        val payload = com.google.gson.Gson().toJson(mapOf(
+                                            "type" to "webrtc_answer",
+                                            "sdp" to it.description
+                                        ))
+                                        when (xmtpConv) {
+                                            is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
+                                            is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
                                         }
+                                        val nm = context.getSystemService(android.app.NotificationManager::class.java)
+                                        nm.cancel("call_${conversationId}".hashCode())
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("AppNavGraph", "Failed to send webrtc_answer", e)
                                     }
-                                    override fun onSetSuccess() {}
-                                    override fun onCreateFailure(p0: String?) {}
-                                    override fun onSetFailure(p0: String?) {}
-                                })
+                                }
                             }
-                            override fun onCreateFailure(p0: String?) {}
-                            override fun onSetFailure(p0: String?) {}
-                        })
+                        }
                     }
                 }
 
@@ -448,12 +438,10 @@ fun AppNavGraph(
                                 val answerDesc = org.webrtc.SessionDescription(
                                     org.webrtc.SessionDescription.Type.ANSWER, signal.sdp
                                 )
-                                webRTCClient.setRemoteDescription(answerDesc, object : org.webrtc.SdpObserver {
-                                    override fun onCreateSuccess(p0: org.webrtc.SessionDescription?) {}
-                                    override fun onSetSuccess() { isConnectedState.value = true }
-                                    override fun onCreateFailure(p0: String?) {}
-                                    override fun onSetFailure(p0: String?) {}
-                                })
+                                val success = webRTCClient.setRemoteDescriptionAwait(answerDesc)
+                                if (success) {
+                                    isConnectedState.value = true
+                                }
                             }
                             "webrtc_ice_candidate" -> {
                                 if (signal.candidate != null) {

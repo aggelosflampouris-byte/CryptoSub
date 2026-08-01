@@ -119,6 +119,16 @@ class WebRTCClient(
         }, sessionDescription)
     }
 
+    suspend fun setRemoteDescriptionAwait(sessionDescription: SessionDescription): Boolean = kotlin.coroutines.suspendCoroutine { cont ->
+        peerConnection?.setRemoteDescription(object : SdpObserver {
+            override fun onCreateSuccess(p0: SessionDescription?) {}
+            override fun onSetSuccess() { cont.resumeWith(Result.success(true)) }
+            override fun onCreateFailure(p0: String?) { cont.resumeWith(Result.success(false)) }
+            override fun onSetFailure(p0: String?) { cont.resumeWith(Result.success(false)) }
+        }, sessionDescription)
+            ?: cont.resumeWith(Result.success(false))
+    }
+
     fun setLocalDescription(sessionDescription: SessionDescription, observer: SdpObserver? = null) {
         peerConnection?.setLocalDescription(observer ?: object : SdpObserver {
             override fun onCreateSuccess(p0: SessionDescription?) {}
@@ -126,6 +136,20 @@ class WebRTCClient(
             override fun onCreateFailure(p0: String?) {}
             override fun onSetFailure(p0: String?) {}
         }, sessionDescription)
+    }
+
+    suspend fun answerAwait(): SessionDescription? = kotlin.coroutines.suspendCoroutine { cont ->
+        val constraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+        }
+        peerConnection?.createAnswer(object : SdpObserver {
+            override fun onCreateSuccess(desc: SessionDescription?) { cont.resumeWith(Result.success(desc)) }
+            override fun onSetSuccess() {}
+            override fun onCreateFailure(p0: String?) { cont.resumeWith(Result.success(null)) }
+            override fun onSetFailure(p0: String?) { cont.resumeWith(Result.success(null)) }
+        }, constraints)
+            ?: cont.resumeWith(Result.success(null))
     }
 
     fun addIceCandidate(iceCandidate: IceCandidate) {
