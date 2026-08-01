@@ -60,8 +60,27 @@ import org.xmtp.android.library.codecs.RemoteAttachmentCodec
 import org.xmtp.android.library.XMTPEnvironment
 
 class MainActivity : FragmentActivity() {
+    private var pendingNavigation = androidx.compose.runtime.mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: android.content.Intent?) {
+        val action = intent?.getStringExtra("action")
+        val convId = intent?.getStringExtra("open_conversation")
+        if (action == "answer_call" && convId != null) {
+            pendingNavigation.value = "video_call/${android.net.Uri.encode(convId)}?isIncoming=true&isVoiceOnly=false"
+        } else if (convId != null) {
+            pendingNavigation.value = "chat/${android.net.Uri.encode(convId)}"
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleIntent(intent)
         
         // Request Notification Permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -198,11 +217,21 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    val navController = androidx.navigation.compose.rememberNavController()
+                    val navTarget = pendingNavigation.value
+                    LaunchedEffect(navTarget) {
+                        if (navTarget != null) {
+                            navController.navigate(navTarget)
+                            pendingNavigation.value = null
+                        }
+                    }
+
                     AppNavGraph(
                         startDestination = startDestination,
                         app = app,
                         currentTheme = currentTheme,
-                        onThemeChanged = { currentTheme = it }
+                        onThemeChanged = { currentTheme = it },
+                        navController = navController
                     )
 
                     if (isLocked) {

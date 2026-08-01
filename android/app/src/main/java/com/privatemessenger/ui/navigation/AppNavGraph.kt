@@ -31,9 +31,9 @@ fun AppNavGraph(
     startDestination: String,
     app: PrivateMessengerApp,
     currentTheme: AppTheme,
-    onThemeChanged: (AppTheme) -> Unit
+    onThemeChanged: (AppTheme) -> Unit,
+    navController: androidx.navigation.NavHostController = rememberNavController()
 ) {
-    val navController = rememberNavController()
     val authRepository = AuthRepository(app)
     val coroutineScope = rememberCoroutineScope()
 

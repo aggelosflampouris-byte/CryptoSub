@@ -237,7 +237,7 @@ class XmtpBackgroundService : Service() {
                             } else {
                                 val conv = app.database.conversationDao().getConversation(convId)
                                 val senderLabel = conv?.displayName ?: "${message.senderInboxId.take(6)}..."
-                                if (message.senderInboxId != client.inboxId) {
+                                if (message.senderInboxId != client.inboxId && !finalContent.startsWith("SYSTEM_UI:")) {
                                     NotificationHelper.showNewMessageNotification(app, senderLabel, finalContent, convId)
                                 }
                             }
