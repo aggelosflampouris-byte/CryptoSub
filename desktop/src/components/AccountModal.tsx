@@ -132,40 +132,46 @@ export default function AccountModal({ onClose }: Props) {
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ width: 500, maxHeight: '90vh', overflow: 'hidden', padding: 0 }}>
+      <div className="modal" style={{ width: 680, maxHeight: '90vh', overflow: 'hidden', padding: 0, display: 'flex', flexDirection: 'column' }}>
         
-        {/* Header & Tabs */}
-        <div style={{ padding: '24px 32px 0 32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 className="modal-title" style={{ margin: 0 }}>Settings</h2>
-            <button className="icon-btn" onClick={onClose} style={{ fontSize: 18 }}>×</button>
-          </div>
-          <div style={{ display: 'flex', gap: 20, borderBottom: '1px solid var(--border)' }}>
-            {(['account', 'privacy', 'appearance'] as Tab[]).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '12px 4px',
-                  color: activeTab === tab ? 'var(--primary)' : 'var(--text-secondary)',
-                  fontWeight: activeTab === tab ? 700 : 500,
-                  borderBottom: activeTab === tab ? '2px solid var(--primary)' : '2px solid transparent',
-                  cursor: 'pointer',
-                  textTransform: 'capitalize'
-                }}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Scrollable Content */}
-        <div style={{ overflowY: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20, maxHeight: 'calc(90vh - 120px)' }}>
+        {/* Sidebar & Content Layout */}
+        <div style={{ display: 'flex', height: '65vh', minHeight: 400 }}>
           
-          {/* ─── ACCOUNT TAB ─── */}
+          {/* Sidebar */}
+          <div style={{ width: 160, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
+            <div style={{ padding: '24px 16px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="modal-title" style={{ margin: 0, fontSize: 20 }}>Settings</h2>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '0 8px' }}>
+              {(['account', 'privacy', 'appearance'] as Tab[]).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    background: activeTab === tab ? 'var(--surface-variant)' : 'transparent',
+                    border: 'none',
+                    padding: '10px 12px',
+                    color: activeTab === tab ? 'var(--primary)' : 'var(--text-secondary)',
+                    fontWeight: activeTab === tab ? 600 : 500,
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    textTransform: 'capitalize',
+                    textAlign: 'left',
+                    marginBottom: 4,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24, position: 'relative' }}>
+            <button className="icon-btn" onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, fontSize: 20, zIndex: 10 }}>×</button>
+            
+            {/* ─── ACCOUNT TAB ─── */}
           {activeTab === 'account' && (
             <>
               <div className="section-card" style={{ gap: 16, alignItems: 'center' }}>
@@ -333,6 +339,7 @@ export default function AccountModal({ onClose }: Props) {
             )}
           </div>
 
+          </div>
         </div>
       </div>
     </div>
