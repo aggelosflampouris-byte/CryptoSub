@@ -161,26 +161,35 @@ function BubbleContent({ msg, onSystemAction }: { msg: DecodedMessage, onSystemA
         return <div className="chat-text" style={{ fontStyle: 'italic', opacity: 0.8 }}>History cleared by consent.</div>
       case 'clear_history_decline':
         return <div className="chat-text" style={{ fontStyle: 'italic', opacity: 0.8 }}>Contact declined the clear history request.</div>
-      case 'call_started':
+      case 'call_started': {
+        const timeString = new Date((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        const rest = tsStr?.replace(/^[📞📹]\s*/, '') ?? 'Call started'
         return (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8, fontStyle: 'italic',
             opacity: 0.85, padding: '4px 0', fontSize: 13,
           }}>
             <span style={{ fontSize: 16 }}>{tsStr?.startsWith('📞') ? '📞' : '📹'}</span>
-            <span>{tsStr?.replace(/^[📞📹]\s*/, '') ?? 'Call started'}</span>
+            <span>{rest} at {timeString}</span>
           </div>
         )
-      case 'call_ended':
+      }
+      case 'call_ended': {
+        const timeString = new Date((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        const baseText = parts.slice(2).join(':') || 'Call ended'
+        const cleanText = baseText.replace(/^[📞📹]\s*/, '').trim()
+        const durationPart = cleanText.includes('•') ? ' • ' + cleanText.split('•')[1].trim() : ''
+        const callPart = cleanText.includes('•') ? cleanText.split('•')[0].trim() : cleanText
         return (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8, fontStyle: 'italic',
             opacity: 0.75, padding: '4px 0', fontSize: 13,
           }}>
             <span style={{ fontSize: 16 }}>📵</span>
-            <span>{parts.slice(2).join(':') ?? 'Call ended'}</span>
+            <span>{callPart} at {timeString}{durationPart}</span>
           </div>
         )
+      }
     }
   }
 

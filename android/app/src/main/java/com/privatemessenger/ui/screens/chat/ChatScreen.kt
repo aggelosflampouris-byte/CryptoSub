@@ -884,10 +884,11 @@ fun MessageBubble(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     val icon = if (timestampStr?.startsWith("📞") == true) "📞" else "📹"
                                     val rest = timestampStr?.removePrefix("📞")?.removePrefix("📹")?.trim() ?: "Call started"
+                                    val timeString = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
                                     Text(icon, fontSize = 16.sp)
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = rest.ifEmpty { "Call started" },
+                                        text = "${rest.ifEmpty { "Call started" }} at $timeString",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
                                         color = textColor.copy(alpha = 0.85f)
                                     )
@@ -897,8 +898,16 @@ fun MessageBubble(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("📵", fontSize = 16.sp)
                                     Spacer(Modifier.width(8.dp))
+                                    val timeString = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
+                                    val baseText = parts.drop(2).joinToString(":").ifEmpty { "Call ended" }
+                                    // baseText might be "📞 Voice call ended • 0:45"
+                                    // we want "Voice call ended at 14:05 • 0:45"
+                                    val cleanText = baseText.removePrefix("📞").removePrefix("📹").trim()
+                                    val durationPart = if (cleanText.contains("•")) " • " + cleanText.substringAfter("•").trim() else ""
+                                    val callPart = if (cleanText.contains("•")) cleanText.substringBefore("•").trim() else cleanText
+                                    
                                     Text(
-                                        text = parts.drop(2).joinToString(":").ifEmpty { "Call ended" },
+                                        text = "$callPart at $timeString$durationPart",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
                                         color = textColor.copy(alpha = 0.75f)
                                     )
@@ -983,7 +992,7 @@ fun MessageBubble(
                             modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
-                    if (message.content.isNotBlank() && message.content != "🎙️ Voice memo") {
+                    if (message.content.isNotBlank() && message.content != "🎙️ Voice memo" && !message.content.startsWith("SYSTEM_UI:")) {
                         MessageText(text = message.content, textColor = textColor)
                     }
                     
