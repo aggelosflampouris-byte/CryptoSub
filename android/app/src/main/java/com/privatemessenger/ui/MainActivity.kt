@@ -215,6 +215,16 @@ class MainActivity : FragmentActivity() {
                                 Box(contentAlignment = Alignment.Center) {
                                     var unlockPinInput by remember { mutableStateOf("") }
                                     var pinError by remember { mutableStateOf(false) }
+                                    var biometricFailCount by rememberSaveable { mutableStateOf(0) }
+                                    var biometricCooldownUntil by rememberSaveable { mutableStateOf(0L) }
+                                    var tick by remember { mutableStateOf(0) }
+                                    
+                                    LaunchedEffect(biometricCooldownUntil, tick) {
+                                        if (biometricCooldownUntil > System.currentTimeMillis()) {
+                                            kotlinx.coroutines.delay(1000)
+                                            tick++
+                                        }
+                                    }
 
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Icon(androidx.compose.material.icons.Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
@@ -255,27 +265,50 @@ class MainActivity : FragmentActivity() {
 
                                         if (isBiometricEnabled) {
                                             Spacer(modifier = Modifier.height(16.dp))
-                                            Button(onClick = {
-                                                val executor = ContextCompat.getMainExecutor(this@MainActivity)
-                                                val biometricPrompt = BiometricPrompt(this@MainActivity, executor,
-                                                    object : BiometricPrompt.AuthenticationCallback() {
-                                                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                                                            super.onAuthenticationSucceeded(result)
-                                                            isLocked = false
-                                                            backgroundTime = System.currentTimeMillis()
-                                                        }
-                                                    })
-                                                val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                                                    .setTitle("Unlock CryptoSub")
-                                                    .setSubtitle("Authenticate to access your private messages")
-                                                    .setNegativeButtonText("Cancel")
-                                                    .build()
-                                                biometricPrompt.authenticate(promptInfo)
-                                            },
-                                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                                            modifier = Modifier.fillMaxWidth(0.8f)
-                                            ) {
-                                                Text("Unlock with Fingerprint", color = MaterialTheme.colorScheme.onSecondary)
+                                            val cooldownRemaining = biometricCooldownUntil - System.currentTimeMillis()
+                                            
+                                            if (cooldownRemaining > 0) {
+                                                val minutes = (cooldownRemaining / 1000) / 60
+                                                val seconds = (cooldownRemaining / 1000) % 60
+                                                Text(
+                                                    text = "Fingerprint disabled for %d:%02d".format(minutes, seconds),
+                                                    color = MaterialTheme.colorScheme.error,
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            } else {
+                                                Button(onClick = {
+                                                    val executor = ContextCompat.getMainExecutor(this@MainActivity)
+                                                    var prompt: BiometricPrompt? = null
+                                                    prompt = BiometricPrompt(this@MainActivity, executor,
+                                                        object : BiometricPrompt.AuthenticationCallback() {
+                                                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                                                super.onAuthenticationSucceeded(result)
+                                                                isLocked = false
+                                                                backgroundTime = System.currentTimeMillis()
+                                                                biometricFailCount = 0
+                                                            }
+                                                            override fun onAuthenticationFailed() {
+                                                                super.onAuthenticationFailed()
+                                                                biometricFailCount++
+                                                                if (biometricFailCount >= 3) {
+                                                                    biometricCooldownUntil = System.currentTimeMillis() + 5 * 60 * 1000L
+                                                                    biometricFailCount = 0
+                                                                    prompt?.cancelAuthentication()
+                                                                }
+                                                            }
+                                                        })
+                                                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                                                        .setTitle("Unlock CryptoSub")
+                                                        .setSubtitle("Authenticate to access your private messages")
+                                                        .setNegativeButtonText("Cancel")
+                                                        .build()
+                                                    prompt.authenticate(promptInfo)
+                                                },
+                                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                                modifier = Modifier.fillMaxWidth(0.8f)
+                                                ) {
+                                                    Text("Unlock with Fingerprint", color = MaterialTheme.colorScheme.onSecondary)
+                                                }
                                             }
                                         }
                                     }
