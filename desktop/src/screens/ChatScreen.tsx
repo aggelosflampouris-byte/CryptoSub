@@ -303,7 +303,7 @@ function BubbleContent({ msg, onSystemAction }: { msg: DecodedMessage, onSystemA
 // ── Main Chat Screen ─────────────────────────────────────────────────────────
 
 export default function ChatScreen() {
-  const { activeConversationId, messages, sendMessage, sendReaction, sendAttachment, messagesLoading, client, typingUsers, reactions, sendVoiceMemo, incomingSignal, clearIncomingSignal, conversations, refreshConversations } = useXmtp()
+  const { activeConversationId, selectConversation, messages, sendMessage, sendReaction, sendAttachment, messagesLoading, client, typingUsers, reactions, sendVoiceMemo, incomingSignal, clearIncomingSignal, conversations, refreshConversations } = useXmtp()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
