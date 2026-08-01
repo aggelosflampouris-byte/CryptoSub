@@ -207,6 +207,8 @@ function BubbleContent({ msg, onSystemAction }: { msg: DecodedMessage, onSystemA
             </div>
           </div>
         )
+      } else if (json.type === 'call_event') {
+        return null
       }
     } catch {}
   }

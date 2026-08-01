@@ -155,7 +155,20 @@ export default function Sidebar({ onOpenAccount }: Props) {
             )}
             <div className="conversation-info">
               <div className="conversation-name">{conv.displayName}</div>
-              <div className="conversation-preview">{conv.lastMessage || 'No messages yet'}</div>
+              <div className="conversation-preview">
+                {(() => {
+                  const msg = conv.lastMessage
+                  if (!msg) return 'No messages yet'
+                  if (msg.trim().startsWith('{') && msg.includes('"type":"call_event"')) return '📞 Call event'
+                  if (msg.trim().startsWith('{') && msg.includes('"type":')) return 'System event'
+                  if (msg.startsWith('SYSTEM_UI:')) {
+                    const parts = msg.split(':')
+                    const rest = parts.slice(2).join(':').replace(/^[📞📹]\s*/, '').trim()
+                    return rest.replace(/ at \d{1,2}:\d{2}/, '')
+                  }
+                  return msg
+                })()}
+              </div>
             </div>
             <div className="conversation-meta">
               {conv.lastMessageTs > 0 && (

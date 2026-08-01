@@ -883,7 +883,7 @@ fun MessageBubble(
                             "call_started" -> {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     val icon = if (timestampStr?.startsWith("📞") == true) "📞" else "📹"
-                                    val rest = timestampStr?.removePrefix("📞")?.removePrefix("📹")?.trim() ?: "Call started"
+                                    val rest = timestampStr?.removePrefix("📞")?.removePrefix("📹")?.trim()?.replace(Regex(" at \\d{1,2}:\\d{2}"), "") ?: "Call started"
                                     val timeString = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
                                     Text(icon, fontSize = 16.sp)
                                     Spacer(Modifier.width(8.dp))
@@ -902,7 +902,7 @@ fun MessageBubble(
                                     val baseText = parts.drop(2).joinToString(":").ifEmpty { "Call ended" }
                                     // baseText might be "📞 Voice call ended • 0:45"
                                     // we want "Voice call ended at 14:05 • 0:45"
-                                    val cleanText = baseText.removePrefix("📞").removePrefix("📹").trim()
+                                    val cleanText = baseText.removePrefix("📞").removePrefix("📹").trim().replace(Regex(" at \\d{1,2}:\\d{2}"), "")
                                     val durationPart = if (cleanText.contains("•")) " • " + cleanText.substringAfter("•").trim() else ""
                                     val callPart = if (cleanText.contains("•")) cleanText.substringBefore("•").trim() else cleanText
                                     
@@ -992,7 +992,7 @@ fun MessageBubble(
                             modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
-                    if (message.content.isNotBlank() && message.content != "🎙️ Voice memo" && !message.content.startsWith("SYSTEM_UI:")) {
+                    if (message.content.isNotBlank() && message.content != "🎙️ Voice memo" && !message.content.startsWith("SYSTEM_UI:") && !message.content.trim().startsWith("{")) {
                         MessageText(text = message.content, textColor = textColor)
                     }
                     

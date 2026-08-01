@@ -471,8 +471,22 @@ fun ChatListItem(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val displayLastMessage = conversation.lastMessage?.let { msg ->
+                        if (msg.trim().startsWith("{") && msg.contains("\"type\":\"call_event\"")) {
+                            "📞 Call event"
+                        } else if (msg.trim().startsWith("{") && msg.contains("\"type\":")) {
+                            "System event"
+                        } else if (msg.startsWith("SYSTEM_UI:")) {
+                            val parts = msg.split(":")
+                            val textPart = parts.drop(2).joinToString(":")
+                            textPart.removePrefix("📞").removePrefix("📹").trim().replace(Regex(" at \\d{1,2}:\\d{2}"), "")
+                        } else {
+                            msg
+                        }
+                    } ?: "No messages yet"
+
                     Text(
-                        text = conversation.lastMessage ?: "No messages yet",
+                        text = displayLastMessage,
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (conversation.unreadCount > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (conversation.unreadCount > 0) FontWeight.SemiBold else FontWeight.Normal,
