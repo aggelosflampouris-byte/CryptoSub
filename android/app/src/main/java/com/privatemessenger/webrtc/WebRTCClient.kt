@@ -110,8 +110,8 @@ class WebRTCClient(
         peerConnection?.createAnswer(sdpObserver, constraints)
     }
 
-    fun setRemoteDescription(sessionDescription: SessionDescription) {
-        peerConnection?.setRemoteDescription(object : SdpObserver {
+    fun setRemoteDescription(sessionDescription: SessionDescription, observer: SdpObserver? = null) {
+        peerConnection?.setRemoteDescription(observer ?: object : SdpObserver {
             override fun onCreateSuccess(p0: SessionDescription?) {}
             override fun onSetSuccess() {}
             override fun onCreateFailure(p0: String?) {}
@@ -119,8 +119,8 @@ class WebRTCClient(
         }, sessionDescription)
     }
 
-    fun setLocalDescription(sessionDescription: SessionDescription) {
-        peerConnection?.setLocalDescription(object : SdpObserver {
+    fun setLocalDescription(sessionDescription: SessionDescription, observer: SdpObserver? = null) {
+        peerConnection?.setLocalDescription(observer ?: object : SdpObserver {
             override fun onCreateSuccess(p0: SessionDescription?) {}
             override fun onSetSuccess() {}
             override fun onCreateFailure(p0: String?) {}

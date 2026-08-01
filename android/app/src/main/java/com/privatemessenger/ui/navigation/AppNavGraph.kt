@@ -441,7 +441,7 @@ fun AppNavGraph(
                 }
 
                 coroutineScope.launch {
-                    com.privatemessenger.webrtc.WebRTCSignalingManager.signalFlow.collect { signal ->
+                    com.privatemessenger.webrtc.WebRTCSignalingManager.incomingSignals.collect { signal: com.privatemessenger.webrtc.WebRTCSignal ->
                         if (signal.senderInboxId == app.xmtpClient?.inboxId) return@collect
                         when (signal.type) {
                             "webrtc_answer" -> {
