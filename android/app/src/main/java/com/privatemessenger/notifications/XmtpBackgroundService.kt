@@ -92,14 +92,20 @@ class XmtpBackgroundService : Service() {
                         try {
                             // Ignore XMTP system messages (group updates / member additions)
                             // These typically start with '@' and contain long hex strings (Inbox IDs).
-                            val trimmedBody = message.body.trim()
+                            var finalContent = ""
+                            try {
+                                finalContent = message.body
+                            } catch (e: Exception) {
+                                finalContent = message.fallbackContent ?: ""
+                            }
+                            
+                            val trimmedBody = finalContent.trim()
                             if (trimmedBody.startsWith("@") && trimmedBody.replace(Regex("[\\s@]"), "").length >= 60) {
-                                Log.d("XmtpBackgroundService", "Ignoring system message: ${message.body}")
+                                Log.d("XmtpBackgroundService", "Ignoring system message: $finalContent")
                                 return@collect
                             }
 
                             val convId = message.conversationId
-                            var finalContent = message.body
                             var finalReplyToId: String? = null
                             var isStructuralPayload = false
                             var downloadedAttachmentPath: String? = null

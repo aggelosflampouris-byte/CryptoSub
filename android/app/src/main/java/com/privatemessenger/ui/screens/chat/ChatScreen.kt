@@ -138,11 +138,16 @@ fun ChatScreen(
                 xmtpMessages.forEach { msg ->
                     val isCleared = (msg.sentAt.time <= (conversation?.clearedUpTo ?: 0L))
                     if (!isCleared && database.messageDao().findById(msg.id) == null) {
-                        var finalContent = msg.body
+                        var finalContent = ""
+                        try {
+                            finalContent = msg.body
+                        } catch (e: Exception) {
+                            finalContent = msg.fallbackContent ?: ""
+                        }
                         var finalReplyToId: String? = null
                         var isStructuralPayload = false
 
-                        val trimmedBody = msg.body.trim()
+                        val trimmedBody = finalContent.trim()
                         if (trimmedBody.startsWith("{") && trimmedBody.endsWith("}")) {
                             try {
                                 val json = com.google.gson.JsonParser.parseString(trimmedBody).asJsonObject
@@ -159,6 +164,20 @@ fun ChatScreen(
                             }
                         }
 
+                        var downloadedAttachmentPath: String? = null
+                        try {
+                            val contentObj = msg.content<Any?>()
+                            if (contentObj is org.xmtp.android.library.codecs.RemoteAttachment) {
+                                val file = com.privatemessenger.utils.downloadAndSaveRemoteAttachment(client, contentObj, app)
+                                if (file != null) {
+                                    downloadedAttachmentPath = file.absolutePath
+                                    finalContent = "Attachment: ${contentObj.filename}"
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ChatScreen", "Failed to parse content as RemoteAttachment", e)
+                        }
+
                         if (!isStructuralPayload) {
                             val msgEntity = MessageEntity(
                                 id = msg.id,
@@ -167,7 +186,8 @@ fun ChatScreen(
                                 content = finalContent,
                                 replyToMessageId = finalReplyToId,
                                 timestamp = msg.sentAt.time,
-                                status = MessageStatus.DELIVERED
+                                status = MessageStatus.DELIVERED,
+                                attachmentUri = downloadedAttachmentPath
                             )
                             database.messageDao().insert(msgEntity)
                             hasNew = true
