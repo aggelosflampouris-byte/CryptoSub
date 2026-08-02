@@ -94,7 +94,7 @@ suspend fun downloadAndSaveRemoteAttachment(
     context: Context
 ): File? = withContext(Dispatchers.IO) {
     try {
-        val decodedAttachment = RemoteAttachmentCodec.load(remoteAttachment, client)
+        val decodedAttachment = client.download(remoteAttachment)
         val file = File(context.cacheDir, remoteAttachment.filename)
         file.writeBytes(decodedAttachment.data.toByteArray())
         file

@@ -105,7 +105,7 @@ class XmtpBackgroundService : Service() {
                             var downloadedAttachmentPath: String? = null
 
                             try {
-                                val contentObj = message.content()
+                                val contentObj = message.content<Any?>()
                                 if (contentObj is org.xmtp.android.library.codecs.RemoteAttachment) {
                                     val file = com.privatemessenger.utils.downloadAndSaveRemoteAttachment(client, contentObj, applicationContext)
                                     if (file != null) {
