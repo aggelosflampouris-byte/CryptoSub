@@ -142,7 +142,7 @@ fun ChatScreen(
                         try {
                             finalContent = msg.body
                         } catch (e: Exception) {
-                            finalContent = msg.fallbackContent ?: ""
+                            finalContent = ""
                         }
                         var finalReplyToId: String? = null
                         var isStructuralPayload = false

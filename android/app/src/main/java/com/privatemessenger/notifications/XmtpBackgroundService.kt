@@ -96,7 +96,7 @@ class XmtpBackgroundService : Service() {
                             try {
                                 finalContent = message.body
                             } catch (e: Exception) {
-                                finalContent = message.fallbackContent ?: ""
+                                finalContent = ""
                             }
                             
                             val trimmedBody = finalContent.trim()
