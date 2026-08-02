@@ -15,6 +15,10 @@ import org.xmtp.android.library.SendOptions
 import org.xmtp.android.library.Conversation
 import java.io.File
 import java.net.URL
+import org.xmtp.android.library.Client
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Shared helper for sending encrypted remote attachments via XMTP.
@@ -79,4 +83,23 @@ suspend fun sendEncryptedAttachment(
     }
 
     return Pair(remoteAttachment, sentMessageId)
+}
+
+/**
+ * Downloads a RemoteAttachment from Catbox and decrypts it into a local File.
+ */
+suspend fun downloadAndSaveRemoteAttachment(
+    client: Client,
+    remoteAttachment: RemoteAttachment,
+    context: Context
+): File? = withContext(Dispatchers.IO) {
+    try {
+        val decodedAttachment = RemoteAttachmentCodec.load(remoteAttachment, client)
+        val file = File(context.cacheDir, remoteAttachment.filename)
+        file.writeBytes(decodedAttachment.data.toByteArray())
+        file
+    } catch (e: Exception) {
+        android.util.Log.e("AttachmentHelper", "Failed to download/decrypt attachment", e)
+        null
+    }
 }

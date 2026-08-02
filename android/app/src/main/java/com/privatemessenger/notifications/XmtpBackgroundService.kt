@@ -102,6 +102,20 @@ class XmtpBackgroundService : Service() {
                             var finalContent = message.body
                             var finalReplyToId: String? = null
                             var isStructuralPayload = false
+                            var downloadedAttachmentPath: String? = null
+
+                            try {
+                                val contentObj = message.content()
+                                if (contentObj is org.xmtp.android.library.codecs.RemoteAttachment) {
+                                    val file = com.privatemessenger.utils.downloadAndSaveRemoteAttachment(client, contentObj, applicationContext)
+                                    if (file != null) {
+                                        downloadedAttachmentPath = file.absolutePath
+                                        finalContent = "Attachment: ${contentObj.filename}"
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e("XmtpBackgroundService", "Failed to parse content as RemoteAttachment", e)
+                            }
 
                             if (trimmedBody.startsWith("{") && trimmedBody.endsWith("}")) {
                                 try {
@@ -252,7 +266,8 @@ class XmtpBackgroundService : Service() {
                                 content = finalContent,
                                 replyToMessageId = finalReplyToId,
                                 timestamp = message.sentAt.time,
-                                status = MessageStatus.DELIVERED
+                                status = MessageStatus.DELIVERED,
+                                attachmentUri = downloadedAttachmentPath
                             )
                             app.database.messageDao().insert(msgEntity)
                             if (message.senderInboxId != client.inboxId) {

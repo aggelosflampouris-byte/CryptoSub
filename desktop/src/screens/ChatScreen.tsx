@@ -8,6 +8,7 @@ import React from 'react'
 import { getClearedUpTo } from '../services/metadataStore'
 import { VideoCallModal } from '../components/VideoCallModal'
 import { Phone, Video } from 'lucide-react'
+import { RemoteAttachmentCodec } from '@xmtp/content-type-remote-attachment'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -135,9 +136,53 @@ function ReactionToolbar({ onReact, onCopy, text }: { onReact: (e: string) => vo
   )
 }
 
+// ── Remote Attachment Renderer ───────────────────────────────────────────────
+
+function RemoteAttachmentRenderer({ content, client }: { content: any; client: any }) {
+  const [decrypted, setDecrypted] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (decrypted || loading) return
+    let mounted = true
+    const load = async () => {
+      setLoading(true)
+      try {
+        const decoded = await RemoteAttachmentCodec.load(content, client)
+        if (mounted) setDecrypted(decoded)
+      } catch (err) {
+        console.error('Failed to load remote attachment:', err)
+        if (mounted) setError('Failed to decrypt attachment')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [content, client, decrypted, loading])
+
+  if (error) {
+    return <div className="chat-text" style={{ color: 'var(--error)' }}>{error}</div>
+  }
+  if (!decrypted) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--surface-variant)', borderRadius: 12 }}>
+        <div style={{ width: 24, height: 24, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Downloading {content.filename || 'Attachment'}...</div>
+          <div style={{ fontSize: 11, opacity: 0.7 }}>{(content.contentLength / 1024).toFixed(1)} KB</div>
+        </div>
+      </div>
+    )
+  }
+
+  return <BubbleContent msg={{ content: decrypted } as any} />
+}
+
 // ── Bubble Content Renderer ──────────────────────────────────────────────────
 
-function BubbleContent({ msg, onSystemAction }: { msg: DecodedMessage, onSystemAction?: (action: string) => void }) {
+function BubbleContent({ msg, onSystemAction, client }: { msg: DecodedMessage, onSystemAction?: (action: string) => void, client?: any }) {
   const content = msg.content as any
 
   if (typeof content === 'string' && content.startsWith('SYSTEM_UI:')) {
@@ -211,6 +256,11 @@ function BubbleContent({ msg, onSystemAction }: { msg: DecodedMessage, onSystemA
         return null
       }
     } catch {}
+  }
+
+  // Remote attachment metadata
+  if (content && typeof content === 'object' && content.url && content.secret) {
+    return <RemoteAttachmentRenderer content={content} client={client} />
   }
 
   // Inline attachment (small file via AttachmentCodec)
@@ -694,6 +744,7 @@ export default function ChatScreen() {
                     msgId={msgId}
                     contentText={contentText}
                     reactionCounts={reactionCounts}
+                    client={client}
                     onReact={(emoji) => sendReaction(msgId, emoji)}
                     onSystemAction={async (action) => {
                       if (!activeMeta) return
@@ -798,13 +849,14 @@ export default function ChatScreen() {
 // ── Message Bubble Component ─────────────────────────────────────────────────
 
 const MessageBubble = React.memo(function MessageBubble({
-  msg, isMine, msgId, contentText, reactionCounts, onReact, onSystemAction
+  msg, isMine, msgId, contentText, reactionCounts, client, onReact, onSystemAction
 }: {
   msg: DecodedMessage
   isMine: boolean
   msgId: string
   contentText?: string
   reactionCounts: Record<string, number> | null
+  client?: any
   onReact: (emoji: string) => void
   onSystemAction?: (action: string) => void
 }) {
@@ -831,7 +883,7 @@ const MessageBubble = React.memo(function MessageBubble({
         )}
 
         <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'} animated-message`}>
-          <BubbleContent msg={msg} onSystemAction={onSystemAction} />
+          <BubbleContent msg={msg} onSystemAction={onSystemAction} client={client} />
           <div className="chat-time">
             {formatTime(new Date(((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date())))}
           </div>
