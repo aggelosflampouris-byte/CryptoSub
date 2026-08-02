@@ -94,7 +94,8 @@ suspend fun downloadAndSaveRemoteAttachment(
     context: Context
 ): File? = withContext(Dispatchers.IO) {
     try {
-        val decodedAttachment = client.download(remoteAttachment)
+        val decodedAttachment: org.xmtp.android.library.codecs.Attachment? = remoteAttachment.load()
+        if (decodedAttachment == null) return@withContext null
         val file = File(context.cacheDir, remoteAttachment.filename)
         file.writeBytes(decodedAttachment.data.toByteArray())
         file
