@@ -194,7 +194,8 @@ export async function sendAttachment(conversation: any, file: File): Promise<str
   if (!res.ok) throw new Error('Upload failed');
   const url = await res.text();
 
-  const remoteAttachment: RemoteAttachment = {
+  const attachmentPayload = {
+    type: 'attachment',
     url,
     contentDigest: encryptedAttachment.digest,
     salt: encryptedAttachment.salt,
@@ -202,10 +203,10 @@ export async function sendAttachment(conversation: any, file: File): Promise<str
     secret: encryptedAttachment.secret,
     scheme: 'https://',
     contentLength: encryptedAttachment.payload.length,
-    filename: attachment.filename,
+    filename: attachment.filename
   }
 
-  const sent = await conversation.send(remoteAttachment, { contentType: ContentTypeRemoteAttachment })
+  const sent = await conversation.send(JSON.stringify(attachmentPayload))
   return typeof sent === 'string' ? sent : sent.id
 }
 
@@ -238,7 +239,8 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
   if (!res.ok) throw new Error('Voice memo upload failed');
   const url = await res.text();
 
-  const remoteAttachment: RemoteAttachment = {
+  const memoPayload = {
+    type: 'attachment',
     url,
     contentDigest: encryptedAttachment.digest,
     salt: encryptedAttachment.salt,
@@ -246,10 +248,10 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
     secret: encryptedAttachment.secret,
     scheme: 'https://',
     contentLength: encryptedAttachment.payload.length,
-    filename,
+    filename
   }
 
-  const sent = await conversation.send(remoteAttachment, { contentType: ContentTypeRemoteAttachment })
+  const sent = await conversation.send(JSON.stringify(memoPayload))
   return typeof sent === 'string' ? sent : sent.id
 }
 

@@ -128,7 +128,28 @@ class XmtpBackgroundService : Service() {
                                     val json = JsonParser.parseString(trimmedBody).asJsonObject
                                     val type = json.get("type")?.asString
                                     
-                                    if (type == "reaction") {
+                                    if (type == "attachment") {
+                                        isStructuralPayload = false // We want to save this to DB!
+                                        try {
+                                            val dummyRA = org.xmtp.android.library.codecs.RemoteAttachment(
+                                                url = java.net.URL(json.get("url")?.asString ?: ""),
+                                                contentDigest = json.get("contentDigest")?.asString ?: "",
+                                                salt = json.get("salt")?.asString ?: "",
+                                                nonce = json.get("nonce")?.asString ?: "",
+                                                secret = json.get("secret")?.asString ?: "",
+                                                scheme = json.get("scheme")?.asString ?: "https://",
+                                                contentLength = json.get("contentLength")?.asInt ?: 0,
+                                                filename = json.get("filename")?.asString ?: "attachment"
+                                            )
+                                            val file = com.privatemessenger.utils.downloadAndSaveRemoteAttachment(client, dummyRA, applicationContext)
+                                            if (file != null) {
+                                                downloadedAttachmentPath = file.absolutePath
+                                                finalContent = "Attachment: ${dummyRA.filename}"
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.e("XmtpBackgroundService", "Failed to parse/download structural attachment", e)
+                                        }
+                                    } else if (type == "reaction") {
                                         val targetMessageId = json.get("messageId")?.asString
                                         val emoji = json.get("emoji")?.asString
                                         if (targetMessageId != null && emoji != null) {

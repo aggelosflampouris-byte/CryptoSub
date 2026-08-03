@@ -155,6 +155,27 @@ fun ChatScreen(
                                 
                                 if (type == "reaction" || type == "read" || type == "typing" || type == "clear_history_request" || type == "clear_history_accept" || type == "clear_history_decline" || type?.startsWith("webrtc_") == true) {
                                     isStructuralPayload = true
+                                } else if (type == "attachment") {
+                                    isStructuralPayload = false
+                                    try {
+                                        val dummyRA = org.xmtp.android.library.codecs.RemoteAttachment(
+                                            url = java.net.URL(json.get("url")?.asString ?: ""),
+                                            contentDigest = json.get("contentDigest")?.asString ?: "",
+                                            salt = json.get("salt")?.asString ?: "",
+                                            nonce = json.get("nonce")?.asString ?: "",
+                                            secret = json.get("secret")?.asString ?: "",
+                                            scheme = json.get("scheme")?.asString ?: "https://",
+                                            contentLength = json.get("contentLength")?.asInt ?: 0,
+                                            filename = json.get("filename")?.asString ?: "attachment"
+                                        )
+                                        val file = com.privatemessenger.utils.downloadAndSaveRemoteAttachment(client, dummyRA, app)
+                                        if (file != null) {
+                                            downloadedAttachmentPath = file.absolutePath
+                                            finalContent = "Attachment: ${dummyRA.filename}"
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("ChatScreen", "Failed to parse/download structural attachment", e)
+                                    }
                                 } else if (type == "reply") {
                                     finalContent = json.get("content")?.asString ?: msg.body
                                     finalReplyToId = json.get("replyToId")?.asString

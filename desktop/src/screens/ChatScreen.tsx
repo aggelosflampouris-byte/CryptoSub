@@ -254,6 +254,8 @@ function BubbleContent({ msg, onSystemAction, client }: { msg: DecodedMessage, o
         )
       } else if (json.type === 'call_event') {
         return null
+      } else if (json.type === 'attachment') {
+        return <RemoteAttachmentRenderer content={json} client={client} />
       }
     } catch {}
   }

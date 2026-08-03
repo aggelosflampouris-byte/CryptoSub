@@ -216,6 +216,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
               isStructural = true
             } else if (json.type === 'reply') {
               contentStr = json.content || contentStr
+            } else if (json.type === 'attachment') {
+              contentStr = `Attachment: ${json.filename || 'File'}`
             } else if (json.type && json.type.startsWith('webrtc_')) {
               isStructural = true
               const msgSenderId = (msg as any).senderInboxId || (msg as any).senderAddress

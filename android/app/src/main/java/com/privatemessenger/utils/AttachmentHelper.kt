@@ -66,7 +66,25 @@ suspend fun sendEncryptedAttachment(
     if (!response.isSuccessful) throw Exception("Upload failed: ${response.code}")
     val finalUrl = response.body?.string()?.trim() ?: throw Exception("Empty response from upload")
 
-    val remoteAttachment = RemoteAttachment(
+    val payloadMap = mapOf(
+        "type" to "attachment",
+        "url" to finalUrl,
+        "contentDigest" to encryptedAttachment.contentDigest,
+        "salt" to encryptedAttachment.salt,
+        "nonce" to encryptedAttachment.nonce,
+        "secret" to encryptedAttachment.secret,
+        "scheme" to "https://",
+        "contentLength" to encryptedAttachment.payload.size(),
+        "filename" to filename
+    )
+    val payloadJson = com.google.gson.Gson().toJson(payloadMap)
+
+    val sentMessageId = when (xmtpConversation) {
+        is Conversation.Dm -> xmtpConversation.dm.send(payloadJson)
+        is Conversation.Group -> xmtpConversation.group.send(payloadJson)
+    }
+
+    val dummyRemoteAttachment = RemoteAttachment(
         url = URL(finalUrl),
         contentDigest = encryptedAttachment.contentDigest,
         salt = encryptedAttachment.salt,
@@ -77,12 +95,7 @@ suspend fun sendEncryptedAttachment(
         filename = filename
     )
 
-    val sentMessageId = when (xmtpConversation) {
-        is Conversation.Dm -> xmtpConversation.dm.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
-        is Conversation.Group -> xmtpConversation.group.send(remoteAttachment, options = SendOptions(contentType = ContentTypeRemoteAttachment))
-    }
-
-    return Pair(remoteAttachment, sentMessageId)
+    return Pair(dummyRemoteAttachment, sentMessageId)
 }
 
 /**
