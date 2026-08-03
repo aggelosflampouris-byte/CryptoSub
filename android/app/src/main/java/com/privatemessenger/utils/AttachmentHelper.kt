@@ -21,9 +21,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
-fun String.decodeHex(): ByteArray {
-    require(length % 2 == 0) { "Must have an even length" }
-    return chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+fun decodeHex(str: String): ByteArray {
+    require(str.length % 2 == 0) { "Must have an even length" }
+    return str.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }
 
 /**
