@@ -20,10 +20,12 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
-fun decodeHex(str: String): ByteArray {
-    require(str.length % 2 == 0) { "Must have an even length" }
-    return str.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+object HexUtils {
+    fun toHex(bytes: ByteArray): String = bytes.joinToString("") { "%02x".format(it) }
+    fun decodeHex(str: String): ByteArray {
+        require(str.length % 2 == 0) { "Must have an even length" }
+        return str.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+    }
 }
 
 /**
@@ -76,9 +78,9 @@ suspend fun sendEncryptedAttachment(
         "type" to "attachment",
         "url" to finalUrl,
         "contentDigest" to encryptedAttachment.contentDigest,
-        "salt" to encryptedAttachment.salt.toByteArray().toHex(),
-        "nonce" to encryptedAttachment.nonce.toByteArray().toHex(),
-        "secret" to encryptedAttachment.secret.toByteArray().toHex(),
+        "salt" to HexUtils.toHex(encryptedAttachment.salt.toByteArray()),
+        "nonce" to HexUtils.toHex(encryptedAttachment.nonce.toByteArray()),
+        "secret" to HexUtils.toHex(encryptedAttachment.secret.toByteArray()),
         "scheme" to "https://",
         "contentLength" to encryptedAttachment.payload.size(),
         "filename" to filename
