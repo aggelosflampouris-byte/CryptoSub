@@ -166,7 +166,6 @@ export async function sendMessage(conversation: any, text: string): Promise<stri
   return typeof sent === 'string' ? sent : sent.id
 }
 
-/**
 function uint8ArrayToHex(arr: Uint8Array) {
   return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('')
 }
