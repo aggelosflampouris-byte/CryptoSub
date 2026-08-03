@@ -162,9 +162,9 @@ fun ChatScreen(
                                         val dummyRA = org.xmtp.android.library.codecs.RemoteAttachment(
                                             url = java.net.URL(json.get("url")?.asString ?: ""),
                                             contentDigest = json.get("contentDigest")?.asString ?: "",
-                                            salt = json.get("salt")?.asString ?: "",
-                                            nonce = json.get("nonce")?.asString ?: "",
-                                            secret = json.get("secret")?.asString ?: "",
+                                            salt = com.google.protobuf.ByteString.copyFrom(com.privatemessenger.utils.decodeHex(json.get("salt")?.asString ?: "")),
+                                            nonce = com.google.protobuf.ByteString.copyFrom(com.privatemessenger.utils.decodeHex(json.get("nonce")?.asString ?: "")),
+                                            secret = com.google.protobuf.ByteString.copyFrom(com.privatemessenger.utils.decodeHex(json.get("secret")?.asString ?: "")),
                                             scheme = json.get("scheme")?.asString ?: "https://",
                                             contentLength = json.get("contentLength")?.asInt ?: 0,
                                             filename = json.get("filename")?.asString ?: "attachment"
