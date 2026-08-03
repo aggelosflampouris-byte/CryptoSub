@@ -167,16 +167,14 @@ export async function sendMessage(conversation: any, text: string): Promise<stri
 }
 
 /**
- * Sends an encrypted attachment to a conversation.
- */
-export async function sendAttachment(conversation: any, file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
-  const attachment = {
-    filename: file.name,
-    mimeType: file.type,
-    data: new Uint8Array(buffer),
-  }
+function uint8ArrayToHex(arr: Uint8Array) {
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('')
+}
 
+export async function sendAttachment(
+  conversation: any,
+  attachment: any
+): Promise<string> {
   const encryptedAttachment = await RemoteAttachmentCodec.encodeEncrypted(
     attachment,
     new AttachmentCodec()
@@ -197,10 +195,10 @@ export async function sendAttachment(conversation: any, file: File): Promise<str
   const attachmentPayload = {
     type: 'attachment',
     url,
-    contentDigest: encryptedAttachment.digest,
-    salt: encryptedAttachment.salt,
-    nonce: encryptedAttachment.nonce,
-    secret: encryptedAttachment.secret,
+    contentDigest: uint8ArrayToHex(encryptedAttachment.digest),
+    salt: uint8ArrayToHex(encryptedAttachment.salt),
+    nonce: uint8ArrayToHex(encryptedAttachment.nonce),
+    secret: uint8ArrayToHex(encryptedAttachment.secret),
     scheme: 'https://',
     contentLength: encryptedAttachment.payload.length,
     filename: attachment.filename
@@ -242,10 +240,10 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
   const memoPayload = {
     type: 'attachment',
     url,
-    contentDigest: encryptedAttachment.digest,
-    salt: encryptedAttachment.salt,
-    nonce: encryptedAttachment.nonce,
-    secret: encryptedAttachment.secret,
+    contentDigest: uint8ArrayToHex(encryptedAttachment.digest),
+    salt: uint8ArrayToHex(encryptedAttachment.salt),
+    nonce: uint8ArrayToHex(encryptedAttachment.nonce),
+    secret: uint8ArrayToHex(encryptedAttachment.secret),
     scheme: 'https://',
     contentLength: encryptedAttachment.payload.length,
     filename

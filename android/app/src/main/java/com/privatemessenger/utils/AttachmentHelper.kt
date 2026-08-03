@@ -20,6 +20,12 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
+fun String.decodeHex(): ByteArray {
+    require(length % 2 == 0) { "Must have an even length" }
+    return chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+}
+
 /**
  * Shared helper for sending encrypted remote attachments via XMTP.
  *
@@ -69,10 +75,10 @@ suspend fun sendEncryptedAttachment(
     val payloadMap = mapOf(
         "type" to "attachment",
         "url" to finalUrl,
-        "contentDigest" to encryptedAttachment.contentDigest,
-        "salt" to encryptedAttachment.salt,
-        "nonce" to encryptedAttachment.nonce,
-        "secret" to encryptedAttachment.secret,
+        "contentDigest" to encryptedAttachment.contentDigest.toByteArray().toHex(),
+        "salt" to encryptedAttachment.salt.toByteArray().toHex(),
+        "nonce" to encryptedAttachment.nonce.toByteArray().toHex(),
+        "secret" to encryptedAttachment.secret.toByteArray().toHex(),
         "scheme" to "https://",
         "contentLength" to encryptedAttachment.payload.size(),
         "filename" to filename

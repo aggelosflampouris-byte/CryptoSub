@@ -138,6 +138,15 @@ function ReactionToolbar({ onReact, onCopy, text }: { onReact: (e: string) => vo
 
 // ── Remote Attachment Renderer ───────────────────────────────────────────────
 
+function hexToUint8Array(hexString: string) {
+  if (!hexString || typeof hexString !== 'string') return hexString
+  const bytes = new Uint8Array(hexString.length / 2)
+  for (let i = 0; i < hexString.length; i += 2) {
+    bytes[i / 2] = parseInt(hexString.substr(i, 2), 16)
+  }
+  return bytes
+}
+
 function RemoteAttachmentRenderer({ content, client }: { content: any; client: any }) {
   const [decrypted, setDecrypted] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -149,7 +158,13 @@ function RemoteAttachmentRenderer({ content, client }: { content: any; client: a
     const load = async () => {
       setLoading(true)
       try {
-        const decoded = await RemoteAttachmentCodec.load(content, client)
+        const payload = { ...content }
+        if (typeof payload.contentDigest === 'string') payload.contentDigest = hexToUint8Array(payload.contentDigest)
+        if (typeof payload.salt === 'string') payload.salt = hexToUint8Array(payload.salt)
+        if (typeof payload.nonce === 'string') payload.nonce = hexToUint8Array(payload.nonce)
+        if (typeof payload.secret === 'string') payload.secret = hexToUint8Array(payload.secret)
+
+        const decoded = await RemoteAttachmentCodec.load(payload, client)
         if (mounted) setDecrypted(decoded)
       } catch (err) {
         console.error('Failed to load remote attachment:', err)
