@@ -166,8 +166,23 @@ export async function sendMessage(conversation: any, text: string): Promise<stri
   return typeof sent === 'string' ? sent : sent.id
 }
 
-function uint8ArrayToHex(arr: Uint8Array) {
-  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('')
+function toHex(val: Uint8Array | string): string {
+  if (typeof val === 'string') return val;
+  return Array.from(val).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getPayloadBlob(payload: Uint8Array | string): Blob {
+  if (typeof payload === 'string') {
+    return new Blob([new TextEncoder().encode(payload)]);
+  }
+  return new Blob([payload]);
+}
+
+function getByteLength(val: Uint8Array | string): number {
+  if (typeof val === 'string') {
+    return new TextEncoder().encode(val).length;
+  }
+  return val.length;
 }
 
 export async function sendAttachment(
@@ -181,7 +196,7 @@ export async function sendAttachment(
 
   const formData = new FormData();
   formData.append('reqtype', 'fileupload');
-  formData.append('fileToUpload', new Blob([encryptedAttachment.payload.buffer as ArrayBuffer]), attachment.filename);
+  formData.append('fileToUpload', getPayloadBlob(encryptedAttachment.payload), attachment.filename);
 
   const res = await fetch(ATTACHMENT_UPLOAD_URL, {
     method: 'POST',
@@ -194,12 +209,12 @@ export async function sendAttachment(
   const attachmentPayload = {
     type: 'attachment',
     url,
-    contentDigest: uint8ArrayToHex(encryptedAttachment.digest),
-    salt: uint8ArrayToHex(encryptedAttachment.salt),
-    nonce: uint8ArrayToHex(encryptedAttachment.nonce),
-    secret: uint8ArrayToHex(encryptedAttachment.secret),
+    contentDigest: toHex(encryptedAttachment.digest),
+    salt: toHex(encryptedAttachment.salt),
+    nonce: toHex(encryptedAttachment.nonce),
+    secret: toHex(encryptedAttachment.secret),
     scheme: 'https://',
-    contentLength: encryptedAttachment.payload.length,
+    contentLength: getByteLength(encryptedAttachment.payload),
     filename: attachment.filename
   }
 
@@ -227,7 +242,7 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
 
   const formData = new FormData();
   formData.append('reqtype', 'fileupload');
-  formData.append('fileToUpload', new Blob([encryptedAttachment.payload.buffer as ArrayBuffer]), filename);
+  formData.append('fileToUpload', getPayloadBlob(encryptedAttachment.payload), filename);
 
   const res = await fetch(ATTACHMENT_UPLOAD_URL, {
     method: 'POST',
@@ -239,12 +254,12 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
   const memoPayload = {
     type: 'attachment',
     url,
-    contentDigest: uint8ArrayToHex(encryptedAttachment.digest),
-    salt: uint8ArrayToHex(encryptedAttachment.salt),
-    nonce: uint8ArrayToHex(encryptedAttachment.nonce),
-    secret: uint8ArrayToHex(encryptedAttachment.secret),
+    contentDigest: toHex(encryptedAttachment.digest),
+    salt: toHex(encryptedAttachment.salt),
+    nonce: toHex(encryptedAttachment.nonce),
+    secret: toHex(encryptedAttachment.secret),
     scheme: 'https://',
-    contentLength: encryptedAttachment.payload.length,
+    contentLength: getByteLength(encryptedAttachment.payload),
     filename
   }
 
