@@ -175,7 +175,7 @@ function getPayloadBlob(payload: Uint8Array | string): Blob {
   if (typeof payload === 'string') {
     return new Blob([new TextEncoder().encode(payload)]);
   }
-  return new Blob([payload]);
+  return new Blob([payload as any]);
 }
 
 function getByteLength(val: Uint8Array | string): number {
