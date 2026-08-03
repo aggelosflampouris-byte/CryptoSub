@@ -175,7 +175,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         let contentStr = ''
         if (typeof msg.content === 'string') contentStr = msg.content
         else if ((msg.content as any)?.text) contentStr = (msg.content as any).text
-        else continue
+        else if (msg.content && typeof msg.content === 'object' && ('url' in msg.content)) contentStr = `Attachment: ${(msg.content as any).filename || 'File'}`
+        else contentStr = (msg as any).contentFallback || ''
         
         if (isSystemMessage(contentStr)) continue
 
