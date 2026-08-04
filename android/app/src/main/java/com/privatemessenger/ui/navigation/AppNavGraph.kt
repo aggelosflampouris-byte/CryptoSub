@@ -37,6 +37,59 @@ fun AppNavGraph(
     val authRepository = AuthRepository(app)
     val coroutineScope = rememberCoroutineScope()
 
+    // ── Global incoming call state (visible from any screen) ─────────────────
+    val pendingCallOffer = remember { androidx.compose.runtime.mutableStateOf<com.privatemessenger.webrtc.WebRTCSignal?>(null) }
+
+    LaunchedEffect(Unit) {
+        com.privatemessenger.webrtc.WebRTCSignalingManager.incomingSignals.collect { signal ->
+            if (signal.type == "webrtc_offer" && signal.senderInboxId != app.xmtpClient?.inboxId) {
+                pendingCallOffer.value = signal
+            } else if (signal.type == "webrtc_call_end" || signal.type == "webrtc_call_reject") {
+                // Caller hung up before we answered
+                if (pendingCallOffer.value?.senderInboxId == signal.senderInboxId) {
+                    pendingCallOffer.value = null
+                }
+            }
+        }
+    }
+
+    // Show incoming call dialog from any screen
+    pendingCallOffer.value?.let { offer ->
+        val convId = com.privatemessenger.webrtc.WebRTCSignalingManager.activeCallConversationId ?: ""
+        val isVoiceOnly = false // default; the offer may carry this flag
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { androidx.compose.material3.Text(if (isVoiceOnly) "Incoming Voice Call" else "Incoming Call") },
+            text = { androidx.compose.material3.Text("Someone is calling you.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    com.privatemessenger.ui.MainActivity.pendingOfferSdp = offer.sdp ?: ""
+                    val callConvId = com.privatemessenger.webrtc.WebRTCSignalingManager.activeCallConversationId ?: ""
+                    pendingCallOffer.value = null
+                    navController.navigate("video_call/${android.net.Uri.encode(callConvId)}?isIncoming=true&isVoiceOnly=false")
+                }) { androidx.compose.material3.Text("Answer", color = androidx.compose.ui.graphics.Color(0xFF22C55E)) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    pendingCallOffer.value = null
+                    com.privatemessenger.webrtc.WebRTCSignalingManager.clearPendingOffer()
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val client = app.xmtpClient ?: return@launch
+                            val callConvId = com.privatemessenger.webrtc.WebRTCSignalingManager.activeCallConversationId ?: return@launch
+                            val xmtpConv = client.conversations.findConversation(callConvId) ?: return@launch
+                            val payload = com.google.gson.Gson().toJson(mapOf("type" to "webrtc_call_reject"))
+                            when (xmtpConv) {
+                                is org.xmtp.android.library.Conversation.Dm -> xmtpConv.dm.send(payload)
+                                is org.xmtp.android.library.Conversation.Group -> xmtpConv.group.send(payload)
+                            }
+                        } catch (e: Exception) { android.util.Log.e("AppNavGraph", "reject failed", e) }
+                    }
+                }) { androidx.compose.material3.Text("Decline", color = androidx.compose.ui.graphics.Color(0xFFEF4444)) }
+            }
+        )
+    }
+
 
     NavHost(
         navController = navController,

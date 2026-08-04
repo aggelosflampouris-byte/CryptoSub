@@ -233,6 +233,8 @@ class XmtpBackgroundService : Service() {
                                         
                                         if (type == "webrtc_offer") {
                                             if (message.senderInboxId != client.inboxId) {
+                                                // Store conversationId so the global in-app dialog can navigate correctly
+                                                com.privatemessenger.webrtc.WebRTCSignalingManager.activeCallConversationId = convId
                                                 val xmtpConv = client.conversations.findConversation(convId)
                                                 val peerId = (xmtpConv as? org.xmtp.android.library.Conversation.Dm)?.dm?.peerInboxId ?: message.senderInboxId
                                                 val label = app.database.conversationDao().getConversation(convId)?.displayName ?: "${peerId.take(6)}...${peerId.takeLast(4)}"

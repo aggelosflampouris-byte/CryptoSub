@@ -56,8 +56,10 @@ interface XmtpContextValue {
   sendReaction: (messageId: string, emoji: string) => Promise<void>
   sendVoiceMemo: (audioBlob: Blob) => Promise<void>
   refreshConversations: () => Promise<void>
-  incomingSignal: any | null
+  incomingSignal: any | null       // only ever a webrtc_offer (for the ringing banner)
   clearIncomingSignal: () => void
+  rtcSignalQueue: any[]            // webrtc_answer / ice_candidate / call_end signals
+  drainRtcSignal: (idx: number) => void  // remove one signal from the queue after handling
 }
 
 const XmtpContext = createContext<XmtpContextValue | null>(null)
@@ -77,6 +79,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const [typingUsers, setTypingUsers] = useState<{ [convId: string]: Set<string> }>({})
   const [reactions, setReactions] = useState<ReactionsMap>({})
   const [incomingSignal, setIncomingSignal] = useState<any | null>(null)
+  // Separate queue for in-call signals (answer / ice / end) so they never overwrite the offer banner
+  const [rtcSignalQueue, setRtcSignalQueue] = useState<any[]>([])
 
   const activeConvRef = useRef<string | null>(null)
   const convMapRef = useRef<Map<string, Conversation>>(new Map())
@@ -223,7 +227,15 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
               const msgSenderId = (msg as any).senderInboxId || (msg as any).senderAddress
               const myId = (xmtpClient as any).inboxId || (xmtpClient as any).address
               if (msgSenderId?.toLowerCase() !== myId?.toLowerCase()) {
-                setIncomingSignal({ ...json, senderId: msgSenderId, conversationId: (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic })
+                const convId = (msg as any).conversationId || (msg as any).conversation?.id || (msg as any).conversationTopic || (msg as any).topic || (msg as any).conversation?.topic
+                const signal = { ...json, senderId: msgSenderId, conversationId: convId }
+                if (json.type === 'webrtc_offer') {
+                  // Only offers update the ringing banner state
+                  setIncomingSignal(signal)
+                } else {
+                  // Answer / ICE / end go into the queue so they never wipe the offer
+                  setRtcSignalQueue(prev => [...prev, signal])
+                }
               }
             }
           } catch(e) {}
@@ -600,6 +612,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       refreshConversations,
       incomingSignal,
       clearIncomingSignal: () => setIncomingSignal(null),
+      rtcSignalQueue,
+      drainRtcSignal: (idx: number) => setRtcSignalQueue(prev => prev.filter((_, i) => i !== idx)),
     }}>
       {children}
     </XmtpContext.Provider>

@@ -20,7 +20,7 @@ function formatDuration(seconds: number) {
 }
 
 export function VideoCallModal({ conversationId, isIncoming, isVoiceOnly, callerName, onClose }: CallModalProps) {
-  const { sendMessage, incomingSignal, clearIncomingSignal } = useXmtp()
+  const { sendMessage, incomingSignal, clearIncomingSignal, rtcSignalQueue, drainRtcSignal } = useXmtp()
   const [isAudioMuted, setIsAudioMuted] = useState(false)
   const [isVideoMuted, setIsVideoMuted] = useState(isVoiceOnly)
   const [callState, setCallState] = useState<CallState>('waiting')
@@ -76,7 +76,7 @@ export function VideoCallModal({ conversationId, isIncoming, isVoiceOnly, caller
               candidate: event.candidate.candidate,
               sdpMid: event.candidate.sdpMid,
               sdpMLineIndex: event.candidate.sdpMLineIndex
-            }))
+            }), conversationId)  // always target this call's conversation
           }
         }
 
@@ -94,7 +94,7 @@ export function VideoCallModal({ conversationId, isIncoming, isVoiceOnly, caller
             type: 'webrtc_offer',
             sdp: offer.sdp,
             isVoiceOnly,
-          }))
+          }), conversationId)  // always target this call's conversation
         } else if (incomingSignal?.type === 'webrtc_offer') {
           await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: incomingSignal.sdp }))
           const answer = await pc.createAnswer()
@@ -102,7 +102,7 @@ export function VideoCallModal({ conversationId, isIncoming, isVoiceOnly, caller
           sendMessage(JSON.stringify({
             type: 'webrtc_answer',
             sdp: answer.sdp
-          }))
+          }), conversationId)  // always target this call's conversation
           clearIncomingSignal()
           setCallState('connected')
           startTimer()
@@ -121,35 +121,42 @@ export function VideoCallModal({ conversationId, isIncoming, isVoiceOnly, caller
     }
   }, [])
 
-  // Handle incoming signals
+  // Handle in-call signals (answer / ICE / end) from the dedicated queue
   useEffect(() => {
-    if (!incomingSignal || incomingSignal.conversationId !== conversationId) return
-    const pc = pcRef.current
-    if (!pc) return
+    const toHandle = rtcSignalQueue.filter(
+      (s, _) => s.conversationId === conversationId
+    )
+    if (toHandle.length === 0) return
 
-    async function handleSignal() {
-      try {
-        if (incomingSignal.type === 'webrtc_answer') {
-          await pc?.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: incomingSignal.sdp }))
-          setCallState('connected')
-          startTimer()
-        } else if (incomingSignal.type === 'webrtc_ice_candidate') {
-          await pc?.addIceCandidate(new RTCIceCandidate({
-            candidate: incomingSignal.candidate,
-            sdpMid: incomingSignal.sdpMid,
-            sdpMLineIndex: incomingSignal.sdpMLineIndex
-          }))
-        } else if (incomingSignal.type === 'webrtc_call_end') {
-          if (timerRef.current) clearInterval(timerRef.current)
-          onClose(elapsedSeconds)
+    const pc = pcRef.current
+    ;(async () => {
+      for (let i = 0; i < rtcSignalQueue.length; i++) {
+        const signal = rtcSignalQueue[i]
+        if (signal.conversationId !== conversationId) continue
+        try {
+          if (signal.type === 'webrtc_answer') {
+            await pc?.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }))
+            setCallState('connected')
+            startTimer()
+          } else if (signal.type === 'webrtc_ice_candidate') {
+            await pc?.addIceCandidate(new RTCIceCandidate({
+              candidate: signal.candidate,
+              sdpMid: signal.sdpMid,
+              sdpMLineIndex: signal.sdpMLineIndex
+            }))
+          } else if (signal.type === 'webrtc_call_end' || signal.type === 'webrtc_call_reject') {
+            if (timerRef.current) clearInterval(timerRef.current)
+            drainRtcSignal(i)
+            onClose(elapsedSeconds)
+            return
+          }
+        } catch (e) {
+          console.error('Failed handling WebRTC signal', signal.type, e)
         }
-        clearIncomingSignal()
-      } catch (e) {
-        console.error('Failed handling WebRTC signal', e)
+        drainRtcSignal(i)
       }
-    }
-    handleSignal()
-  }, [incomingSignal])
+    })()
+  }, [rtcSignalQueue, conversationId])
 
   const toggleMute = () => {
     const audioTracks = localStreamRef.current?.getAudioTracks()
@@ -168,7 +175,7 @@ export function VideoCallModal({ conversationId, isIncoming, isVoiceOnly, caller
   }
 
   const handleEndCall = () => {
-    sendMessage(JSON.stringify({ type: 'webrtc_call_end' }))
+    sendMessage(JSON.stringify({ type: 'webrtc_call_end' }), conversationId)
     if (timerRef.current) clearInterval(timerRef.current)
     onClose(elapsedSeconds)
   }
