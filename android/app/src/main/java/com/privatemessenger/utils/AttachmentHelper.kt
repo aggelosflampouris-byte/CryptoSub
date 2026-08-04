@@ -115,9 +115,14 @@ suspend fun downloadAndSaveRemoteAttachment(
     context: Context
 ): File? = withContext(Dispatchers.IO) {
     try {
-        val decodedAttachment: org.xmtp.android.library.codecs.Attachment? = remoteAttachment.load()
+        // The SDK's load() is reified — must call with explicit type to get Attachment back
+        @Suppress("UNCHECKED_CAST")
+        val decodedAttachment = remoteAttachment.load<org.xmtp.android.library.codecs.Attachment>()
         if (decodedAttachment == null) return@withContext null
-        val file = File(context.cacheDir, remoteAttachment.filename)
+        // Use filesDir/attachments (persistent) instead of cacheDir (gets cleared by OS)
+        val dir = File(context.filesDir, "attachments").also { it.mkdirs() }
+        val safeFilename = remoteAttachment.filename?.ifBlank { null } ?: "attachment"
+        val file = File(dir, safeFilename)
         file.writeBytes(decodedAttachment.data.toByteArray())
         file
     } catch (e: Exception) {

@@ -158,11 +158,10 @@ function RemoteAttachmentRenderer({ content, client }: { content: any; client: a
     const load = async () => {
       setLoading(true)
       try {
-        // RemoteAttachmentCodec.load() expects a specific shape:
-        // url → URL instance, contentDigest → string, salt/nonce/secret → Uint8Array
+        // RemoteAttachmentCodec.load() expects url as a plain string, not a URL object
         const remoteAttachment = {
-          url: new URL(content.url),
-          contentDigest: content.contentDigest,  // stays as hex string — the codec compares it post-decrypt
+          url: content.url,
+          contentDigest: content.contentDigest,
           salt: hexToUint8Array(content.salt),
           nonce: hexToUint8Array(content.nonce),
           secret: hexToUint8Array(content.secret),
