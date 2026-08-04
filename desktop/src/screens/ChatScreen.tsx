@@ -158,13 +158,19 @@ function RemoteAttachmentRenderer({ content, client }: { content: any; client: a
     const load = async () => {
       setLoading(true)
       try {
-        const payload = { ...content }
-        if (typeof payload.contentDigest === 'string') payload.contentDigest = hexToUint8Array(payload.contentDigest)
-        if (typeof payload.salt === 'string') payload.salt = hexToUint8Array(payload.salt)
-        if (typeof payload.nonce === 'string') payload.nonce = hexToUint8Array(payload.nonce)
-        if (typeof payload.secret === 'string') payload.secret = hexToUint8Array(payload.secret)
-
-        const decoded = await RemoteAttachmentCodec.load(payload, client)
+        // RemoteAttachmentCodec.load() expects a specific shape:
+        // url → URL instance, contentDigest → string, salt/nonce/secret → Uint8Array
+        const remoteAttachment = {
+          url: new URL(content.url),
+          contentDigest: content.contentDigest,  // stays as hex string — the codec compares it post-decrypt
+          salt: hexToUint8Array(content.salt),
+          nonce: hexToUint8Array(content.nonce),
+          secret: hexToUint8Array(content.secret),
+          scheme: content.scheme || 'https://',
+          contentLength: content.contentLength,
+          filename: content.filename,
+        }
+        const decoded = await RemoteAttachmentCodec.load(remoteAttachment, client)
         if (mounted) setDecrypted(decoded)
       } catch (err) {
         console.error('Failed to load remote attachment:', err)

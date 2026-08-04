@@ -538,7 +538,14 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     const conv = convMapRef.current.get(activeConversationId)
     if (!conv) return
     const { sendAttachment: xmtpSendAttachment } = await import('../services/xmtp')
-    await xmtpSendAttachment(conv, file)
+    // Convert the raw File into the attachment object the codec expects
+    const buffer = await file.arrayBuffer()
+    const attachment = {
+      filename: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      data: new Uint8Array(buffer),
+    }
+    await xmtpSendAttachment(conv, attachment)
   }, [client, activeConversationId])
 
   const sendReaction = useCallback(async (messageId: string, emoji: string) => {
