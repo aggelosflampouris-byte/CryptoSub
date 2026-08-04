@@ -204,7 +204,7 @@ export async function sendAttachment(
   });
   
   if (!res.ok) throw new Error('Upload failed');
-  const url = await res.text();
+  const url = (await res.text()).trim();
 
   const attachmentPayload = {
     type: 'attachment',
@@ -249,7 +249,7 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
     body: formData
   });
   if (!res.ok) throw new Error('Voice memo upload failed');
-  const url = await res.text();
+  const url = (await res.text()).trim();
 
   const memoPayload = {
     type: 'attachment',
