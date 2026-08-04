@@ -138,8 +138,8 @@ function ReactionToolbar({ onReact, onCopy, text }: { onReact: (e: string) => vo
 
 // ── Remote Attachment Renderer ───────────────────────────────────────────────
 
-function hexToUint8Array(hexString: string) {
-  if (!hexString || typeof hexString !== 'string') return hexString
+function hexToUint8Array(hexString: string): Uint8Array {
+  if (!hexString || hexString.length % 2 !== 0) return new Uint8Array(0)
   const bytes = new Uint8Array(hexString.length / 2)
   for (let i = 0; i < hexString.length; i += 2) {
     bytes[i / 2] = parseInt(hexString.substr(i, 2), 16)
