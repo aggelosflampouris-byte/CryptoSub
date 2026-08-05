@@ -11,8 +11,12 @@ import './index.css'
 // We intercept fetch and route catbox requests through Tauri's native fetch which ignores CORS.
 const originalFetch = window.fetch
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-  const urlStr = typeof input === 'string' ? input : (input instanceof URL ? input.href : (input as Request).url)
-  if (urlStr.includes('catbox.moe')) {
+  let urlStr = ''
+  if (typeof input === 'string') urlStr = input
+  else if (input instanceof URL) urlStr = input.href
+  else if (input && typeof input === 'object' && 'url' in input) urlStr = (input as Request).url
+
+  if (urlStr && typeof urlStr === 'string' && urlStr.includes('catbox.moe')) {
     try {
       // @ts-ignore - tauriFetch implements the fetch API but typing might differ slightly
       return await tauriFetch(input, init)
