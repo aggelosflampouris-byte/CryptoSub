@@ -28,10 +28,29 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return originalFetch(input, init)
 }
 
+class GlobalErrorBoundary extends React.Component<{children: React.ReactNode}, {error: Error | null}> {
+  constructor(props: any) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 20, background: 'red', color: 'white', position: 'absolute', inset: 0, zIndex: 99999, overflow: 'auto' }}>
+          <h2>App Crashed!</h2>
+          <pre>{this.state.error.message}</pre>
+          <pre>{this.state.error.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <XmtpProvider>
-      <App />
-    </XmtpProvider>
+    <GlobalErrorBoundary>
+      <XmtpProvider>
+        <App />
+      </XmtpProvider>
+    </GlobalErrorBoundary>
   </React.StrictMode>
 )

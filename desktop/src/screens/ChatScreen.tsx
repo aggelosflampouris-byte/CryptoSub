@@ -154,7 +154,7 @@ function RemoteAttachmentRenderer({ content, client }: { content: any; client: a
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (decrypted || loading) return
+    if (decrypted || loading || error) return
     let mounted = true
     const load = async () => {
       setLoading(true)
