@@ -417,7 +417,7 @@ export default function ChatScreen() {
     if (!file || sending) return
     setSending(true)
     try { await sendAttachment(file) }
-    catch (err) { console.error('Failed to send attachment', err); alert('Failed to send attachment') }
+    catch (err: any) { console.error('Failed to send attachment', err); alert('Failed to send attachment: ' + (err.message || String(err))) }
     finally { setSending(false); if (fileInputRef.current) fileInputRef.current.value = '' }
   }
 

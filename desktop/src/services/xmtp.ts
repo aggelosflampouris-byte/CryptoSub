@@ -185,6 +185,27 @@ function getByteLength(val: Uint8Array | string): number {
   return val.length;
 }
 
+function buildMultipartBody(filename: string, payload: Uint8Array): { body: Uint8Array, boundary: string } {
+  const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+  const crlf = '\r\n';
+  const encoder = new TextEncoder();
+  const pre = encoder.encode(
+    `--${boundary}${crlf}` +
+    `Content-Disposition: form-data; name="reqtype"${crlf}${crlf}` +
+    `fileupload${crlf}` +
+    `--${boundary}${crlf}` +
+    `Content-Disposition: form-data; name="fileToUpload"; filename="${filename}"${crlf}` +
+    `Content-Type: application/octet-stream${crlf}${crlf}`
+  );
+  const post = encoder.encode(`${crlf}--${boundary}--${crlf}`);
+  
+  const body = new Uint8Array(pre.length + payload.length + post.length);
+  body.set(pre, 0);
+  body.set(payload, pre.length);
+  body.set(post, pre.length + payload.length);
+  return { body, boundary };
+}
+
 export async function sendAttachment(
   conversation: any,
   attachment: any
@@ -194,13 +215,18 @@ export async function sendAttachment(
     new AttachmentCodec()
   )
 
-  const formData = new FormData();
-  formData.append('reqtype', 'fileupload');
-  formData.append('fileToUpload', getPayloadBlob(encryptedAttachment.payload), attachment.filename);
+  const { body, boundary } = buildMultipartBody(
+    attachment.filename,
+    typeof encryptedAttachment.payload === 'string' ? new TextEncoder().encode(encryptedAttachment.payload) : encryptedAttachment.payload
+  )
 
   const res = await fetch(ATTACHMENT_UPLOAD_URL, {
     method: 'POST',
-    body: formData
+    headers: {
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    },
+    body
   });
   
   if (!res.ok) throw new Error('Upload failed');
@@ -240,13 +266,18 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
     new AttachmentCodec()
   )
 
-  const formData = new FormData();
-  formData.append('reqtype', 'fileupload');
-  formData.append('fileToUpload', getPayloadBlob(encryptedAttachment.payload), filename);
+  const { body, boundary } = buildMultipartBody(
+    filename,
+    typeof encryptedAttachment.payload === 'string' ? new TextEncoder().encode(encryptedAttachment.payload) : encryptedAttachment.payload
+  )
 
   const res = await fetch(ATTACHMENT_UPLOAD_URL, {
     method: 'POST',
-    body: formData
+    headers: {
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    },
+    body
   });
   if (!res.ok) throw new Error('Voice memo upload failed');
   const url = (await res.text()).trim();
