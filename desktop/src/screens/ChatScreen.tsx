@@ -538,23 +538,11 @@ export default function ChatScreen() {
     return null
   }
 
-  if (!activeConversationId) {
-    return (
-      <div className="chat-area">
-        {renderIncomingCallBanner()}
-        <div className="chat-empty">
-          <span className="chat-empty-icon">🔐</span>
-          <h2>Select a conversation</h2>
-          <p>or add a contact to start a new encrypted chat</p>
-        </div>
-      </div>
-    )
-  }
-
   const clearedUpTo = activeMeta ? getClearedUpTo(activeMeta.id) : 0
 
   const grouped: { day: string; messages: DecodedMessage[] }[] = []
-  for (const msg of messages) {
+  const messagesArray = Array.isArray(messages) ? messages : []
+  for (const msg of messagesArray) {
     const sentTime = ((msg as any).sentAt || (msg as any).sent || (msg as any).createdAt || new Date()).getTime()
     if (sentTime <= clearedUpTo) continue
 
@@ -586,6 +574,19 @@ export default function ChatScreen() {
       }, 100)
     }
   }, [flattenedItems.length])
+
+  if (!activeConversationId) {
+    return (
+      <div className="chat-area">
+        {renderIncomingCallBanner()}
+        <div className="chat-empty">
+          <span className="chat-empty-icon">🔐</span>
+          <h2>Select a conversation</h2>
+          <p>or add a contact to start a new encrypted chat</p>
+        </div>
+      </div>
+    )
+  }
 
   const activeTypingUsers = typingUsers[activeConversationId]
   const myId = (client as any)?.inboxId || (client as any)?.address
