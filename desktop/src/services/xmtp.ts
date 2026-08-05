@@ -226,7 +226,7 @@ export async function sendAttachment(
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     },
-    body
+    body: new Blob([body as any])
   });
   
   if (!res.ok) throw new Error('Upload failed');
@@ -277,7 +277,7 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     },
-    body
+    body: new Blob([body as any])
   });
   if (!res.ok) throw new Error('Voice memo upload failed');
   const url = (await res.text()).trim();
