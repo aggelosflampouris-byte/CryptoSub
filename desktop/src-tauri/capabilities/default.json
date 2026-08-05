@@ -10,7 +10,13 @@
     "notification:allow-notify",
     "os:default",
     "window-state:default",
-    "http:default",
-    "store:default"
+    "store:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://catbox.moe/*" },
+        { "url": "https://*.catbox.moe/*" }
+      ]
+    }
   ]
 }
