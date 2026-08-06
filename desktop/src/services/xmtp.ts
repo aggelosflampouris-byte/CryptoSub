@@ -1,6 +1,7 @@
 import { Client, DecodedMessage } from '@xmtp/browser-sdk'
 import { ethers } from 'ethers'
 import { AttachmentCodec, RemoteAttachmentCodec, ContentTypeRemoteAttachment, RemoteAttachment } from '@xmtp/content-type-remote-attachment'
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { ATTACHMENT_UPLOAD_URL } from './constants'
 
 /**
@@ -171,39 +172,11 @@ function toHex(val: Uint8Array | string): string {
   return Array.from(val).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function getPayloadBlob(payload: Uint8Array | string): Blob {
-  if (typeof payload === 'string') {
-    return new Blob([new TextEncoder().encode(payload)]);
-  }
-  return new Blob([payload as any]);
-}
-
 function getByteLength(val: Uint8Array | string): number {
   if (typeof val === 'string') {
     return new TextEncoder().encode(val).length;
   }
   return val.length;
-}
-
-function buildMultipartBody(filename: string, payload: Uint8Array): { body: Uint8Array, boundary: string } {
-  const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
-  const crlf = '\r\n';
-  const encoder = new TextEncoder();
-  const pre = encoder.encode(
-    `--${boundary}${crlf}` +
-    `Content-Disposition: form-data; name="reqtype"${crlf}${crlf}` +
-    `fileupload${crlf}` +
-    `--${boundary}${crlf}` +
-    `Content-Disposition: form-data; name="fileToUpload"; filename="${filename}"${crlf}` +
-    `Content-Type: application/octet-stream${crlf}${crlf}`
-  );
-  const post = encoder.encode(`${crlf}--${boundary}--${crlf}`);
-  
-  const body = new Uint8Array(pre.length + payload.length + post.length);
-  body.set(pre, 0);
-  body.set(payload, pre.length);
-  body.set(post, pre.length + payload.length);
-  return { body, boundary };
 }
 
 export async function sendAttachment(
@@ -215,22 +188,27 @@ export async function sendAttachment(
     new AttachmentCodec()
   )
 
-  const { body, boundary } = buildMultipartBody(
-    attachment.filename,
-    typeof encryptedAttachment.payload === 'string' ? new TextEncoder().encode(encryptedAttachment.payload) : encryptedAttachment.payload
+  const payloadBytes = typeof encryptedAttachment.payload === 'string'
+    ? new TextEncoder().encode(encryptedAttachment.payload)
+    : encryptedAttachment.payload
+
+  // Use the Tauri HTTP plugin's fetch — it correctly handles FormData across
+  // the Rust bridge, unlike the WebView's global fetch() which garbles binary bodies.
+  const formData = new FormData()
+  formData.append('reqtype', 'fileupload')
+  formData.append(
+    'fileToUpload',
+    new Blob([payloadBytes as any], { type: 'application/octet-stream' }),
+    attachment.filename
   )
 
-  const res = await fetch(ATTACHMENT_UPLOAD_URL, {
+  const res = await tauriFetch(ATTACHMENT_UPLOAD_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    },
-    body: body as any
-  });
+    body: formData,
+  })
   
-  if (!res.ok) throw new Error('Upload failed');
-  const url = (await res.text()).trim();
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+  const url = (await res.text()).trim()
 
   const attachmentPayload = {
     type: 'attachment',
@@ -266,21 +244,24 @@ export async function sendVoiceMemo(conversation: any, audioBlob: Blob): Promise
     new AttachmentCodec()
   )
 
-  const { body, boundary } = buildMultipartBody(
-    filename,
-    typeof encryptedAttachment.payload === 'string' ? new TextEncoder().encode(encryptedAttachment.payload) : encryptedAttachment.payload
+  const payloadBytes = typeof encryptedAttachment.payload === 'string'
+    ? new TextEncoder().encode(encryptedAttachment.payload)
+    : encryptedAttachment.payload
+
+  const formData = new FormData()
+  formData.append('reqtype', 'fileupload')
+  formData.append(
+    'fileToUpload',
+    new Blob([payloadBytes as any], { type: 'application/octet-stream' }),
+    filename
   )
 
-  const res = await fetch(ATTACHMENT_UPLOAD_URL, {
+  const res = await tauriFetch(ATTACHMENT_UPLOAD_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    },
-    body: body as any
-  });
-  if (!res.ok) throw new Error('Voice memo upload failed');
-  const url = (await res.text()).trim();
+    body: formData,
+  })
+  if (!res.ok) throw new Error(`Voice memo upload failed: ${res.status}`)
+  const url = (await res.text()).trim()
 
   const memoPayload = {
     type: 'attachment',
